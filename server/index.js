@@ -25,7 +25,8 @@ app.use('/api/users', userRoutes)
 
 // Serve static frontend (for local/Render production)
 const distPath = path.join(__dirname, '..', 'dist')
-const distExists = fs.existsSync(distPath)
+let distExists = false
+try { distExists = fs.existsSync(distPath) } catch {}
 if (distExists) {
   app.use(express.static(distPath))
   app.get('*', (req, res) => {
