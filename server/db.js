@@ -1,20 +1,12 @@
-import { createClient } from '@supabase/supabase-js'
-import dotenv from 'dotenv'
+const { createClient } = require('@supabase/supabase-js')
 
-// Load .env file only in local development
-dotenv.config()
+const supabaseUrl = process.env.SUPABASE_URL || 'https://ttbyhawdgwwqemcqwjen.supabase.co'
+const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0YnloYXdkZ3d3cWVtY3F3amVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3MjU3ODcsImV4cCI6MjEwMTMwMTc4N30.V_d9mK8Bv6Sx6w89VE4Pzt6KRKvIAeHI7Dz6SbaLyh8'
 
-const supabaseUrl = process.env.SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_KEY
+const supabase = createClient(supabaseUrl, supabaseKey)
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing SUPABASE_URL or SUPABASE_KEY environment variables')
-}
-
-const supabase = createClient(supabaseUrl || '', supabaseKey || '')
-
-export { supabase }
-
-export function initDatabase() {
+function initDatabase() {
   console.log('Supabase connected:', supabaseUrl)
 }
+
+module.exports = { supabase, initDatabase }

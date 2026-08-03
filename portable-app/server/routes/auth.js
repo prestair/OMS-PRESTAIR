@@ -1,7 +1,7 @@
-const { Router } = require('express')
-const bcrypt = require('bcryptjs')
-const { supabase } = require('../db.js')
-const { generateToken, authenticate } = require('../middleware/auth.js')
+import { Router } from 'express'
+import bcrypt from 'bcryptjs'
+import { supabase } from '../db.js'
+import { generateToken, authenticate } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -60,4 +60,4 @@ router.post('/change-password', authenticate, async (req, res) => {
   res.json({ message: 'Password changed successfully' })
 })
 
-module.exports = router
+export default router

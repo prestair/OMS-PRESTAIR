@@ -1,12 +1,12 @@
-const jwt = require('jsonwebtoken')
+import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = 'oms-prestair-secret-key-2026'
 
-function generateToken(user) {
+export function generateToken(user) {
   return jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '24h' })
 }
 
-function authenticate(req, res, next) {
+export function authenticate(req, res, next) {
   const authHeader = req.headers.authorization
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized' })
@@ -21,11 +21,9 @@ function authenticate(req, res, next) {
   }
 }
 
-function adminOnly(req, res, next) {
+export function adminOnly(req, res, next) {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Admin access required' })
   }
   next()
 }
-
-module.exports = { generateToken, authenticate, adminOnly }

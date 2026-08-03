@@ -1,6 +1,6 @@
-const { Router } = require('express')
-const { supabase } = require('../db.js')
-const { authenticate, adminOnly } = require('../middleware/auth.js')
+import { Router } from 'express'
+import { supabase } from '../db.js'
+import { authenticate, adminOnly } from '../middleware/auth.js'
 
 const router = Router()
 router.use(authenticate)
@@ -11,6 +11,7 @@ router.get('/', async (req, res) => {
   const mapped = (data || []).map(o => mapOrder(o))
   // Sort by date descending (DD/MM/YYYY format) then by order number descending
   mapped.sort((a, b) => {
+    // Parse DD/MM/YYYY to comparable date
     const parseDate = (d) => {
       if (!d) return 0
       const parts = d.split('/')
@@ -20,6 +21,7 @@ router.get('/', async (req, res) => {
     const dateA = parseDate(a.date)
     const dateB = parseDate(b.date)
     if (dateB !== dateA) return dateB - dateA
+    // Same date - sort by order number descending (extract number from OR/2026-27/240 NI format)
     const getNum = (orderNo) => {
       if (!orderNo) return 0
       const match = orderNo.match(/\/(\d+)/)
@@ -129,6 +131,7 @@ router.post('/paper-requests/:id/reroute', async (req, res) => {
   if (!reqs?.length) return res.status(404).json({ error: 'Not found' })
   const request = reqs[0]
 
+  // Count reroutes for this order
   const { data: allReqs } = await supabase.from('paper_requests').select('status').eq('order_no', request.order_no)
   const rerouteCount = (allReqs || []).filter(r => r.status && r.status.startsWith('REROUTED')).length
   if (rerouteCount >= 2) {
@@ -242,6 +245,7 @@ router.delete('/:id', async (req, res) => {
 router.post('/:id/payments', async (req, res) => {
   const { date, mode, amount, remarks } = req.body
   const { data } = await supabase.from('payments').insert({ order_id: parseInt(req.params.id), date, mode, amount: parseFloat(amount), remarks }).select()
+  // Update order totals
   const { data: payments } = await supabase.from('payments').select('amount').eq('order_id', parseInt(req.params.id))
   const totalReceived = (payments || []).reduce((s, p) => s + (p.amount || 0), 0)
   const { data: order } = await supabase.from('orders').select('total_amount').eq('id', parseInt(req.params.id))
@@ -259,6 +263,7 @@ router.get('/:id/payments', async (req, res) => {
 
 router.delete('/:id/payments/:paymentId', adminOnly, async (req, res) => {
   await supabase.from('payments').delete().eq('id', parseInt(req.params.paymentId))
+  // Recalculate
   const { data: payments } = await supabase.from('payments').select('amount').eq('order_id', parseInt(req.params.id))
   const totalReceived = (payments || []).reduce((s, p) => s + (p.amount || 0), 0)
   const { data: order } = await supabase.from('orders').select('total_amount').eq('id', parseInt(req.params.id))
@@ -338,4 +343,4 @@ function mapPaperReq(r) {
   return { ...r, orderNo: r.order_no, requestedBy: r.requested_by, issueTo: r.issue_to, acceptedBy: r.accepted_by, acceptedAt: r.accepted_at, rejectedBy: r.rejected_by, rejectedAt: r.rejected_at, rejectRemarks: r.reject_remarks, reroutedBy: r.rerouted_by, reroutedAt: r.rerouted_at, createdAt: r.created_at }
 }
 
-module.exports = router
+export default router

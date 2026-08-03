@@ -1,8 +1,9 @@
 {
   "name": "oms-dashboard",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "private": true,
   "main": "electron.cjs",
+  "type": "module",
   "engines": {
     "node": ">=18.0.0"
   },
@@ -14,7 +15,7 @@
     "start": "node server/index.js",
     "preview": "vite preview",
     "electron": "electron .",
-    "dist": "vite build && electron-builder --win"
+    "dist": "electron-builder"
   },
   "build": {
     "appId": "com.prestair.oms",
@@ -28,30 +29,51 @@
       "public/**/*",
       "electron.cjs",
       "package.json",
-      ".env",
-      "node_modules/**/*",
-      "!node_modules/electron/**",
-      "!node_modules/electron-builder/**",
-      "!node_modules/@electron/**",
-      "!node_modules/vite/**",
-      "!node_modules/@vitejs/**",
-      "!node_modules/concurrently/**",
-      "!node_modules/esbuild/**",
-      "!node_modules/esbuild-*/**",
-      "!node_modules/@esbuild/**",
-      "!node_modules/rollup/**",
-      "!node_modules/@rollup/**",
-      "!node_modules/typescript/**",
-      "!node_modules/.cache/**",
-      "!node_modules/app-builder-lib/**",
-      "!node_modules/builder-util/**",
-      "!node_modules/builder-util-runtime/**",
-      "!node_modules/dmg-builder/**",
-      "!node_modules/electron-publish/**"
+      ".env"
     ],
-    "asar": false,
+    "asarUnpack": [
+      "server/**/*",
+      ".env",
+      "dist/**/*",
+      "public/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/@supabase",
+        "to": "app/node_modules/@supabase"
+      },
+      {
+        "from": "node_modules/express",
+        "to": "app/node_modules/express"
+      },
+      {
+        "from": "node_modules/cors",
+        "to": "app/node_modules/cors"
+      },
+      {
+        "from": "node_modules/bcryptjs",
+        "to": "app/node_modules/bcryptjs"
+      },
+      {
+        "from": "node_modules/jsonwebtoken",
+        "to": "app/node_modules/jsonwebtoken"
+      },
+      {
+        "from": "node_modules/dotenv",
+        "to": "app/node_modules/dotenv"
+      }
+    ],
     "win": {
-      "target": "portable"
+      "target": [
+        {
+          "target": "dir",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   },
   "dependencies": {
@@ -71,8 +93,10 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^8.2.2",
-    "electron": "^43.2.0",
-    "electron-builder": "^26.15.3",
     "vite": "^5.0.8"
+  },
+  "optionalDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3"
   }
 }

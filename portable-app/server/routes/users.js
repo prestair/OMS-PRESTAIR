@@ -1,7 +1,7 @@
-const { Router } = require('express')
-const bcrypt = require('bcryptjs')
-const { supabase } = require('../db.js')
-const { authenticate, adminOnly } = require('../middleware/auth.js')
+import { Router } from 'express'
+import bcrypt from 'bcryptjs'
+import { supabase } from '../db.js'
+import { authenticate, adminOnly } from '../middleware/auth.js'
 
 const router = Router()
 router.use(authenticate)
@@ -96,4 +96,4 @@ router.delete('/:id', async (req, res) => {
   res.json({ message: 'User deleted' })
 })
 
-module.exports = router
+export default router

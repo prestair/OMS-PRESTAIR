@@ -1,14 +1,12 @@
-import express from 'express'
-import cors from 'cors'
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
-import { initDatabase } from './db.js'
-import authRoutes from './routes/auth.js'
-import orderRoutes from './routes/orders.js'
-import userRoutes from './routes/users.js'
+const express = require('express')
+const cors = require('cors')
+const fs = require('fs')
+const path = require('path')
+const { initDatabase } = require('./db.js')
+const authRoutes = require('./routes/auth.js')
+const orderRoutes = require('./routes/orders.js')
+const userRoutes = require('./routes/users.js')
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = process.env.PORT || 5000
 
@@ -23,11 +21,9 @@ app.use('/api/auth', authRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/users', userRoutes)
 
-// Serve static frontend (for local/Render production)
+// Serve static frontend
 const distPath = path.join(__dirname, '..', 'dist')
-let distExists = false
-try { distExists = fs.existsSync(distPath) } catch {}
-if (distExists) {
+if (fs.existsSync(distPath)) {
   app.use(express.static(distPath))
   app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
@@ -36,12 +32,6 @@ if (distExists) {
   })
 }
 
-// For Vercel serverless
-export default app
-
-// For local/Render (only listen when not in Vercel)
-if (!process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`OMS Server running on port ${PORT}`)
-  })
-}
+app.listen(PORT, () => {
+  console.log(`OMS Server running on port ${PORT}`)
+})
