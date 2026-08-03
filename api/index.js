@@ -1,0 +1,293 @@
+const express = require('express')
+const cors = require('cors')
+const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
+const { createClient } = require('@supabase/supabase-js')
+
+const app = express()
+app.use(cors())
+app.use(express.json({ limit: '50mb' }))
+
+const supabase = createClient(
+  process.env.SUPABASE_URL || '',
+  process.env.SUPABASE_KEY || ''
+)
+const JWT_SECRET = 'oms-prestair-secret-key-2026'
+
+function generateToken(user) {
+  return jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '24h' })
+}
+
+function authenticate(req, res, next) {
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' })
+  try {
+    req.user = jwt.verify(authHeader.split(' ')[1], JWT_SECRET)
+    next()
+  } catch { return res.status(401).json({ error: 'Invalid token' }) }
+}
+
+function adminOnly(req, res, next) {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' })
+  next()
+}
+
+function mapOrder(o) {
+  if (!o) return o
+  return { id: o.id, date: o.date, poNo: o.po_no, client: o.client, orderNo: o.order_no, status: o.status, deliveryDate: o.delivery_date, deliveryRemarks: o.delivery_remarks, customerName: o.customer_name, gst: o.gst, billingAddress: o.billing_address, followUp: o.follow_up, salesRep: o.sales_rep, deliveryAddress: o.delivery_address, phoneNo: o.phone_no, siteVerification: o.site_verification, siteVerificationRemarks: o.site_verification_remarks, installationStatus: o.installation_status, installationRemarks: o.installation_remarks, lop: o.lop, sectionDrawing: o.section_drawing, sectionDrawingRemarks: o.section_drawing_remarks, inProduction: o.in_production, billing: o.billing, installation: o.installation, totalAmount: o.total_amount, receivedAmount: o.received_amount, balance: o.balance, percentReceived: o.percent_received, paymentRemarks: o.payment_remarks, daysToOrder: o.days_to_order, remarks: o.remarks, akhilSirAudit: o.akhil_sir_audit, advanceBill: o.advance_bill, orRecvd: o.or_recvd, photography: o.photography, photographyRemarks: o.photography_remarks, siteVideo: o.site_video, siteVideoRemarks: o.site_video_remarks, review: o.review, reviewRemarks: o.review_remarks, createdAt: o.created_at }
+}
+
+function snakeOrder(o) {
+  if (!o) return o
+  const s = {}
+  if (o.date !== undefined) s.date = o.date
+  if (o.poNo !== undefined) s.po_no = o.poNo
+  if (o.client !== undefined) s.client = o.client
+  if (o.orderNo !== undefined) s.order_no = o.orderNo
+  if (o.status !== undefined) s.status = o.status
+  if (o.deliveryDate !== undefined) s.delivery_date = o.deliveryDate
+  if (o.customerName !== undefined) s.customer_name = o.customerName
+  if (o.gst !== undefined) s.gst = o.gst
+  if (o.totalAmount !== undefined) s.total_amount = parseFloat(o.totalAmount) || 0
+  if (o.receivedAmount !== undefined) s.received_amount = parseFloat(o.receivedAmount) || 0
+  if (o.balance !== undefined) s.balance = parseFloat(o.balance) || 0
+  if (o.photography !== undefined) s.photography = o.photography
+  if (o.photographyRemarks !== undefined) s.photography_remarks = o.photographyRemarks
+  if (o.siteVideo !== undefined) s.site_video = o.siteVideo
+  if (o.siteVideoRemarks !== undefined) s.site_video_remarks = o.siteVideoRemarks
+  if (o.review !== undefined) s.review = o.review
+  if (o.reviewRemarks !== undefined) s.review_remarks = o.reviewRemarks
+  if (o.orRecvd !== undefined) s.or_recvd = o.orRecvd
+  if (o.billingAddress !== undefined) s.billing_address = o.billingAddress
+  if (o.deliveryAddress !== undefined) s.delivery_address = o.deliveryAddress
+  if (o.phoneNo !== undefined) s.phone_no = o.phoneNo
+  if (o.salesRep !== undefined) s.sales_rep = o.salesRep
+  if (o.followUp !== undefined) s.follow_up = o.followUp
+  if (o.deliveryRemarks !== undefined) s.delivery_remarks = o.deliveryRemarks
+  if (o.siteVerification !== undefined) s.site_verification = o.siteVerification
+  if (o.siteVerificationRemarks !== undefined) s.site_verification_remarks = o.siteVerificationRemarks
+  if (o.installationStatus !== undefined) s.installation_status = o.installationStatus
+  if (o.installationRemarks !== undefined) s.installation_remarks = o.installationRemarks
+  if (o.lop !== undefined) s.lop = o.lop
+  if (o.sectionDrawing !== undefined) s.section_drawing = o.sectionDrawing
+  if (o.sectionDrawingRemarks !== undefined) s.section_drawing_remarks = o.sectionDrawingRemarks
+  if (o.inProduction !== undefined) s.in_production = o.inProduction
+  if (o.billing !== undefined) s.billing = o.billing
+  if (o.installation !== undefined) s.installation = o.installation
+  if (o.remarks !== undefined) s.remarks = o.remarks
+  if (o.akhilSirAudit !== undefined) s.akhil_sir_audit = o.akhilSirAudit
+  if (o.advanceBill !== undefined) s.advance_bill = o.advanceBill
+  if (o.paymentRemarks !== undefined) s.payment_remarks = o.paymentRemarks
+  if (o.daysToOrder !== undefined) s.days_to_order = parseInt(o.daysToOrder) || 0
+  if (o.percentReceived !== undefined) s.percent_received = parseFloat(o.percentReceived) || 0
+  return s
+}
+
+// AUTH
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body
+    const { data: users } = await supabase.from('users').select('*').ilike('username', username)
+    const user = users?.[0]
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' })
+    const valid = bcrypt.compareSync(password.toLowerCase(), user.password)
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' })
+    const token = generateToken({ id: user.id, username: user.username, role: user.role })
+    const isAdmin = user.role === 'admin'
+    let userGroup = null
+    if (user.user_group) {
+      const { data: groups } = await supabase.from('groups').select('*').eq('name', user.user_group)
+      userGroup = groups?.[0]
+    }
+    const mergedPerms = { ...(userGroup?.column_permissions || {}), ...(user.column_permissions || {}) }
+    const getRight = (key) => { if (user[key] === true || user[key] === false) return user[key]; if (userGroup && (userGroup[key] === true || userGroup[key] === false)) return userGroup[key]; return false }
+    res.json({ token, user: { id: user.id, username: user.username, fullName: user.full_name, role: user.role, group: user.user_group || '', columnPermissions: isAdmin ? {} : mergedPerms, canEdit: isAdmin || getRight('can_edit'), canReceipt: isAdmin || getRight('can_receipt'), canAssignReminder: isAdmin || getRight('can_assign_reminder'), canDelete: isAdmin || getRight('can_delete'), canCreateQuote: isAdmin || getRight('can_create_quote') } })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+app.post('/api/auth/change-password', authenticate, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body
+    const { data: users } = await supabase.from('users').select('*').eq('id', req.user.id)
+    const user = users?.[0]
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    if (!bcrypt.compareSync(currentPassword.toLowerCase(), user.password)) return res.status(400).json({ error: 'Current password incorrect' })
+    await supabase.from('users').update({ password: bcrypt.hashSync(newPassword.toLowerCase(), 10) }).eq('id', req.user.id)
+    res.json({ message: 'Password changed' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// USERS
+app.get('/api/users/list', authenticate, async (req, res) => {
+  try { const { data } = await supabase.from('users').select('id, username, full_name, role'); res.json(data || []) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.get('/api/users/groups', authenticate, async (req, res) => {
+  try { const { data } = await supabase.from('groups').select('*'); res.json(data || []) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.get('/api/users', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { data } = await supabase.from('users').select('id, username, full_name, role, user_group, column_permissions, can_edit, can_receipt, can_assign_reminder, can_delete, can_create_quote, created_at')
+    res.json((data || []).map(u => ({ ...u, fullName: u.full_name, group: u.user_group, columnPermissions: u.column_permissions, canEdit: u.can_edit, canReceipt: u.can_receipt, canAssignReminder: u.can_assign_reminder, canDelete: u.can_delete, canCreateQuote: u.can_create_quote, createdAt: u.created_at })))
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.post('/api/users', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { username, password, fullName, role, group, columnPermissions, canEdit, canReceipt, canAssignReminder, canDelete, canCreateQuote } = req.body
+    const { data, error } = await supabase.from('users').insert({ username, password: bcrypt.hashSync(password.toLowerCase(), 10), full_name: fullName, role: role || 'user', user_group: group || '', column_permissions: columnPermissions || {}, can_edit: canEdit || false, can_receipt: canReceipt || false, can_assign_reminder: canAssignReminder || false, can_delete: canDelete || false, can_create_quote: canCreateQuote || false }).select()
+    if (error) return res.status(400).json({ error: error.message })
+    res.json(data[0])
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.put('/api/users/:id', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { fullName, role, group, columnPermissions, canEdit, canReceipt, canAssignReminder, canDelete, canCreateQuote } = req.body
+    await supabase.from('users').update({ full_name: fullName, role, user_group: group || '', column_permissions: columnPermissions || {}, can_edit: canEdit || false, can_receipt: canReceipt || false, can_assign_reminder: canAssignReminder || false, can_delete: canDelete || false, can_create_quote: canCreateQuote || false }).eq('id', parseInt(req.params.id))
+    res.json({ message: 'Updated' })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.post('/api/users/groups', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { name, column_permissions, can_edit, can_receipt, can_assign_reminder, can_delete, can_create_quote } = req.body
+    const { data, error } = await supabase.from('groups').insert({ name: (name || '').toUpperCase(), column_permissions: column_permissions || {}, can_edit: can_edit || false, can_receipt: can_receipt || false, can_assign_reminder: can_assign_reminder || false, can_delete: can_delete || false, can_create_quote: can_create_quote || false }).select()
+    if (error) return res.status(400).json({ error: error.message })
+    res.json(data[0])
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.put('/api/users/groups/:id', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { name, column_permissions, can_edit, can_receipt, can_assign_reminder, can_delete, can_create_quote } = req.body
+    await supabase.from('groups').update({ name: (name || '').toUpperCase(), column_permissions: column_permissions || {}, can_edit: can_edit || false, can_receipt: can_receipt || false, can_assign_reminder: can_assign_reminder || false, can_delete: can_delete || false, can_create_quote: can_create_quote || false }).eq('id', parseInt(req.params.id))
+    res.json({ message: 'Updated' })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// ORDERS
+app.get('/api/orders', authenticate, async (req, res) => {
+  try {
+    const { data } = await supabase.from('orders').select('*')
+    const mapped = (data || []).map(o => mapOrder(o))
+    mapped.sort((a, b) => { const pd = (d) => { if (!d) return 0; const p = d.split('/'); return p.length === 3 ? new Date(p[2], p[1]-1, p[0]).getTime() : 0 }; const diff = pd(b.date) - pd(a.date); if (diff !== 0) return diff; const gn = (n) => { if (!n) return 0; const m = n.match(/\/(\d+)/); return m ? parseInt(m[1]) : 0 }; return gn(b.orderNo) - gn(a.orderNo) })
+    res.json(mapped)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.get('/api/orders/deleted/all', authenticate, async (req, res) => {
+  try { const { data } = await supabase.from('deleted_orders').select('*').order('deleted_at', { ascending: false }); res.json((data || []).map(d => ({ ...d.data, id: d.original_id, deletedBy: d.deleted_by, deletedAt: d.deleted_at }))) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.get('/api/orders/reminders/due', authenticate, async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0]
+    const { data } = await supabase.from('reminders').select('*').lte('date', today)
+    const filtered = (data || []).filter(r => { if (req.user.role === 'admin') return true; if (r.created_by === req.user.username) return true; if (r.visible_to && r.visible_to.includes(req.user.username)) return true; return false })
+    res.json(filtered.map(r => ({ ...r, orderNo: r.order_no, createdBy: r.created_by, orderId: r.order_id, visibleTo: r.visible_to })))
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.delete('/api/orders/reminders/:id', authenticate, async (req, res) => {
+  try { await supabase.from('reminders').delete().eq('id', parseInt(req.params.id)); res.json({ message: 'Dismissed' }) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.get('/api/orders/paper-requests/all', authenticate, async (req, res) => {
+  try { const { data } = await supabase.from('paper_requests').select('*').order('id', { ascending: false }); res.json((data || []).map(r => ({ ...r, orderNo: r.order_no, requestedBy: r.requested_by, issueTo: r.issue_to, acceptedBy: r.accepted_by, acceptedAt: r.accepted_at, rejectRemarks: r.reject_remarks, createdAt: r.created_at }))) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.get('/api/orders/paper-requests/my', authenticate, async (req, res) => {
+  try { const { data } = await supabase.from('paper_requests').select('*').eq('issue_to', req.user.username).eq('status', 'PENDING'); res.json((data || []).map(r => ({ ...r, orderNo: r.order_no, requestedBy: r.requested_by, issueTo: r.issue_to }))) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.post('/api/orders/paper-requests', authenticate, async (req, res) => {
+  try { const { orderNo, issueTo } = req.body; const { data } = await supabase.from('paper_requests').insert({ order_no: orderNo, requested_by: req.user.username, issue_to: issueTo, status: 'PENDING' }).select(); res.json(data[0]) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.post('/api/orders/paper-requests/:id/accept', authenticate, async (req, res) => {
+  try { await supabase.from('paper_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString() }).eq('id', parseInt(req.params.id)); res.json({ message: 'Accepted' }) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.post('/api/orders/paper-requests/:id/reject', authenticate, async (req, res) => {
+  try { const { remarks } = req.body; await supabase.from('paper_requests').update({ status: 'REJECTED', rejected_by: req.user.username, reject_remarks: remarks || '' }).eq('id', parseInt(req.params.id)); res.json({ message: 'Rejected' }) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.post('/api/orders/paper-requests/:id/reroute', authenticate, async (req, res) => {
+  try {
+    const { rerouteTo } = req.body
+    const { data: reqs } = await supabase.from('paper_requests').select('*').eq('id', parseInt(req.params.id))
+    if (!reqs?.length) return res.status(404).json({ error: 'Not found' })
+    const request = reqs[0]
+    await supabase.from('paper_requests').update({ status: `REROUTED TO ${rerouteTo.toUpperCase()}`, rerouted_by: req.user.username }).eq('id', request.id)
+    const { data } = await supabase.from('paper_requests').insert({ order_no: request.order_no, client: request.client, requested_by: request.requested_by, issue_to: rerouteTo, status: 'PENDING' }).select()
+    res.json(data[0])
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.get('/api/orders/return-requests/all', authenticate, async (req, res) => {
+  try { const { data } = await supabase.from('return_requests').select('*').order('id', { ascending: false }); res.json((data || []).map(r => ({ ...r, orderNo: r.order_no, requestedBy: r.requested_by, returnTo: r.return_to, acceptedBy: r.accepted_by, acceptedAt: r.accepted_at }))) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.get('/api/orders/return-requests/my', authenticate, async (req, res) => {
+  try { const { data } = await supabase.from('return_requests').select('*').eq('return_to', req.user.username).eq('status', 'PENDING'); res.json((data || []).map(r => ({ ...r, orderNo: r.order_no, requestedBy: r.requested_by, returnTo: r.return_to }))) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.post('/api/orders/return-requests', authenticate, async (req, res) => {
+  try { const { orderNo, returnTo } = req.body; const { data } = await supabase.from('return_requests').insert({ order_no: orderNo, requested_by: req.user.username, return_to: returnTo, status: 'PENDING' }).select(); res.json(data[0]) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.post('/api/orders/return-requests/:id/accept', authenticate, async (req, res) => {
+  try { await supabase.from('return_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString() }).eq('id', parseInt(req.params.id)); res.json({ message: 'Accepted' }) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.post('/api/orders/return-requests/:id/reject', authenticate, async (req, res) => {
+  try { const { remarks } = req.body; await supabase.from('return_requests').update({ status: 'REJECTED', rejected_by: req.user.username, reject_remarks: remarks || '' }).eq('id', parseInt(req.params.id)); res.json({ message: 'Rejected' }) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// Order CRUD
+app.get('/api/orders/:id', authenticate, async (req, res) => {
+  try { const { data } = await supabase.from('orders').select('*').eq('id', parseInt(req.params.id)); if (!data?.length) return res.status(404).json({ error: 'Not found' }); const { data: payments } = await supabase.from('payments').select('*').eq('order_id', parseInt(req.params.id)); res.json({ ...mapOrder(data[0]), payments }) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.post('/api/orders', authenticate, async (req, res) => {
+  try { const { data, error } = await supabase.from('orders').insert(snakeOrder(req.body)).select(); if (error) return res.status(400).json({ error: error.message }); res.json(mapOrder(data[0])) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.put('/api/orders/:id', authenticate, async (req, res) => {
+  try { const { error } = await supabase.from('orders').update(snakeOrder(req.body)).eq('id', parseInt(req.params.id)); if (error) return res.status(400).json({ error: error.message }); res.json({ message: 'Updated' }) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.delete('/api/orders/:id', authenticate, async (req, res) => {
+  try {
+    const { data: orders } = await supabase.from('orders').select('*').eq('id', parseInt(req.params.id))
+    if (!orders?.length) return res.status(404).json({ error: 'Not found' })
+    await supabase.from('deleted_orders').insert({ original_id: orders[0].id, data: mapOrder(orders[0]), deleted_by: req.user.username })
+    await supabase.from('orders').delete().eq('id', parseInt(req.params.id))
+    res.json({ message: 'Deleted' })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.post('/api/orders/import', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { orders, overwrite } = req.body; let added = 0; const duplicates = []
+    for (const o of orders) { const { data: ex } = await supabase.from('orders').select('id').eq('order_no', o.orderNo); if (ex?.length) { if (overwrite) { await supabase.from('orders').update(snakeOrder(o)).eq('order_no', o.orderNo); added++ } else { duplicates.push(o.orderNo) } } else { await supabase.from('orders').insert(snakeOrder(o)); added++ } }
+    res.json({ added, duplicates })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+// Payments
+app.get('/api/orders/:id/payments', authenticate, async (req, res) => {
+  try { const { data } = await supabase.from('payments').select('*').eq('order_id', parseInt(req.params.id)).order('date', { ascending: false }); res.json(data || []) } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.post('/api/orders/:id/payments', authenticate, async (req, res) => {
+  try {
+    const { date, mode, amount, remarks } = req.body
+    const { data } = await supabase.from('payments').insert({ order_id: parseInt(req.params.id), date, mode, amount: parseFloat(amount), remarks }).select()
+    const { data: payments } = await supabase.from('payments').select('amount').eq('order_id', parseInt(req.params.id))
+    const totalReceived = (payments || []).reduce((s, p) => s + (p.amount || 0), 0)
+    const { data: order } = await supabase.from('orders').select('total_amount').eq('id', parseInt(req.params.id))
+    const totalAmt = order?.[0]?.total_amount || 0
+    await supabase.from('orders').update({ received_amount: totalReceived, balance: totalAmt - totalReceived, percent_received: totalAmt ? parseFloat(((totalReceived / totalAmt) * 100).toFixed(2)) : 0 }).eq('id', parseInt(req.params.id))
+    res.json(data[0])
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+app.delete('/api/orders/:id/payments/:paymentId', authenticate, async (req, res) => {
+  try {
+    await supabase.from('payments').delete().eq('id', parseInt(req.params.paymentId))
+    const { data: payments } = await supabase.from('payments').select('amount').eq('order_id', parseInt(req.params.id))
+    const totalReceived = (payments || []).reduce((s, p) => s + (p.amount || 0), 0)
+    const { data: order } = await supabase.from('orders').select('total_amount').eq('id', parseInt(req.params.id))
+    const totalAmt = order?.[0]?.total_amount || 0
+    await supabase.from('orders').update({ received_amount: totalReceived, balance: totalAmt - totalReceived }).eq('id', parseInt(req.params.id))
+    res.json({ message: 'Deleted' })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+// Reminders
+app.post('/api/orders/:id/reminders', authenticate, async (req, res) => {
+  try {
+    const { description, date, visibleTo } = req.body
+    const { data: orders } = await supabase.from('orders').select('order_no, client').eq('id', parseInt(req.params.id))
+    const o = orders?.[0]
+    const { data } = await supabase.from('reminders').insert({ order_id: parseInt(req.params.id), order_no: o?.order_no, client: o?.client, description, date, visible_to: visibleTo || [], created_by: req.user.username }).select()
+    res.json(data[0])
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+module.exports = app

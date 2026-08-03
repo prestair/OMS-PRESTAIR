@@ -35,3 +35,5 @@ if (fs.existsSync(distPath)) {
 app.listen(PORT, () => {
   console.log(`OMS Server running on port ${PORT}`)
 })
+
+module.exports = app
