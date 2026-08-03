@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: oms-prestair
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: node server/index.js
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: NODE_ENV
+        value: production
