@@ -7,8 +7,28 @@ router.use(authenticate)
 
 // Get all orders
 router.get('/', async (req, res) => {
-  const { data } = await supabase.from('orders').select('*').order('date', { ascending: false }).order('id', { ascending: false })
+  const { data } = await supabase.from('orders').select('*')
   const mapped = (data || []).map(o => mapOrder(o))
+  // Sort by date descending (DD/MM/YYYY format) then by order number descending
+  mapped.sort((a, b) => {
+    // Parse DD/MM/YYYY to comparable date
+    const parseDate = (d) => {
+      if (!d) return 0
+      const parts = d.split('/')
+      if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]).getTime()
+      return 0
+    }
+    const dateA = parseDate(a.date)
+    const dateB = parseDate(b.date)
+    if (dateB !== dateA) return dateB - dateA
+    // Same date - sort by order number descending (extract number from OR/2026-27/240 NI format)
+    const getNum = (orderNo) => {
+      if (!orderNo) return 0
+      const match = orderNo.match(/\/(\d+)/)
+      return match ? parseInt(match[1]) : 0
+    }
+    return getNum(b.orderNo) - getNum(a.orderNo)
+  })
   res.json(mapped)
 })
 
