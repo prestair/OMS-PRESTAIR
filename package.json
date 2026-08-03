@@ -11,6 +11,7 @@
     "dev:client": "vite",
     "dev:server": "node server/index.js",
     "build": "vite build",
+    "vercel-build": "vite build",
     "start": "node server/index.js",
     "preview": "vite preview",
     "electron": "electron .",
