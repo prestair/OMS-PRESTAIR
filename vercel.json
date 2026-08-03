@@ -1,15 +1,20 @@
 {
   "version": 2,
-  "framework": null,
   "buildCommand": "npm install && npm run build",
-  "outputDirectory": "dist",
-  "functions": {
-    "api/**/*.js": {
-      "includeFiles": "server/**/*.js"
+  "builds": [
+    {
+      "src": "server/index.js",
+      "use": "@vercel/node"
     }
-  },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "server/index.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "server/index.js"
+    }
   ]
 }
