@@ -2,4 +2,6 @@ node_modules/
 dist/
 .vite/
 server/data.json
+.env
 *.log
+release/
