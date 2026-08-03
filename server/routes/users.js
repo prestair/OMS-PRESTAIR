@@ -1,135 +1,99 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
-import { getDb, save } from '../db.js'
+import { supabase } from '../db.js'
 import { authenticate, adminOnly } from '../middleware/auth.js'
 
 const router = Router()
 router.use(authenticate)
 
-// Public for authenticated users - get user list for reminder assignment
-router.get('/list', (req, res) => {
-  const db = getDb()
-  const users = db.users.map(u => ({ id: u.id, username: u.username, fullName: u.fullName, role: u.role }))
-  res.json(users)
+// Public - user list for reminders
+router.get('/list', async (req, res) => {
+  const { data } = await supabase.from('users').select('id, username, full_name, role')
+  res.json(data || [])
 })
 
-// Get all groups (authenticated users can see)
-router.get('/groups', (req, res) => {
-  const db = getDb()
-  res.json(db.groups || [])
+// Public - get groups
+router.get('/groups', async (req, res) => {
+  const { data } = await supabase.from('groups').select('*')
+  res.json(data || [])
 })
 
 router.use(adminOnly)
 
-// --- Group Management (Admin only) ---
-router.post('/groups', (req, res) => {
-  const db = getDb()
-  if (!db.groups) { db.groups = []; db.nextGroupId = 1 }
-  const { name, columnPermissions, canEdit, canReceipt, canAssignReminder, canDelete } = req.body
-  if (!name) return res.status(400).json({ error: 'Group name is required' })
-  if (db.groups.find(g => g.name.toUpperCase() === name.toUpperCase())) {
-    return res.status(400).json({ error: 'Group already exists' })
-  }
-  const group = { id: db.nextGroupId++, name: name.toUpperCase(), columnPermissions: columnPermissions || {}, canEdit: canEdit || false, canReceipt: canReceipt || false, canAssignReminder: canAssignReminder || false, canDelete: canDelete || false }
-  db.groups.push(group)
-  save()
-  res.json(group)
+// Group CRUD
+router.post('/groups', async (req, res) => {
+  const { name, column_permissions, can_edit, can_receipt, can_assign_reminder, can_delete, can_create_quote } = req.body
+  if (!name) return res.status(400).json({ error: 'Group name required' })
+  const { data, error } = await supabase.from('groups').insert({ name: name.toUpperCase(), column_permissions: column_permissions || {}, can_edit: can_edit || false, can_receipt: can_receipt || false, can_assign_reminder: can_assign_reminder || false, can_delete: can_delete || false, can_create_quote: can_create_quote || false }).select()
+  if (error) return res.status(400).json({ error: error.message })
+  res.json(data[0])
 })
 
-router.put('/groups/:id', (req, res) => {
-  const db = getDb()
-  const group = (db.groups || []).find(g => g.id === parseInt(req.params.id))
-  if (!group) return res.status(404).json({ error: 'Group not found' })
-  const { name, columnPermissions, canEdit, canReceipt, canAssignReminder, canDelete } = req.body
-  if (name) group.name = name.toUpperCase()
-  if (columnPermissions !== undefined) group.columnPermissions = columnPermissions
-  if (canEdit !== undefined) group.canEdit = canEdit
-  if (canReceipt !== undefined) group.canReceipt = canReceipt
-  if (canAssignReminder !== undefined) group.canAssignReminder = canAssignReminder
-  if (canDelete !== undefined) group.canDelete = canDelete
-  save()
-  res.json(group)
+router.put('/groups/:id', async (req, res) => {
+  const { name, column_permissions, can_edit, can_receipt, can_assign_reminder, can_delete, can_create_quote } = req.body
+  const updates = {}
+  if (name) updates.name = name.toUpperCase()
+  if (column_permissions !== undefined) updates.column_permissions = column_permissions
+  if (can_edit !== undefined) updates.can_edit = can_edit
+  if (can_receipt !== undefined) updates.can_receipt = can_receipt
+  if (can_assign_reminder !== undefined) updates.can_assign_reminder = can_assign_reminder
+  if (can_delete !== undefined) updates.can_delete = can_delete
+  if (can_create_quote !== undefined) updates.can_create_quote = can_create_quote
+  await supabase.from('groups').update(updates).eq('id', parseInt(req.params.id))
+  res.json({ message: 'Group updated' })
 })
 
-router.delete('/groups/:id', (req, res) => {
-  const db = getDb()
-  const id = parseInt(req.params.id)
-  db.groups = (db.groups || []).filter(g => g.id !== id)
-  save()
+router.delete('/groups/:id', async (req, res) => {
+  await supabase.from('groups').delete().eq('id', parseInt(req.params.id))
   res.json({ message: 'Group deleted' })
 })
 
-router.get('/', (req, res) => {
-  const db = getDb()
-  const users = db.users.map(({ password, ...rest }) => rest)
-  res.json(users)
+// User CRUD
+router.get('/', async (req, res) => {
+  const { data } = await supabase.from('users').select('id, username, full_name, role, user_group, column_permissions, can_edit, can_receipt, can_assign_reminder, can_delete, can_create_quote, created_at')
+  const mapped = (data || []).map(u => ({ ...u, fullName: u.full_name, group: u.user_group, columnPermissions: u.column_permissions, canEdit: u.can_edit, canReceipt: u.can_receipt, canAssignReminder: u.can_assign_reminder, canDelete: u.can_delete, canCreateQuote: u.can_create_quote, createdAt: u.created_at }))
+  res.json(mapped)
 })
 
-router.post('/', (req, res) => {
-  const { username, password, fullName, role, columnPermissions, canEdit, canReceipt, canAssignReminder, canDelete, canCreateQuote, group } = req.body
-  const db = getDb()
-  if (db.users.find(u => u.username === username)) {
-    return res.status(400).json({ error: 'Username already exists' })
-  }
-  const newUser = {
-    id: db.nextUserId++,
-    username,
-    password: bcrypt.hashSync(password.toLowerCase(), 10),
-    fullName,
-    role: role || 'user',
-    group: group || '',
-    columnPermissions: columnPermissions || {},
-    canEdit: canEdit !== undefined ? canEdit : true,
-    canReceipt: canReceipt !== undefined ? canReceipt : true,
-    canAssignReminder: canAssignReminder || false,
-    canDelete: canDelete || false,
-    canCreateQuote: canCreateQuote || false,
-    createdAt: new Date().toISOString()
-  }
-  db.users.push(newUser)
-  save()
-  const { password: _, ...userRes } = newUser
-  res.json(userRes)
+router.post('/', async (req, res) => {
+  const { username, password, fullName, role, group, columnPermissions, canEdit, canReceipt, canAssignReminder, canDelete, canCreateQuote } = req.body
+  const { data: existing } = await supabase.from('users').select('id').eq('username', username)
+  if (existing?.length) return res.status(400).json({ error: 'Username already exists' })
+
+  const { data, error } = await supabase.from('users').insert({
+    username, password: bcrypt.hashSync(password.toLowerCase(), 10), full_name: fullName, role: role || 'user',
+    user_group: group || '', column_permissions: columnPermissions || {},
+    can_edit: canEdit !== undefined ? canEdit : false, can_receipt: canReceipt !== undefined ? canReceipt : false,
+    can_assign_reminder: canAssignReminder || false, can_delete: canDelete || false, can_create_quote: canCreateQuote || false
+  }).select()
+  if (error) return res.status(400).json({ error: error.message })
+  res.json(data[0])
 })
 
-router.put('/:id', (req, res) => {
-  const { fullName, role, columnPermissions, canEdit, canReceipt, canAssignReminder, canDelete, canCreateQuote, group } = req.body
-  const db = getDb()
-  const user = db.users.find(u => u.id === parseInt(req.params.id))
-  if (!user) return res.status(404).json({ error: 'User not found' })
-  user.fullName = fullName
-  user.role = role
-  if (group !== undefined) user.group = group
-  if (columnPermissions !== undefined) user.columnPermissions = columnPermissions
-  if (canEdit !== undefined) user.canEdit = canEdit
-  if (canReceipt !== undefined) user.canReceipt = canReceipt
-  if (canAssignReminder !== undefined) user.canAssignReminder = canAssignReminder
-  if (canDelete !== undefined) user.canDelete = canDelete
-  if (canCreateQuote !== undefined) user.canCreateQuote = canCreateQuote
-  save()
+router.put('/:id', async (req, res) => {
+  const { fullName, role, group, columnPermissions, canEdit, canReceipt, canAssignReminder, canDelete, canCreateQuote } = req.body
+  const updates = { full_name: fullName, role }
+  if (group !== undefined) updates.user_group = group
+  if (columnPermissions !== undefined) updates.column_permissions = columnPermissions
+  if (canEdit !== undefined) updates.can_edit = canEdit
+  if (canReceipt !== undefined) updates.can_receipt = canReceipt
+  if (canAssignReminder !== undefined) updates.can_assign_reminder = canAssignReminder
+  if (canDelete !== undefined) updates.can_delete = canDelete
+  if (canCreateQuote !== undefined) updates.can_create_quote = canCreateQuote
+  await supabase.from('users').update(updates).eq('id', parseInt(req.params.id))
   res.json({ message: 'User updated' })
 })
 
-router.put('/:id/password', (req, res) => {
+router.put('/:id/password', async (req, res) => {
   const { newPassword } = req.body
-  const db = getDb()
-  const user = db.users.find(u => u.id === parseInt(req.params.id))
-  if (!user) return res.status(404).json({ error: 'User not found' })
-  user.password = bcrypt.hashSync(newPassword.toLowerCase(), 10)
-  save()
+  await supabase.from('users').update({ password: bcrypt.hashSync(newPassword.toLowerCase(), 10) }).eq('id', parseInt(req.params.id))
   res.json({ message: 'Password reset successfully' })
 })
 
-router.delete('/:id', (req, res) => {
-  const db = getDb()
-  const id = parseInt(req.params.id)
-  if (id === req.user.id) {
-    return res.status(400).json({ error: 'Cannot delete your own account' })
-  }
-  db.users = db.users.filter(u => u.id !== id)
-  save()
+router.delete('/:id', async (req, res) => {
+  if (parseInt(req.params.id) === req.user.id) return res.status(400).json({ error: 'Cannot delete yourself' })
+  await supabase.from('users').delete().eq('id', parseInt(req.params.id))
   res.json({ message: 'User deleted' })
 })
 
 export default router
-

@@ -1,60 +1,62 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
-import { getDb, save } from '../db.js'
+import { supabase } from '../db.js'
 import { generateToken, authenticate } from '../middleware/auth.js'
 
 const router = Router()
 
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { username, password } = req.body
-  const db = getDb()
-  const user = db.users.find(u => u.username.toLowerCase() === username.toLowerCase())
-  if (!user) {
-    return res.status(401).json({ error: 'Invalid credentials' })
-  }
+  const { data: users } = await supabase.from('users').select('*').ilike('username', username)
+  const user = users?.[0]
+  if (!user) return res.status(401).json({ error: 'Invalid credentials' })
+
   const validPassword = bcrypt.compareSync(password.toLowerCase(), user.password)
-  if (!validPassword) {
-    return res.status(401).json({ error: 'Invalid credentials' })
-  }
-  const token = generateToken(user)
+  if (!validPassword) return res.status(401).json({ error: 'Invalid credentials' })
+
+  const token = generateToken({ id: user.id, username: user.username, role: user.role })
   const isAdminRole = user.role === 'admin'
-  // If user has a group, get group settings
-  const userGroup = user.group ? (db.groups || []).find(g => g.name === user.group) : null
-  // Column permissions: group provides base, user overrides
-  const mergedPerms = { ...(userGroup?.columnPermissions || {}), ...(user.columnPermissions || {}) }
-  // Rights resolution: user's stored value takes priority, group is fallback only if user value is undefined/null
+
+  // Get group rights
+  let userGroup = null
+  if (user.user_group) {
+    const { data: groups } = await supabase.from('groups').select('*').eq('name', user.user_group)
+    userGroup = groups?.[0]
+  }
+
+  const mergedPerms = { ...(userGroup?.column_permissions || {}), ...(user.column_permissions || {}) }
+
   const getUserRight = (key) => {
     const userVal = user[key]
-    // If user has an explicit boolean stored, use it
     if (userVal === true || userVal === false) return userVal
-    // Otherwise fall back to group
     if (userGroup && (userGroup[key] === true || userGroup[key] === false)) return userGroup[key]
     return false
   }
+
   res.json({
     token,
     user: {
-      id: user.id, username: user.username, fullName: user.fullName, role: user.role, group: user.group || '',
+      id: user.id, username: user.username, fullName: user.full_name, role: user.role, group: user.user_group || '',
       columnPermissions: isAdminRole ? {} : mergedPerms,
-      canEdit: isAdminRole ? true : getUserRight('canEdit'),
-      canReceipt: isAdminRole ? true : getUserRight('canReceipt'),
-      canAssignReminder: isAdminRole ? true : getUserRight('canAssignReminder'),
-      canDelete: isAdminRole ? true : getUserRight('canDelete'),
-      canCreateQuote: isAdminRole ? true : getUserRight('canCreateQuote')
+      canEdit: isAdminRole ? true : getUserRight('can_edit'),
+      canReceipt: isAdminRole ? true : getUserRight('can_receipt'),
+      canAssignReminder: isAdminRole ? true : getUserRight('can_assign_reminder'),
+      canDelete: isAdminRole ? true : getUserRight('can_delete'),
+      canCreateQuote: isAdminRole ? true : getUserRight('can_create_quote')
     }
   })
 })
 
-router.post('/change-password', authenticate, (req, res) => {
+router.post('/change-password', authenticate, async (req, res) => {
   const { currentPassword, newPassword } = req.body
-  const db = getDb()
-  const user = db.users.find(u => u.id === req.user.id)
+  const { data: users } = await supabase.from('users').select('*').eq('id', req.user.id)
+  const user = users?.[0]
+  if (!user) return res.status(404).json({ error: 'User not found' })
+
   const validPassword = bcrypt.compareSync(currentPassword.toLowerCase(), user.password)
-  if (!validPassword) {
-    return res.status(400).json({ error: 'Current password is incorrect' })
-  }
-  user.password = bcrypt.hashSync(newPassword.toLowerCase(), 10)
-  save()
+  if (!validPassword) return res.status(400).json({ error: 'Current password is incorrect' })
+
+  await supabase.from('users').update({ password: bcrypt.hashSync(newPassword.toLowerCase(), 10) }).eq('id', req.user.id)
   res.json({ message: 'Password changed successfully' })
 })
 

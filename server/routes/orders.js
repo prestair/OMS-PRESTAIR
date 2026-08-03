@@ -1,457 +1,326 @@
 import { Router } from 'express'
-import { getDb, save } from '../db.js'
+import { supabase } from '../db.js'
 import { authenticate, adminOnly } from '../middleware/auth.js'
 
 const router = Router()
 router.use(authenticate)
 
 // Get all orders
-router.get('/', (req, res) => {
-  const db = getDb()
-  const orders = [...db.orders].sort((a, b) => {
-    // Parse DD/MM/YYYY to comparable format
-    const parseDate = (d) => {
-      if (!d) return '0'
-      const parts = String(d).split('/')
-      if (parts.length === 3) return `${parts[2]}${parts[1].padStart(2,'0')}${parts[0].padStart(2,'0')}`
-      return String(d)
-    }
-    const dateCompare = parseDate(b.date).localeCompare(parseDate(a.date))
-    if (dateCompare !== 0) return dateCompare
-    // Then by order number descending
-    const getNum = (orderNo) => { const m = String(orderNo || '').match(/\/(\d+)/g); return m ? parseInt(m[m.length-1].replace('/','')) : 0 }
-    return getNum(b.orderNo) - getNum(a.orderNo)
-  })
-  res.json(orders)
+router.get('/', async (req, res) => {
+  const { data } = await supabase.from('orders').select('*').order('date', { ascending: false }).order('id', { ascending: false })
+  const mapped = (data || []).map(o => mapOrder(o))
+  res.json(mapped)
 })
 
 // Search orders
-router.get('/search', (req, res) => {
+router.get('/search', async (req, res) => {
   const { q } = req.query
-  const db = getDb()
-  const term = (q || '').toLowerCase()
-  const orders = db.orders.filter(o =>
-    (o.orderNo || '').toLowerCase().includes(term) ||
-    (o.client || '').toLowerCase().includes(term) ||
-    (o.gst || '').toLowerCase().includes(term) ||
-    (o.poNo || '').toLowerCase().includes(term) ||
-    (o.customerName || '').toLowerCase().includes(term)
-  )
-  res.json(orders)
+  const { data } = await supabase.from('orders').select('*').or(`order_no.ilike.%${q}%,client.ilike.%${q}%,gst.ilike.%${q}%,po_no.ilike.%${q}%,customer_name.ilike.%${q}%`)
+  res.json((data || []).map(o => mapOrder(o)))
 })
 
-// Export all orders (admin only)
-router.get('/export/all', adminOnly, (req, res) => {
-  const db = getDb()
-  res.json(db.orders)
+// Export all orders
+router.get('/export/all', adminOnly, async (req, res) => {
+  const { data } = await supabase.from('orders').select('*').order('date', { ascending: false })
+  res.json((data || []).map(o => mapOrder(o)))
 })
 
-// Get all active reminders (due today or earlier) - must be before /:id
-router.get('/reminders/due', (req, res) => {
-  const db = getDb()
-  if (!db.reminders) return res.json([])
+// Get deleted orders
+router.get('/deleted/all', async (req, res) => {
+  const { data } = await supabase.from('deleted_orders').select('*').order('deleted_at', { ascending: false })
+  res.json((data || []).map(d => ({ ...d.data, id: d.original_id, deletedBy: d.deleted_by, deletedAt: d.deleted_at })))
+})
+
+// Permanently delete from deleted
+router.delete('/deleted/:id', adminOnly, async (req, res) => {
+  await supabase.from('deleted_orders').delete().eq('original_id', parseInt(req.params.id))
+  res.json({ message: 'Permanently deleted' })
+})
+
+// Restore from deleted
+router.post('/deleted/:id/restore', adminOnly, async (req, res) => {
+  const { data: dels } = await supabase.from('deleted_orders').select('*').eq('original_id', parseInt(req.params.id))
+  if (!dels?.length) return res.status(404).json({ error: 'Not found' })
+  const orderData = dels[0].data
+  const { error } = await supabase.from('orders').insert(snakeOrder(orderData))
+  if (error) return res.status(400).json({ error: error.message })
+  await supabase.from('deleted_orders').delete().eq('original_id', parseInt(req.params.id))
+  res.json({ message: 'Restored' })
+})
+
+// Reminders
+router.get('/reminders/due', async (req, res) => {
   const today = new Date().toISOString().split('T')[0]
+  const { data } = await supabase.from('reminders').select('*').lte('date', today)
   const username = req.user.username
   const isAdmin = req.user.role === 'admin'
-
-  const due = db.reminders.filter(r => {
-    // Must be due (date <= today)
-    if (r.date > today) return false
-    // Show to: 1) admin always, 2) creator, 3) users in visibleTo list
+  const filtered = (data || []).filter(r => {
     if (isAdmin) return true
-    if (r.createdBy === username) return true
-    if (r.visibleTo && r.visibleTo.includes(username)) return true
+    if (r.created_by === username) return true
+    if (r.visible_to && r.visible_to.includes(username)) return true
     return false
   })
-  res.json(due)
+  res.json(filtered.map(r => ({ ...r, orderNo: r.order_no, createdBy: r.created_by, orderId: r.order_id, visibleTo: r.visible_to })))
 })
 
-// Delete/dismiss a reminder
-router.delete('/reminders/:reminderId', (req, res) => {
-  const db = getDb()
-  if (!db.reminders) return res.json({ message: 'No reminders' })
-  const id = parseInt(req.params.reminderId)
-  db.reminders = db.reminders.filter(r => r.id !== id)
-  save()
-  res.json({ message: 'Reminder dismissed' })
+router.delete('/reminders/:id', async (req, res) => {
+  await supabase.from('reminders').delete().eq('id', parseInt(req.params.id))
+  res.json({ message: 'Dismissed' })
 })
 
-// Get all deleted/completed orders (visible to all)
-router.get('/deleted/all', (req, res) => {
-  const db = getDb()
-  res.json(db.deletedOrders || [])
+// Paper requests
+router.get('/paper-requests/all', async (req, res) => {
+  const { data } = await supabase.from('paper_requests').select('*').order('id', { ascending: false })
+  res.json((data || []).map(r => mapPaperReq(r)))
 })
 
-// Permanently delete an order from deleted list (admin only)
-router.delete('/deleted/:id', adminOnly, (req, res) => {
-  const db = getDb()
-  if (!db.deletedOrders) return res.status(404).json({ error: 'No deleted orders' })
-  const id = parseInt(req.params.id)
-  db.deletedOrders = db.deletedOrders.filter(o => o.id !== id)
-  save()
-  res.json({ message: 'Order permanently deleted' })
+router.get('/paper-requests/my', async (req, res) => {
+  const { data } = await supabase.from('paper_requests').select('*').eq('issue_to', req.user.username).eq('status', 'PENDING')
+  res.json((data || []).map(r => mapPaperReq(r)))
 })
 
-// Restore an order from deleted list back to active (admin only)
-router.post('/deleted/:id/restore', adminOnly, (req, res) => {
-  const db = getDb()
-  if (!db.deletedOrders) return res.status(404).json({ error: 'No deleted orders' })
-  const id = parseInt(req.params.id)
-  const order = db.deletedOrders.find(o => o.id === id)
-  if (!order) return res.status(404).json({ error: 'Order not found in deleted list' })
-
-  // Remove deletedBy and deletedAt fields, move back to active
-  const { deletedBy, deletedAt, ...restoredOrder } = order
-  db.orders.push(restoredOrder)
-  db.deletedOrders = db.deletedOrders.filter(o => o.id !== id)
-  save()
-  res.json({ message: 'Order restored successfully' })
+router.post('/paper-requests', async (req, res) => {
+  const { orderNo, issueTo } = req.body
+  if (!orderNo || !issueTo) return res.status(400).json({ error: 'Order No and Issue To required' })
+  const { data: orders } = await supabase.from('orders').select('client').eq('order_no', orderNo)
+  const client = orders?.[0]?.client || ''
+  const { data, error } = await supabase.from('paper_requests').insert({ order_no: orderNo, client, requested_by: req.user.username, issue_to: issueTo, status: 'PENDING' }).select()
+  if (error) return res.status(400).json({ error: error.message })
+  res.json(mapPaperReq(data[0]))
 })
 
-// Get single order with payments
-router.get('/:id', (req, res) => {
-  const db = getDb()
-  const order = db.orders.find(o => o.id === parseInt(req.params.id))
-  if (!order) return res.status(404).json({ error: 'Order not found' })
-  const payments = db.payments.filter(p => p.orderId === order.id)
-  res.json({ ...order, payments })
+router.post('/paper-requests/:id/accept', async (req, res) => {
+  const { data: reqs } = await supabase.from('paper_requests').select('*').eq('id', parseInt(req.params.id))
+  if (!reqs?.length) return res.status(404).json({ error: 'Not found' })
+  const request = reqs[0]
+  await supabase.from('paper_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString() }).eq('id', request.id)
+  await supabase.from('orders').update({ or_recvd: `ISSUED TO ${request.requested_by.toUpperCase()}` }).eq('order_no', request.order_no)
+  res.json({ message: 'Accepted' })
 })
 
-// Add new order
-router.post('/', (req, res) => {
-  const db = getDb()
+router.post('/paper-requests/:id/reject', async (req, res) => {
+  const { remarks } = req.body
+  await supabase.from('paper_requests').update({ status: 'REJECTED', rejected_by: req.user.username, rejected_at: new Date().toISOString(), reject_remarks: remarks || '' }).eq('id', parseInt(req.params.id))
+  res.json({ message: 'Rejected' })
+})
+
+router.post('/paper-requests/:id/reroute', async (req, res) => {
+  const { rerouteTo } = req.body
+  if (!rerouteTo) return res.status(400).json({ error: 'Reroute user required' })
+  const { data: reqs } = await supabase.from('paper_requests').select('*').eq('id', parseInt(req.params.id))
+  if (!reqs?.length) return res.status(404).json({ error: 'Not found' })
+  const request = reqs[0]
+
+  // Count reroutes for this order
+  const { data: allReqs } = await supabase.from('paper_requests').select('status').eq('order_no', request.order_no)
+  const rerouteCount = (allReqs || []).filter(r => r.status && r.status.startsWith('REROUTED')).length
+  if (rerouteCount >= 2) {
+    await supabase.from('paper_requests').update({ status: 'ISSUE' }).eq('id', request.id)
+    return res.json({ status: 'ISSUE' })
+  }
+
+  await supabase.from('paper_requests').update({ status: `REROUTED TO ${rerouteTo.toUpperCase()}`, rerouted_by: req.user.username, rerouted_at: new Date().toISOString() }).eq('id', request.id)
+  const { data: newReq } = await supabase.from('paper_requests').insert({ order_no: request.order_no, client: request.client, requested_by: request.requested_by, issue_to: rerouteTo, status: 'PENDING' }).select()
+  res.json(mapPaperReq(newReq[0]))
+})
+
+// Return requests
+router.get('/return-requests/all', async (req, res) => {
+  const { data } = await supabase.from('return_requests').select('*').order('id', { ascending: false })
+  res.json((data || []).map(r => ({ ...r, orderNo: r.order_no, requestedBy: r.requested_by, returnTo: r.return_to, acceptedBy: r.accepted_by, acceptedAt: r.accepted_at, rejectRemarks: r.reject_remarks })))
+})
+
+router.get('/return-requests/my', async (req, res) => {
+  const { data } = await supabase.from('return_requests').select('*').eq('return_to', req.user.username).eq('status', 'PENDING')
+  res.json((data || []).map(r => ({ ...r, orderNo: r.order_no, requestedBy: r.requested_by, returnTo: r.return_to })))
+})
+
+router.post('/return-requests', async (req, res) => {
+  const { orderNo, returnTo } = req.body
+  if (!orderNo || !returnTo) return res.status(400).json({ error: 'Required' })
+  const { data: orders } = await supabase.from('orders').select('client').eq('order_no', orderNo)
+  const { data } = await supabase.from('return_requests').insert({ order_no: orderNo, client: orders?.[0]?.client || '', requested_by: req.user.username, return_to: returnTo, status: 'PENDING' }).select()
+  res.json(data[0])
+})
+
+router.post('/return-requests/:id/accept', async (req, res) => {
+  const { data: reqs } = await supabase.from('return_requests').select('*').eq('id', parseInt(req.params.id))
+  if (!reqs?.length) return res.status(404).json({ error: 'Not found' })
+  await supabase.from('return_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString() }).eq('id', parseInt(req.params.id))
+  await supabase.from('orders').update({ or_recvd: 'Paper Received' }).eq('order_no', reqs[0].order_no)
+  res.json({ message: 'Accepted' })
+})
+
+router.post('/return-requests/:id/reject', async (req, res) => {
+  const { remarks } = req.body
+  await supabase.from('return_requests').update({ status: 'REJECTED', rejected_by: req.user.username, rejected_at: new Date().toISOString(), reject_remarks: remarks || '' }).eq('id', parseInt(req.params.id))
+  res.json({ message: 'Rejected' })
+})
+
+// Get single order
+router.get('/:id', async (req, res) => {
+  const { data } = await supabase.from('orders').select('*').eq('id', parseInt(req.params.id))
+  if (!data?.length) return res.status(404).json({ error: 'Not found' })
+  const { data: payments } = await supabase.from('payments').select('*').eq('order_id', parseInt(req.params.id)).order('date', { ascending: false })
+  res.json({ ...mapOrder(data[0]), payments })
+})
+
+// Create order
+router.post('/', async (req, res) => {
   const o = req.body
   if (o.orderNo) {
-    const existing = db.orders.find(x => x.orderNo === o.orderNo)
-    if (existing) {
-      return res.status(400).json({ error: 'Order number already exists' })
-    }
+    const { data: existing } = await supabase.from('orders').select('id').eq('order_no', o.orderNo)
+    if (existing?.length) return res.status(400).json({ error: 'Order number already exists' })
   }
-  const newOrder = { id: db.nextOrderId++, ...o, totalAmount: o.totalAmount || 0, receivedAmount: o.receivedAmount || 0, balance: o.balance || 0, percentReceived: o.percentReceived || 0 }
-  db.orders.push(newOrder)
-  save()
-  res.json(newOrder)
+  const { data, error } = await supabase.from('orders').insert(snakeOrder(o)).select()
+  if (error) return res.status(400).json({ error: error.message })
+  res.json(mapOrder(data[0]))
 })
 
-// Bulk import orders (admin only)
-router.post('/import', adminOnly, (req, res) => {
-  const db = getDb()
+// Bulk import
+router.post('/import', adminOnly, async (req, res) => {
   const { orders, overwrite } = req.body
   const duplicates = []
-  const added = []
-
+  let added = 0
   for (const o of orders) {
-    const existing = db.orders.find(x => x.orderNo === o.orderNo)
-    if (existing) {
+    const { data: existing } = await supabase.from('orders').select('id').eq('order_no', o.orderNo)
+    if (existing?.length) {
       if (overwrite) {
-        Object.assign(existing, o)
-        added.push(o.orderNo)
+        await supabase.from('orders').update(snakeOrder(o)).eq('order_no', o.orderNo)
+        added++
       } else {
         duplicates.push(o.orderNo)
       }
     } else {
-      db.orders.push({ id: db.nextOrderId++, ...o })
-      added.push(o.orderNo)
+      await supabase.from('orders').insert(snakeOrder(o))
+      added++
     }
   }
-  save()
-  res.json({ added: added.length, duplicates })
+  res.json({ added, duplicates })
 })
 
 // Update order
-router.put('/:id', (req, res) => {
-  const db = getDb()
-  const id = parseInt(req.params.id)
-  const idx = db.orders.findIndex(o => o.id === id)
-  if (idx === -1) return res.status(404).json({ error: 'Order not found' })
-  db.orders[idx] = { ...db.orders[idx], ...req.body, id }
-  save()
-  res.json({ message: 'Order updated' })
+router.put('/:id', async (req, res) => {
+  const { error } = await supabase.from('orders').update(snakeOrder(req.body)).eq('id', parseInt(req.params.id))
+  if (error) return res.status(400).json({ error: error.message })
+  res.json({ message: 'Updated' })
 })
 
+// Delete order (move to deleted)
+router.delete('/:id', async (req, res) => {
+  const { data: users } = await supabase.from('users').select('can_delete, role').eq('id', req.user.id)
+  const userRecord = users?.[0]
+  const canDelete = req.user.role === 'admin' || userRecord?.can_delete
+  if (!canDelete) return res.status(403).json({ error: 'No permission' })
 
+  const { data: orders } = await supabase.from('orders').select('*').eq('id', parseInt(req.params.id))
+  if (!orders?.length) return res.status(404).json({ error: 'Not found' })
 
-// Delete order (move to deleted list) - only users with canDelete right
-router.delete('/:id', (req, res) => {
-  const db = getDb()
-  const isAdmin = req.user.role === 'admin'
-  const userRecord = db.users.find(u => u.id === req.user.id)
-  const canDelete = isAdmin || (userRecord && userRecord.canDelete)
-  if (!canDelete) {
-    return res.status(403).json({ error: 'You do not have permission to delete orders' })
-  }
-  const id = parseInt(req.params.id)
-  const order = db.orders.find(o => o.id === id)
-  if (!order) return res.status(404).json({ error: 'Order not found' })
-
-  // Move to deletedOrders
-  if (!db.deletedOrders) db.deletedOrders = []
-  const deletedOrder = { ...order, deletedBy: req.user.username, deletedAt: new Date().toISOString() }
-  db.deletedOrders.push(deletedOrder)
-
-  // Remove from active
-  db.orders = db.orders.filter(o => o.id !== id)
-  save()
-  res.json({ message: 'Order moved to deleted list' })
+  await supabase.from('deleted_orders').insert({ original_id: orders[0].id, data: mapOrder(orders[0]), deleted_by: req.user.username })
+  await supabase.from('orders').delete().eq('id', parseInt(req.params.id))
+  res.json({ message: 'Deleted' })
 })
 
-// Add payment to order
-router.post('/:id/payments', (req, res) => {
-  const db = getDb()
-  const orderId = parseInt(req.params.id)
-  const order = db.orders.find(o => o.id === orderId)
-  if (!order) return res.status(404).json({ error: 'Order not found' })
-
+// Payments
+router.post('/:id/payments', async (req, res) => {
   const { date, mode, amount, remarks } = req.body
-  const payment = { id: db.nextPaymentId++, orderId, date, mode, amount: parseFloat(amount), remarks, createdAt: new Date().toISOString() }
-  db.payments.push(payment)
-
+  const { data } = await supabase.from('payments').insert({ order_id: parseInt(req.params.id), date, mode, amount: parseFloat(amount), remarks }).select()
   // Update order totals
-  const totalReceived = db.payments.filter(p => p.orderId === orderId).reduce((s, p) => s + (p.amount || 0), 0)
-  order.receivedAmount = totalReceived
-  order.balance = (order.totalAmount || 0) - totalReceived
-  order.percentReceived = order.totalAmount ? parseFloat(((totalReceived / order.totalAmount) * 100).toFixed(2)) : 0
-
-  save()
-  res.json(payment)
+  const { data: payments } = await supabase.from('payments').select('amount').eq('order_id', parseInt(req.params.id))
+  const totalReceived = (payments || []).reduce((s, p) => s + (p.amount || 0), 0)
+  const { data: order } = await supabase.from('orders').select('total_amount').eq('id', parseInt(req.params.id))
+  const totalAmt = order?.[0]?.total_amount || 0
+  const balance = totalAmt - totalReceived
+  const percent = totalAmt ? parseFloat(((totalReceived / totalAmt) * 100).toFixed(2)) : 0
+  await supabase.from('orders').update({ received_amount: totalReceived, balance, percent_received: percent }).eq('id', parseInt(req.params.id))
+  res.json(data[0])
 })
 
-// Get payments for an order
-router.get('/:id/payments', (req, res) => {
-  const db = getDb()
-  const orderId = parseInt(req.params.id)
-  const payments = db.payments.filter(p => p.orderId === orderId).sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-  res.json(payments)
+router.get('/:id/payments', async (req, res) => {
+  const { data } = await supabase.from('payments').select('*').eq('order_id', parseInt(req.params.id)).order('date', { ascending: false })
+  res.json(data || [])
 })
 
-// Delete a specific payment (admin only)
-router.delete('/:id/payments/:paymentId', adminOnly, (req, res) => {
-  const db = getDb()
-  const orderId = parseInt(req.params.id)
-  const paymentId = parseInt(req.params.paymentId)
-  const order = db.orders.find(o => o.id === orderId)
-  if (!order) return res.status(404).json({ error: 'Order not found' })
-
-  db.payments = db.payments.filter(p => p.id !== paymentId)
-
-  // Recalculate order totals
-  const totalReceived = db.payments.filter(p => p.orderId === orderId).reduce((s, p) => s + (p.amount || 0), 0)
-  order.receivedAmount = totalReceived
-  order.balance = (order.totalAmount || 0) - totalReceived
-  order.percentReceived = order.totalAmount ? parseFloat(((totalReceived / order.totalAmount) * 100).toFixed(2)) : 0
-
-  save()
+router.delete('/:id/payments/:paymentId', adminOnly, async (req, res) => {
+  await supabase.from('payments').delete().eq('id', parseInt(req.params.paymentId))
+  // Recalculate
+  const { data: payments } = await supabase.from('payments').select('amount').eq('order_id', parseInt(req.params.id))
+  const totalReceived = (payments || []).reduce((s, p) => s + (p.amount || 0), 0)
+  const { data: order } = await supabase.from('orders').select('total_amount').eq('id', parseInt(req.params.id))
+  const totalAmt = order?.[0]?.total_amount || 0
+  await supabase.from('orders').update({ received_amount: totalReceived, balance: totalAmt - totalReceived, percent_received: totalAmt ? parseFloat(((totalReceived / totalAmt) * 100).toFixed(2)) : 0 }).eq('id', parseInt(req.params.id))
   res.json({ message: 'Payment deleted' })
 })
 
-// --- Reminders ---
-
-// Add reminder for an order
-router.post('/:id/reminders', (req, res) => {
-  const db = getDb()
-  if (!db.reminders) { db.reminders = []; db.nextReminderId = 1 }
-  const orderId = parseInt(req.params.id)
-  const order = db.orders.find(o => o.id === orderId)
-  if (!order) return res.status(404).json({ error: 'Order not found' })
-
+// Reminders for order
+router.post('/:id/reminders', async (req, res) => {
   const { description, date, visibleTo } = req.body
-  const reminder = {
-    id: db.nextReminderId++,
-    orderId,
-    orderNo: order.orderNo,
-    client: order.client,
-    description,
-    date,
-    visibleTo: visibleTo || [],
-    createdBy: req.user.username,
-    createdAt: new Date().toISOString()
-  }
-  db.reminders.push(reminder)
-  save()
-  res.json(reminder)
+  const { data: orders } = await supabase.from('orders').select('order_no, client').eq('id', parseInt(req.params.id))
+  const order = orders?.[0]
+  const { data } = await supabase.from('reminders').insert({ order_id: parseInt(req.params.id), order_no: order?.order_no, client: order?.client, description, date, visible_to: visibleTo || [], created_by: req.user.username }).select()
+  res.json(data[0])
 })
 
-// Get reminders for an order
-router.get('/:id/reminders', (req, res) => {
-  const db = getDb()
-  if (!db.reminders) return res.json([])
-  const orderId = parseInt(req.params.id)
-  const reminders = db.reminders.filter(r => r.orderId === orderId)
-  res.json(reminders)
+router.get('/:id/reminders', async (req, res) => {
+  const { data } = await supabase.from('reminders').select('*').eq('order_id', parseInt(req.params.id))
+  res.json(data || [])
 })
 
-// --- Paper Issue Requests ---
+// Helper: map snake_case DB row to camelCase for frontend
+function mapOrder(o) {
+  if (!o) return o
+  return { id: o.id, date: o.date, poNo: o.po_no, client: o.client, orderNo: o.order_no, status: o.status, deliveryDate: o.delivery_date, deliveryRemarks: o.delivery_remarks, customerName: o.customer_name, gst: o.gst, billingAddress: o.billing_address, followUp: o.follow_up, salesRep: o.sales_rep, deliveryAddress: o.delivery_address, phoneNo: o.phone_no, siteVerification: o.site_verification, siteVerificationRemarks: o.site_verification_remarks, installationStatus: o.installation_status, installationRemarks: o.installation_remarks, lop: o.lop, sectionDrawing: o.section_drawing, sectionDrawingRemarks: o.section_drawing_remarks, inProduction: o.in_production, billing: o.billing, installation: o.installation, totalAmount: o.total_amount, receivedAmount: o.received_amount, balance: o.balance, percentReceived: o.percent_received, paymentRemarks: o.payment_remarks, daysToOrder: o.days_to_order, remarks: o.remarks, akhilSirAudit: o.akhil_sir_audit, advanceBill: o.advance_bill, orRecvd: o.or_recvd, photography: o.photography, photographyRemarks: o.photography_remarks, siteVideo: o.site_video, siteVideoRemarks: o.site_video_remarks, review: o.review, reviewRemarks: o.review_remarks, createdAt: o.created_at }
+}
 
-// Create a paper issue request
-router.post('/paper-requests', (req, res) => {
-  const db = getDb()
-  if (!db.paperRequests) { db.paperRequests = []; db.nextPaperRequestId = 1 }
-  const { orderNo, issueTo } = req.body
-  if (!orderNo || !issueTo) return res.status(400).json({ error: 'Order No and Issue To are required' })
-  const order = db.orders.find(o => o.orderNo === orderNo)
-  const request = {
-    id: db.nextPaperRequestId++,
-    orderNo,
-    client: order ? order.client : '',
-    requestedBy: req.user.username,
-    issueTo,
-    status: 'PENDING',
-    createdAt: new Date().toISOString()
-  }
-  db.paperRequests.push(request)
-  save()
-  res.json(request)
-})
+// Helper: map camelCase frontend data to snake_case for DB
+function snakeOrder(o) {
+  if (!o) return o
+  const s = {}
+  if (o.date !== undefined) s.date = o.date
+  if (o.poNo !== undefined) s.po_no = o.poNo
+  if (o.client !== undefined) s.client = o.client
+  if (o.orderNo !== undefined) s.order_no = o.orderNo
+  if (o.status !== undefined) s.status = o.status
+  if (o.deliveryDate !== undefined) s.delivery_date = o.deliveryDate
+  if (o.deliveryRemarks !== undefined) s.delivery_remarks = o.deliveryRemarks
+  if (o.customerName !== undefined) s.customer_name = o.customerName
+  if (o.gst !== undefined) s.gst = o.gst
+  if (o.billingAddress !== undefined) s.billing_address = o.billingAddress
+  if (o.followUp !== undefined) s.follow_up = o.followUp
+  if (o.salesRep !== undefined) s.sales_rep = o.salesRep
+  if (o.deliveryAddress !== undefined) s.delivery_address = o.deliveryAddress
+  if (o.phoneNo !== undefined) s.phone_no = o.phoneNo
+  if (o.siteVerification !== undefined) s.site_verification = o.siteVerification
+  if (o.siteVerificationRemarks !== undefined) s.site_verification_remarks = o.siteVerificationRemarks
+  if (o.installationStatus !== undefined) s.installation_status = o.installationStatus
+  if (o.installationRemarks !== undefined) s.installation_remarks = o.installationRemarks
+  if (o.lop !== undefined) s.lop = o.lop
+  if (o.sectionDrawing !== undefined) s.section_drawing = o.sectionDrawing
+  if (o.sectionDrawingRemarks !== undefined) s.section_drawing_remarks = o.sectionDrawingRemarks
+  if (o.inProduction !== undefined) s.in_production = o.inProduction
+  if (o.billing !== undefined) s.billing = o.billing
+  if (o.installation !== undefined) s.installation = o.installation
+  if (o.totalAmount !== undefined) s.total_amount = parseFloat(o.totalAmount) || 0
+  if (o.receivedAmount !== undefined) s.received_amount = parseFloat(o.receivedAmount) || 0
+  if (o.balance !== undefined) s.balance = parseFloat(o.balance) || 0
+  if (o.percentReceived !== undefined) s.percent_received = parseFloat(o.percentReceived) || 0
+  if (o.paymentRemarks !== undefined) s.payment_remarks = o.paymentRemarks
+  if (o.daysToOrder !== undefined) s.days_to_order = parseInt(o.daysToOrder) || 0
+  if (o.remarks !== undefined) s.remarks = o.remarks
+  if (o.akhilSirAudit !== undefined) s.akhil_sir_audit = o.akhilSirAudit
+  if (o.advanceBill !== undefined) s.advance_bill = o.advanceBill
+  if (o.orRecvd !== undefined) s.or_recvd = o.orRecvd
+  if (o.photography !== undefined) s.photography = o.photography
+  if (o.photographyRemarks !== undefined) s.photography_remarks = o.photographyRemarks
+  if (o.siteVideo !== undefined) s.site_video = o.siteVideo
+  if (o.siteVideoRemarks !== undefined) s.site_video_remarks = o.siteVideoRemarks
+  if (o.review !== undefined) s.review = o.review
+  if (o.reviewRemarks !== undefined) s.review_remarks = o.reviewRemarks
+  return s
+}
 
-// Get all paper issue requests
-router.get('/paper-requests/all', (req, res) => {
-  const db = getDb()
-  res.json((db.paperRequests || []).sort((a, b) => b.id - a.id))
-})
-
-// Get pending requests for current user (requests issued TO them)
-router.get('/paper-requests/my', (req, res) => {
-  const db = getDb()
-  const requests = (db.paperRequests || []).filter(r => r.issueTo === req.user.username && r.status === 'PENDING')
-  res.json(requests)
-})
-
-// Accept a paper request
-router.post('/paper-requests/:id/accept', (req, res) => {
-  const db = getDb()
-  const id = parseInt(req.params.id)
-  const request = (db.paperRequests || []).find(r => r.id === id)
-  if (!request) return res.status(404).json({ error: 'Request not found' })
-  request.status = 'ACCEPTED'
-  request.acceptedBy = req.user.username
-  request.acceptedAt = new Date().toISOString()
-
-  // Update the order's orRecvd to PENDING (paper issued but not returned)
-  const order = db.orders.find(o => o.orderNo === request.orderNo)
-  if (order) {
-    order.orRecvd = `ISSUED TO ${request.requestedBy}`
-  }
-  save()
-  res.json(request)
-})
-
-// Reject a paper request
-router.post('/paper-requests/:id/reject', (req, res) => {
-  const db = getDb()
-  const id = parseInt(req.params.id)
-  const { remarks } = req.body
-  const request = (db.paperRequests || []).find(r => r.id === id)
-  if (!request) return res.status(404).json({ error: 'Request not found' })
-  request.status = 'REJECTED'
-  request.rejectedBy = req.user.username
-  request.rejectedAt = new Date().toISOString()
-  request.rejectRemarks = remarks || ''
-  save()
-  res.json(request)
-})
-
-// Reroute a paper request to another user
-router.post('/paper-requests/:id/reroute', (req, res) => {
-  const db = getDb()
-  const id = parseInt(req.params.id)
-  const { rerouteTo } = req.body
-  if (!rerouteTo) return res.status(400).json({ error: 'Reroute user required' })
-  const request = (db.paperRequests || []).find(r => r.id === id)
-  if (!request) return res.status(404).json({ error: 'Request not found' })
-
-  // Count how many times this orderNo has been rerouted
-  const rerouteCount = (db.paperRequests || []).filter(r => r.orderNo === request.orderNo && r.status && r.status.startsWith('REROUTED')).length
-  if (rerouteCount >= 2) {
-    // Mark as ISSUE - too many reroutes
-    request.status = 'ISSUE'
-    save()
-    return res.json(request)
-  }
-
-  request.status = `REROUTED TO ${rerouteTo.toUpperCase()}`
-  request.reroutedBy = req.user.username
-  request.reroutedAt = new Date().toISOString()
-  // Create new request for the rerouted user
-  const newRequest = {
-    id: db.nextPaperRequestId++,
-    orderNo: request.orderNo,
-    client: request.client,
-    requestedBy: request.requestedBy,
-    issueTo: rerouteTo,
-    status: 'PENDING',
-    reroutedFrom: req.user.username,
-    createdAt: new Date().toISOString()
-  }
-  db.paperRequests.push(newRequest)
-  save()
-  res.json(newRequest)
-})
-
-// --- Paper Return Requests ---
-
-// Create a paper return request
-router.post('/return-requests', (req, res) => {
-  const db = getDb()
-  if (!db.returnRequests) { db.returnRequests = []; db.nextReturnRequestId = 1 }
-  const { orderNo, returnTo } = req.body
-  if (!orderNo || !returnTo) return res.status(400).json({ error: 'Order No and Return To are required' })
-  const order = db.orders.find(o => o.orderNo === orderNo)
-  const request = {
-    id: db.nextReturnRequestId++,
-    orderNo,
-    client: order ? order.client : '',
-    requestedBy: req.user.username,
-    returnTo,
-    status: 'PENDING',
-    createdAt: new Date().toISOString()
-  }
-  db.returnRequests.push(request)
-  save()
-  res.json(request)
-})
-
-// Get all return requests
-router.get('/return-requests/all', (req, res) => {
-  const db = getDb()
-  res.json((db.returnRequests || []).sort((a, b) => b.id - a.id))
-})
-
-// Get pending return requests for current user
-router.get('/return-requests/my', (req, res) => {
-  const db = getDb()
-  const requests = (db.returnRequests || []).filter(r => r.returnTo === req.user.username && r.status === 'PENDING')
-  res.json(requests)
-})
-
-// Accept a return request
-router.post('/return-requests/:id/accept', (req, res) => {
-  const db = getDb()
-  const id = parseInt(req.params.id)
-  const request = (db.returnRequests || []).find(r => r.id === id)
-  if (!request) return res.status(404).json({ error: 'Request not found' })
-  request.status = 'ACCEPTED'
-  request.acceptedBy = req.user.username
-  request.acceptedAt = new Date().toISOString()
-  // Update order orRecvd to Paper Received
-  const order = db.orders.find(o => o.orderNo === request.orderNo)
-  if (order) { order.orRecvd = 'Paper Received' }
-  save()
-  res.json(request)
-})
-
-// Reject a return request
-router.post('/return-requests/:id/reject', (req, res) => {
-  const db = getDb()
-  const id = parseInt(req.params.id)
-  const { remarks } = req.body
-  const request = (db.returnRequests || []).find(r => r.id === id)
-  if (!request) return res.status(404).json({ error: 'Request not found' })
-  request.status = 'REJECTED'
-  request.rejectedBy = req.user.username
-  request.rejectedAt = new Date().toISOString()
-  request.rejectRemarks = remarks || ''
-  save()
-  res.json(request)
-})
+function mapPaperReq(r) {
+  return { ...r, orderNo: r.order_no, requestedBy: r.requested_by, issueTo: r.issue_to, acceptedBy: r.accepted_by, acceptedAt: r.accepted_at, rejectedBy: r.rejected_by, rejectedAt: r.rejected_at, rejectRemarks: r.reject_remarks, reroutedBy: r.rerouted_by, reroutedAt: r.rerouted_at, createdAt: r.created_at }
+}
 
 export default router
