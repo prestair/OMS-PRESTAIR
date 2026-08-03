@@ -1,11 +1,8 @@
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-
-dotenv.config()
 
 const app = express()
 app.use(cors())
@@ -37,7 +34,6 @@ function adminOnly(req, res, next) {
   next()
 }
 
-// Helper to map DB row to API format
 function mapOrder(row) {
   if (!row) return null
   return {
@@ -51,7 +47,7 @@ function mapOrder(row) {
   }
 }
 
-// ============ AUTH ROUTES ============
+// AUTH
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body
@@ -78,7 +74,7 @@ app.post('/api/auth/change-password', authenticate, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// ============ USER ROUTES ============
+// USERS
 app.get('/api/users', authenticate, async (req, res) => {
   try {
     const { data } = await supabase.from('users').select('*').order('username')
@@ -137,7 +133,7 @@ app.put('/api/users/groups/:id', authenticate, adminOnly, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// ============ ORDER ROUTES ============
+// ORDERS
 app.get('/api/orders', authenticate, async (req, res) => {
   try {
     const { data } = await supabase.from('orders').select('*').order('date', { ascending: false }).order('id', { ascending: false })
@@ -219,7 +215,6 @@ app.post('/api/orders/:id/payments', authenticate, async (req, res) => {
     const { date, mode, amount, remarks } = req.body
     const { data, error } = await supabase.from('payments').insert({ order_id: parseInt(req.params.id), date, mode, amount, remarks, created_by: req.user.username }).select()
     if (error) return res.status(400).json({ error: error.message })
-    // Update order received amount
     const { data: payments } = await supabase.from('payments').select('amount').eq('order_id', req.params.id)
     const totalReceived = (payments || []).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
     const { data: ord } = await supabase.from('orders').select('total_value').eq('id', req.params.id).single()
@@ -354,7 +349,7 @@ app.put('/api/orders/return-requests/:id', authenticate, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// Bulk import
+// Bulk
 app.post('/api/orders/bulk', authenticate, async (req, res) => {
   try {
     const orders = req.body.orders || []
@@ -373,7 +368,6 @@ app.post('/api/orders/bulk', authenticate, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// Delete all orders
 app.delete('/api/orders/all', authenticate, adminOnly, async (req, res) => {
   try {
     await supabase.from('orders').delete().neq('id', 0)
