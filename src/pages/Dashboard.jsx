@@ -1,0 +1,1465 @@
+import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import axios from 'axios'
+import * as XLSX from 'xlsx-js-style'
+import { useAuth } from '../context/AuthContext'
+import OrderForm from '../components/OrderForm'
+import PaymentForm from '../components/PaymentForm'
+import ChangePasswordModal from '../components/ChangePasswordModal'
+import ReminderForm from '../components/ReminderForm'
+import ReminderPopup from '../components/ReminderPopup'
+
+const ALL_COLUMNS = [
+  { key: 'date', label: 'Date' },
+  { key: 'poNo', label: 'PO No' },
+  { key: 'client', label: 'Client' },
+  { key: 'orderNo', label: 'Order No' },
+  { key: 'photography', label: 'Photography' },
+  { key: 'photographyRemarks', label: 'Photography Remarks' },
+  { key: 'siteVideo', label: 'Site Video' },
+  { key: 'siteVideoRemarks', label: 'Site Video Remarks' },
+  { key: 'review', label: 'Review' },
+  { key: 'reviewRemarks', label: 'Review Remarks' },
+  { key: 'status', label: 'Status' },
+  { key: 'deliveryDate', label: 'Delivery Date' },
+  { key: 'deliveryRemarks', label: 'Delivery Remarks' },
+  { key: 'customerName', label: 'Customer Name' },
+  { key: 'gst', label: 'GST' },
+  { key: 'billingAddress', label: 'Billing Address' },
+  { key: 'followUp', label: 'Follow Up' },
+  { key: 'salesRep', label: 'Sales Rep' },
+  { key: 'deliveryAddress', label: 'Delivery Address' },
+  { key: 'phoneNo', label: 'Phone No' },
+  { key: 'siteVerification', label: 'Site Verification' },
+  { key: 'siteVerificationRemarks', label: 'Site Verification Remarks' },
+  { key: 'installationStatus', label: 'Installation Status' },
+  { key: 'installationRemarks', label: 'Installation Remarks' },
+  { key: 'lop', label: 'LOP' },
+  { key: 'sectionDrawing', label: 'Section Drawing' },
+  { key: 'sectionDrawingRemarks', label: 'SD Remarks' },
+  { key: 'inProduction', label: 'In Production' },
+  { key: 'billing', label: 'Billing' },
+  { key: 'installation', label: 'Installation' },
+  { key: 'totalAmount', label: 'Total Amount' },
+  { key: 'receivedAmount', label: 'Received' },
+  { key: 'balance', label: 'Balance' },
+  { key: 'percentReceived', label: '% Rcv' },
+  { key: 'paymentRemarks', label: 'Payment Remarks' },
+  { key: 'daysToOrder', label: 'Days to Order' },
+  { key: 'remarks', label: 'Remarks' },
+  { key: 'akhilSirAudit', label: 'Akhil Sir Audit' },
+  { key: 'advanceBill', label: 'Advance Bill' },
+  { key: 'orRecvd', label: 'OR Recvd' }
+]
+
+const DEFAULT_VISIBLE = ['date', 'poNo', 'client', 'orderNo', 'status', 'customerName', 'salesRep', 'totalAmount', 'receivedAmount', 'balance', 'percentReceived']
+
+function Dashboard() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [orders, setOrders] = useState([])
+  const [filteredOrders, setFilteredOrders] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const saved = localStorage.getItem(`oms_columns_${user.username}`)
+    return saved ? JSON.parse(saved) : DEFAULT_VISIBLE
+  })
+  const [showColumnPicker, setShowColumnPicker] = useState(false)
+  const [showOrderForm, setShowOrderForm] = useState(false)
+  const [editingOrder, setEditingOrder] = useState(null)
+  const [showPaymentForm, setShowPaymentForm] = useState(null)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [importDuplicates, setImportDuplicates] = useState(null)
+  const [pendingImport, setPendingImport] = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [columnFilters, setColumnFilters] = useState({})
+  const [openFilter, setOpenFilter] = useState(null)
+  const [showReminderForm, setShowReminderForm] = useState(null)
+  const [showReminderPopup, setShowReminderPopup] = useState(true)
+  const [paperIssuePopup, setPaperIssuePopup] = useState([])
+  const [activeTab, setActiveTab] = useState('active')
+  const [deletedOrders, setDeletedOrders] = useState([])
+  const [dailyFilter, setDailyFilter] = useState('')
+  const [dailyFilterValue, setDailyFilterValue] = useState([])
+  const [dailyLopFilter, setDailyLopFilter] = useState([])
+  const [dailyPercentMax, setDailyPercentMax] = useState('')
+  const [showPrintPreview, setShowPrintPreview] = useState(false)
+  const [selectedRep, setSelectedRep] = useState(null)
+  const [selectedPayStatus, setSelectedPayStatus] = useState(null)
+  const [paperRequests, setPaperRequests] = useState([])
+  const [myPaperRequests, setMyPaperRequests] = useState([])
+  const [paperOrderNo, setPaperOrderNo] = useState([])
+  const [paperIssueTo, setPaperIssueTo] = useState('')
+  const [paperOrderSearch, setPaperOrderSearch] = useState('')
+  const [paperUserSearch, setPaperUserSearch] = useState('')
+  const [showOrderDropdown, setShowOrderDropdown] = useState(false)
+  const [showUserDropdown, setShowUserDropdown] = useState(false)
+  const [rerouteId, setRerouteId] = useState(null)
+  const [rerouteTo, setRerouteTo] = useState('')
+  const [rerouteSearch, setRerouteSearch] = useState('')
+  const [showRerouteDrop, setShowRerouteDrop] = useState(false)
+  const [returnOrderNo, setReturnOrderNo] = useState([])
+  const [returnOrderSearch, setReturnOrderSearch] = useState('')
+  const [returnIssueTo, setReturnIssueTo] = useState('')
+  const [returnUserSearch, setReturnUserSearch] = useState('')
+  const [showReturnOrderDrop, setShowReturnOrderDrop] = useState(false)
+  const [showReturnUserDrop, setShowReturnUserDrop] = useState(false)
+  const [returnRequests, setReturnRequests] = useState([])
+  const [myReturnRequests, setMyReturnRequests] = useState([])
+  const [allUsers, setAllUsers] = useState([])
+  const fileInputRef = useRef(null)
+
+  // Determine columns user is allowed to see
+  const isAdmin = user.role === 'admin'
+  const userPerms = user.columnPermissions || {}
+  const canEditOrders = isAdmin || user.canEdit !== false
+  const canAddReceipt = isAdmin || user.canReceipt !== false
+  const canDeleteOrders = isAdmin || user.canDelete
+  const canCreateQuote = isAdmin || user.canCreateQuote
+
+  // canCreateQuote now controls "Add New Order" button visibility
+  const canCreateOrder = canCreateQuote
+
+  const getAllowedColumns = () => {
+    if (isAdmin) return ALL_COLUMNS
+    return ALL_COLUMNS.filter(col => userPerms[col.key] === 'view' || userPerms[col.key] === 'edit')
+  }
+
+  const canEditColumn = (key) => {
+    if (isAdmin) return true
+    return userPerms[key] === 'edit'
+  }
+
+  const allowedColumns = getAllowedColumns()
+
+  useEffect(() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests() }, [])
+
+  // Auto-refresh every 2 minutes
+  useEffect(() => {
+    const interval = setInterval(() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests() }, 120000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Paper issue popup - check every 2 minutes
+  useEffect(() => {
+    const checkPaperRequests = async () => {
+      try {
+        const res = await axios.get('/api/orders/paper-requests/my')
+        if (res.data.length > 0) setPaperIssuePopup(res.data)
+      } catch {}
+    }
+    checkPaperRequests()
+    const interval = setInterval(checkPaperRequests, 120000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    let result = orders
+
+    // Apply search
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
+      result = result.filter(o =>
+        (o.orderNo || '').toLowerCase().includes(term) ||
+        (o.client || '').toLowerCase().includes(term) ||
+        (o.gst || '').toLowerCase().includes(term) ||
+        (o.poNo || '').toLowerCase().includes(term) ||
+        (o.customerName || '').toLowerCase().includes(term)
+      )
+    }
+
+    // Apply column filters
+    Object.entries(columnFilters).forEach(([key, selectedValues]) => {
+      if (selectedValues && selectedValues.length > 0) {
+        result = result.filter(o => {
+          const val = String(o[key] || '').trim() || '(Empty)'
+          return selectedValues.includes(val)
+        })
+      }
+    })
+
+    setFilteredOrders(result)
+  }, [searchTerm, orders, columnFilters])
+
+  useEffect(() => {
+    localStorage.setItem(`oms_columns_${user.username}`, JSON.stringify(visibleColumns))
+  }, [visibleColumns])
+
+  const fetchOrders = async () => {
+    try {
+      const res = await axios.get('/api/orders')
+      setOrders(res.data)
+    } catch (err) {
+      console.error('Failed to fetch orders', err)
+    }
+  }
+
+  const fetchDeletedOrders = async () => {
+    try {
+      const res = await axios.get('/api/orders/deleted/all')
+      setDeletedOrders(res.data)
+    } catch (err) {
+      console.error('Failed to fetch deleted orders', err)
+    }
+  }
+
+  const fetchPaperRequests = async () => {
+    try {
+      const [all, my, users, retAll, retMy] = await Promise.all([
+        axios.get('/api/orders/paper-requests/all'),
+        axios.get('/api/orders/paper-requests/my'),
+        axios.get('/api/users/list'),
+        axios.get('/api/orders/return-requests/all'),
+        axios.get('/api/orders/return-requests/my')
+      ])
+      setPaperRequests(all.data)
+      setMyPaperRequests(my.data)
+      setAllUsers(users.data)
+      setReturnRequests(retAll.data)
+      setMyReturnRequests(retMy.data)
+    } catch (err) { console.error(err) }
+  }
+
+  const handleSearch = (e) => { setSearchTerm(e.target.value) }
+
+  const handleExport = () => {
+    const cols = allowedColumns.filter(c => visibleColumns.includes(c.key))
+    const exportData = filteredOrders.map(o => {
+      const row = {}
+      cols.forEach(col => {
+        let val = o[col.key]
+        if (col.key === 'date' || col.key === 'deliveryDate') val = formatDate(val)
+        else if (['totalAmount', 'receivedAmount', 'balance'].includes(col.key)) val = val || 0
+        else if (col.key === 'percentReceived') val = val ? `${val}%` : ''
+        else val = val || ''
+        row[col.label] = val
+      })
+      return row
+    })
+    const ws = XLSX.utils.json_to_sheet(exportData)
+    // Auto column widths based on content
+    const headers = Object.keys(exportData[0] || {})
+    ws['!cols'] = headers.map(key => {
+      let maxLen = key.length
+      exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length })
+      return { wch: Math.min(Math.max(maxLen + 2, 10), 40) }
+    })
+    // Apply header styling and borders
+    const range = XLSX.utils.decode_range(ws['!ref'])
+    const centerKeys = ['date','orderNo','photography','siteVideo','review','status','deliveryDate','customerName','gst','followUp','salesRep','deliveryAddress','phoneNo','siteVerification','installationStatus','installationRemarks','lop','sectionDrawing','inProduction','billing','installation','totalAmount','receivedAmount','balance','percentReceived','daysToOrder','akhilSirAudit','advanceBill','orRecvd']
+    const centerCols = cols.map((col, idx) => centerKeys.includes(col.key) ? idx : -1).filter(i => i >= 0)
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c })
+        if (!ws[addr]) ws[addr] = { v: '', t: 's' }
+        if (!ws[addr].s) ws[addr].s = {}
+        ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
+        if (r === 0) {
+          ws[addr].s.font = { bold: true, sz: 11 }
+          ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } }
+          ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }
+        } else {
+          ws[addr].s.alignment = { vertical: 'center', wrapText: true }
+          if (centerCols.includes(c)) {
+            ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }
+          }
+        }
+      }
+    }
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Orders')
+    XLSX.writeFile(wb, `OMS_Orders_${new Date().toISOString().split('T')[0]}.xlsx`)
+  }
+
+  const handleImport = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = async (evt) => {
+      const wb = XLSX.read(evt.target.result, { type: 'binary' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const data = XLSX.utils.sheet_to_json(ws)
+      const mapped = data.map(row => {
+        // Convert Excel date serial number to DD/MM/YYYY
+        const convertDate = (val) => {
+          if (!val) return ''
+          if (typeof val === 'number') {
+            const d = new Date((val - 25569) * 86400 * 1000)
+            return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+          }
+          return String(val)
+        }
+        return {
+        date: convertDate(row['DATE'] || row['Date']), poNo: row['PO NO'] || row['PO No'] || '', client: row['CLIENT'] || row['Client'] || '',
+        orderNo: row['ORDER NO.'] || row['Order No'] || row['ORDER NO'] || '', status: row['Status'] || row['BL+REQ'] || '',
+        deliveryDate: convertDate(row['Delivery Date'] || row['Delivery Date Remarks']), deliveryRemarks: row['Delivery Date Remarks'] || row['Remarks'] || '',
+        customerName: row['CUSTOMER NAME'] || row['Customer Name'] || '',
+        gst: row['GST'] || '', billingAddress: row['BILLING ADDRESS'] || row['Billing Address'] || '',
+        followUp: row['FOLLOW UP'] || row['Follow Up'] || '',
+        salesRep: row['SALES REP'] || row['Sales Rep'] || '', deliveryAddress: row['DELIVERY ADDRESS'] || row['Delivery Address'] || '',
+        phoneNo: String(row['PHONE NO'] || row['Phone No'] || ''),
+        siteVerification: row['Site Verification'] || '',
+        installationStatus: row['INSTALLATION\nSTATUS'] || row['INSTALLATION STATUS'] || '',
+        installationRemarks: row['INSTALLATION\nREMARKS'] || row['INSTALLATION REMARKS'] || '',
+        lop: row['LOP'] || '',
+        sectionDrawing: row['Section Drawing\nSD'] || row['Section Drawing SD'] || '',
+        inProduction: row['In Production'] || '',
+        totalAmount: parseFloat(row['Total Amount'] || 0) || 0,
+        receivedAmount: parseFloat(row['Recvd'] || row['Received'] || 0) || 0,
+        balance: parseFloat(row['BALANCE'] || row['Balance'] || 0) || 0,
+        percentReceived: parseFloat(row['% Rcv'] || row['% Rec'] || 0) || 0,
+        paymentRemarks: row['Payment REMARKS'] || row['Payment Remarks'] || '',
+        daysToOrder: parseInt(row['Days to Order'] || 0) || 0,
+        remarks: row['Remarks : Nikhil Audit Pending = 35 Nikhil Audit Issue = 4 Adv Bill Check Pending = -36 Actual Adv Bill Pending = 0 Photograpgy Pending = 33'] || row['Remarks'] || '',
+        akhilSirAudit: row['AKHIL SIR\nAUDIT'] || row['AKHIL SIR AUDIT'] || row['Akhil Sir Audit'] || '',
+        advanceBill: row['ADVANCE BILL'] || row['Advance Bill'] || '',
+        orRecvd: row['OR RECVD /NOT RECVD'] || row['OR Recvd'] || ''
+      }})
+      try {
+        const res = await axios.post('/api/orders/import', { orders: mapped, overwrite: false })
+        if (res.data.duplicates && res.data.duplicates.length > 0) {
+          setImportDuplicates(res.data.duplicates)
+          setPendingImport(mapped)
+        } else {
+          alert(`Successfully imported ${res.data.added} orders`)
+          fetchOrders()
+        }
+      } catch (err) {
+        alert('Import failed: ' + (err.response?.data?.error || err.message))
+      }
+    }
+    reader.readAsBinaryString(file)
+    e.target.value = ''
+  }
+
+  const confirmImportOverwrite = async () => {
+    try {
+      const res = await axios.post('/api/orders/import', { orders: pendingImport, overwrite: true })
+      alert(`Successfully imported/updated ${res.data.added} orders`)
+      setImportDuplicates(null)
+      setPendingImport(null)
+      fetchOrders()
+    } catch (err) { alert('Import failed') }
+  }
+
+  const handleDelete = async (id) => {
+    try {
+      await axios.delete(`/api/orders/${id}`)
+      setDeleteConfirm(null)
+      fetchOrders()
+      fetchDeletedOrders()
+    } catch (err) {
+      alert('Delete failed: ' + (err.response?.data?.error || 'Permission denied'))
+    }
+  }
+
+  const handlePermanentDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to PERMANENTLY delete this order? This cannot be undone.')) return
+    try {
+      await axios.delete(`/api/orders/deleted/${id}`)
+      fetchDeletedOrders()
+    } catch (err) {
+      alert('Permanent delete failed: ' + (err.response?.data?.error || 'Admin access required'))
+    }
+  }
+
+  const handleRestore = async (id) => {
+    if (!window.confirm('Restore this order back to active orders?')) return
+    try {
+      await axios.post(`/api/orders/deleted/${id}/restore`)
+      fetchOrders()
+      fetchDeletedOrders()
+    } catch (err) {
+      alert('Restore failed: ' + (err.response?.data?.error || 'Admin access required'))
+    }
+  }
+
+  const handleOrderSaved = () => { setShowOrderForm(false); setEditingOrder(null); fetchOrders() }
+  const handlePaymentSaved = () => { setShowPaymentForm(null); fetchOrders() }
+
+  const getDailyFilteredData = () => {
+    let filtered = orders
+    if (dailyFilter === 'percentReceived') {
+      if (dailyPercentMax !== '') {
+        const max = parseFloat(dailyPercentMax)
+        filtered = filtered.filter(o => (o.percentReceived || 0) < max)
+      }
+      return filtered
+    }
+    if (dailyFilter && dailyFilterValue.length > 0) {
+      filtered = filtered.filter(o => {
+        const val = String(o[dailyFilter] || '').trim()
+        if (dailyFilterValue.includes('__blank__') && val === '') return true
+        return dailyFilterValue.includes(val)
+      })
+    }
+    if (dailyFilter === 'sectionDrawing' && dailyLopFilter.length > 0) {
+      filtered = filtered.filter(o => {
+        const val = String(o.lop || '').trim()
+        if (dailyLopFilter.includes('__blank__') && val === '') return true
+        return dailyLopFilter.includes(val)
+      })
+    }
+    return filtered
+  }
+
+  const handleDailyExport = () => {
+    const filtered = getDailyFilteredData()
+    const filterLabel = dailyFilter ? ALL_COLUMNS.find(c => c.key === dailyFilter)?.label : ''
+    const exportData = filtered.map((o, idx) => {
+      const row = { '#': idx + 1, 'Date': formatDate(o.date), 'PO No': o.poNo || '', 'Client': o.client || '', 'Order No': o.orderNo || '', 'GST': o.gst || '', 'Follow Up': o.followUp || '' }
+      if (dailyFilter) row[filterLabel] = o[dailyFilter] || ''
+      if (dailyFilter === 'siteVerification') row['Site Verification Remarks'] = o.siteVerificationRemarks || ''
+      if (dailyFilter === 'installationStatus') row['Installation Remarks'] = o.installationRemarks || ''
+      if (dailyFilter === 'sectionDrawing') row['LOP'] = o.lop || ''
+      if (dailyFilter === 'sectionDrawing') row['SD Remarks'] = o.sectionDrawingRemarks || ''
+      if (dailyFilter === 'photography') row['Photography Remarks'] = o.photographyRemarks || ''
+      if (dailyFilter === 'siteVideo') row['Site Video Remarks'] = o.siteVideoRemarks || ''
+      if (dailyFilter === 'review') row['Review Remarks'] = o.reviewRemarks || ''
+      return row
+    })
+    const ws = XLSX.utils.json_to_sheet(exportData)
+    // Calculate auto column widths based on data
+    const headers = Object.keys(exportData[0] || {})
+    ws['!cols'] = headers.map(key => {
+      let maxLen = key.length
+      exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length })
+      return { wch: Math.min(Math.max(maxLen + 2, 8), 45) }
+    })
+    // Bold + yellow header styling with center alignment and borders
+    const range = XLSX.utils.decode_range(ws['!ref'])
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c })
+        if (!ws[addr]) ws[addr] = { v: '', t: 's' }
+        if (!ws[addr].s) ws[addr].s = {}
+        ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
+        ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }
+        if (r === 0) {
+          ws[addr].s.font = { bold: true, sz: 11 }
+          ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } }
+        }
+      }
+    }
+    const wb = XLSX.utils.book_new()
+    const sheetName = filterLabel ? `Daily Report - ${filterLabel}` : 'Daily Report'
+    XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31))
+    XLSX.writeFile(wb, `Daily_Report_${filterLabel || 'All'}_${new Date().toISOString().split('T')[0]}.xlsx`, { bookSST: true })
+  }
+
+  const handleDailyPrint = (orientation) => {
+    if (!orientation) {
+      setShowPrintPreview(true)
+      return
+    }
+    const filtered = getDailyFilteredData()
+    const filterLabel = dailyFilter ? ALL_COLUMNS.find(c => c.key === dailyFilter)?.label : ''
+    const selectedValues = dailyFilterValue.length > 0 ? dailyFilterValue.map(v => v === '__blank__' ? '(Blank)' : v).join(', ') : 'All'
+    let html = `<html><head><title>Daily Report - OMS Prestair</title><style>
+      @page { size: A4 ${orientation}; margin: 12mm; }
+      body { font-family: Arial, sans-serif; margin: 0; padding: 10px; }
+      h2 { color: #1a1a2e; margin: 0 0 4px; font-size: 16px; }
+      .subtitle { color: #555; font-size: 11px; margin: 2px 0 12px; }
+      table { width: 100%; border-collapse: collapse; font-size: ${orientation === 'portrait' ? '9px' : '10px'}; border: 1px solid #333; }
+      th { background: #FFD700; color: #000; padding: 6px 5px; text-align: left; font-weight: bold; border: 1px solid #333; white-space: nowrap; }
+      td { padding: 5px; border: 1px solid #999; word-wrap: break-word; max-width: ${orientation === 'portrait' ? '120px' : '180px'}; }
+      tr:nth-child(even) { background: #f5f5f5; }
+      .footer { margin-top: 10px; font-size: 9px; color: #888; text-align: right; }
+      @media print { body { margin: 0; padding: 5mm; } }
+    </style></head><body>`
+    html += `<h2>OMS - Prestair Systems LLP</h2>`
+    html += `<p class="subtitle">Daily Report | Filter: <strong>${filterLabel || 'None'}</strong> | Values: <strong>${selectedValues}</strong> | Date: ${new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric' })} | Layout: ${orientation.toUpperCase()}</p>`
+    html += `<table><thead><tr><th>#</th><th>Date</th><th>PO No</th><th>Client</th><th>Order No</th><th>GST</th><th>Follow Up</th>`
+    if (dailyFilter) html += `<th>${filterLabel}</th>`
+    if (dailyFilter === 'siteVerification') html += `<th>Site Verification Remarks</th>`
+    if (dailyFilter === 'installationStatus') html += `<th>Installation Remarks</th>`
+    if (dailyFilter === 'sectionDrawing') html += `<th>LOP</th>`
+    if (dailyFilter === 'sectionDrawing') html += `<th>SD Remarks</th>`
+    if (dailyFilter === 'photography') html += `<th>Photography Remarks</th>`
+    if (dailyFilter === 'siteVideo') html += `<th>Site Video Remarks</th>`
+    if (dailyFilter === 'review') html += `<th>Review Remarks</th>`
+    html += `</tr></thead><tbody>`
+    filtered.forEach((o, idx) => {
+      html += `<tr><td>${idx + 1}</td><td>${formatDate(o.date)}</td><td>${o.poNo || ''}</td><td>${o.client || ''}</td><td>${o.orderNo || ''}</td><td>${o.gst || ''}</td><td>${o.followUp || ''}</td>`
+      if (dailyFilter) html += `<td>${o[dailyFilter] || ''}</td>`
+      if (dailyFilter === 'siteVerification') html += `<td>${o.siteVerificationRemarks || ''}</td>`
+      if (dailyFilter === 'installationStatus') html += `<td>${o.installationRemarks || ''}</td>`
+      if (dailyFilter === 'sectionDrawing') html += `<td>${o.lop || ''}</td>`
+      if (dailyFilter === 'sectionDrawing') html += `<td>${o.sectionDrawingRemarks || ''}</td>`
+      if (dailyFilter === 'photography') html += `<td>${o.photographyRemarks || ''}</td>`
+      if (dailyFilter === 'siteVideo') html += `<td>${o.siteVideoRemarks || ''}</td>`
+      if (dailyFilter === 'review') html += `<td>${o.reviewRemarks || ''}</td>`
+      html += `</tr>`
+    })
+    html += `</tbody></table><p class="footer">Total: ${filtered.length} orders | Generated: ${new Date().toLocaleString('en-IN')}</p></body></html>`
+    const printWindow = window.open('', '_blank')
+    printWindow.document.write(html)
+    printWindow.document.close()
+    setShowPrintPreview(false)
+    setTimeout(() => printWindow.print(), 500)
+  }
+
+  const toggleColumn = (key) => {
+    setVisibleColumns(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    )
+  }
+
+  const formatCurrency = (val) => {
+    if (!val && val !== 0) return ''
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val)
+  }
+
+  const formatDate = (val) => {
+    if (!val) return ''
+    // Already in DD/MM/YYYY format
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(val)) return val
+    try {
+      const d = new Date(val)
+      if (isNaN(d)) return val
+      const day = String(d.getDate()).padStart(2, '0')
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const year = d.getFullYear()
+      return `${day}/${month}/${year}`
+    } catch { return val }
+  }
+
+  const getCellValue = (order, key) => {
+    const val = order[key]
+    if (['totalAmount', 'receivedAmount'].includes(key)) return formatCurrency(val)
+    if (key === 'balance') return formatCurrency((order.totalAmount || 0) - (order.receivedAmount || 0))
+    if (key === 'percentReceived') return val ? `${val}%` : ''
+    if (key === 'date' || key === 'deliveryDate') return formatDate(val)
+    if (key === 'daysToOrder') {
+      // Live calculate from delivery date
+      if (order.deliveryDate) {
+        try {
+          let d = null
+          const val2 = order.deliveryDate
+          // Try DD/MM/YYYY
+          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(val2)) {
+            const p = val2.split('/')
+            d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]))
+          } else if (/^\d{1,2}\/\d{1,2}$/.test(val2)) {
+            const p = val2.split('/')
+            d = new Date(2026, parseInt(p[1]) - 1, parseInt(p[0]))
+          } else {
+            d = new Date(val2)
+          }
+          if (d && !isNaN(d)) {
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            const diff = Math.ceil((d - today) / (1000 * 60 * 60 * 24))
+            if (diff < 0) return <span style={{ color: '#e74c3c', fontWeight: '700' }}>{Math.abs(diff)} (OverDue)</span>
+            return diff
+          }
+        } catch {}
+      }
+      return val || ''
+    }
+    return val || ''
+  }
+
+  // Get unique values for a column (for filter dropdown)
+  const getUniqueValues = (key) => {
+    const values = new Set()
+    orders.forEach(o => {
+      const val = String(o[key] || '').trim() || '(Empty)'
+      values.add(val)
+    })
+    return [...values].sort()
+  }
+
+  const toggleFilterValue = (colKey, value) => {
+    setColumnFilters(prev => {
+      const current = prev[colKey] || []
+      const updated = current.includes(value)
+        ? current.filter(v => v !== value)
+        : [...current, value]
+      if (updated.length === 0) {
+        const { [colKey]: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [colKey]: updated }
+    })
+  }
+
+  const clearFilter = (colKey) => {
+    setColumnFilters(prev => {
+      const { [colKey]: _, ...rest } = prev
+      return rest
+    })
+    setOpenFilter(null)
+  }
+
+  const displayedColumns = allowedColumns.filter(c => visibleColumns.includes(c.key))
+
+  return (
+    <div style={styles.wrapper}>
+      {/* Header */}
+      <header style={styles.header}>
+        <div style={styles.headerLeft}>
+          <h1 style={styles.headerTitle}>OMS Dashboard</h1>
+          <span style={styles.headerUser}>Welcome, {user.fullName || user.username} ({user.role})</span>
+        </div>
+        <div style={styles.headerRight}>
+          <button onClick={() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests(); const btn = document.getElementById('refreshBtn'); btn.style.opacity='0.3'; setTimeout(()=>btn.style.opacity='1', 300) }} id="refreshBtn" style={{ ...styles.headerBtn, background: '#27ae60', transition: 'opacity 0.3s' }}>Refresh</button>
+          <button onClick={() => setShowPasswordModal(true)} style={styles.headerBtn}>Change Password</button>
+          {isAdmin && <button onClick={() => navigate('/users')} style={styles.headerBtn}>Manage Users</button>}
+          <button onClick={logout} style={{ ...styles.headerBtn, background: '#e74c3c' }}>Logout</button>
+        </div>
+      </header>
+
+      {/* Tabs */}
+      <div style={styles.tabBar}>
+        <button onClick={() => setActiveTab('active')} style={activeTab === 'active' ? styles.tabActive : styles.tab}>Active Orders</button>
+        <button onClick={() => setActiveTab('deleted')} style={activeTab === 'deleted' ? styles.tabActive : styles.tab}>Completed / Deleted Orders ({deletedOrders.length})</button>
+        <button onClick={() => setActiveTab('reports')} style={activeTab === 'reports' ? styles.tabActive : styles.tab}>Reports</button>
+        <button onClick={() => setActiveTab('daily')} style={activeTab === 'daily' ? styles.tabActive : styles.tab}>Daily Reports</button>
+        <button onClick={() => setActiveTab('paperIssue')} style={activeTab === 'paperIssue' ? styles.tabActive : styles.tab}>Paper Issue Request</button>
+      </div>
+
+      {activeTab === 'active' && <>
+      {/* Toolbar */}
+      <div style={styles.toolbar}>
+        <div style={styles.searchWrap}>
+          <input
+            type="text"
+            placeholder="Search by Order No, Client, GST, PO No..."
+            value={searchTerm}
+            onChange={handleSearch}
+            style={styles.searchInput}
+          />
+        </div>
+        <div style={styles.actions}>
+          {canCreateOrder && <button onClick={() => { setEditingOrder(null); setShowOrderForm(true) }} style={styles.actionBtn}>+ Add New Order</button>}
+          <button onClick={() => setShowColumnPicker(!showColumnPicker)} style={{ ...styles.actionBtn, background: '#2980b9' }}>Select Columns</button>
+          <button onClick={handleExport} style={{ ...styles.actionBtn, background: '#27ae60' }}>Download Excel</button>
+          {isAdmin && (
+            <>
+              <button onClick={() => fileInputRef.current.click()} style={{ ...styles.actionBtn, background: '#f39c12' }}>Import Excel</button>
+              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: 'none' }} />
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Column Picker */}
+      {showColumnPicker && (
+        <div style={styles.columnPicker}>
+          <div style={styles.columnPickerHeader}>
+            <h3 style={{ margin: 0 }}>Select Columns to Display</h3>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button onClick={() => setVisibleColumns(allowedColumns.map(c => c.key))} style={styles.selectAllBtn}>Select All</button>
+              <button onClick={() => setVisibleColumns([])} style={styles.deselectAllBtn}>Deselect All</button>
+              <button onClick={() => setShowColumnPicker(false)} style={styles.closeBtn}>X</button>
+            </div>
+          </div>
+          <div style={styles.columnGrid}>
+            {allowedColumns.map(col => (
+              <label key={col.key} style={styles.columnCheckbox}>
+                <input type="checkbox" checked={visibleColumns.includes(col.key)} onChange={() => toggleColumn(col.key)} />
+                <span>{col.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Active Filters Summary */}
+      {Object.keys(columnFilters).length > 0 && (
+        <div style={styles.filterSummary}>
+          <span style={{ fontWeight: '600', fontSize: '12px' }}>Active Filters:</span>
+          {Object.entries(columnFilters).map(([key, vals]) => (
+            <span key={key} style={styles.filterTag}>
+              {ALL_COLUMNS.find(c => c.key === key)?.label}: {vals.length} selected
+              <button onClick={() => clearFilter(key)} style={styles.filterTagClose}>x</button>
+            </span>
+          ))}
+          <button onClick={() => setColumnFilters({})} style={styles.clearAllBtn}>Clear All</button>
+        </div>
+      )}
+
+      {/* Orders Table */}
+      <div style={styles.tableWrap}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.th}>#</th>
+              {displayedColumns.map(col => (
+                <th key={col.key} style={styles.th}>
+                  <div style={styles.thContent}>
+                    <span>{col.label}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === col.key ? null : col.key) }}
+                      style={{ ...styles.filterBtn, background: columnFilters[col.key] ? '#f39c12' : 'rgba(255,255,255,0.2)' }}
+                      title="Filter"
+                    >▼</button>
+                  </div>
+                  {openFilter === col.key && (
+                    <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
+                      <div style={styles.filterDropdownHeader}>
+                        <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: {col.label}</span>
+                        <button onClick={() => clearFilter(col.key)} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
+                      </div>
+                      <div style={styles.filterOptions}>
+                        {getUniqueValues(col.key).map(val => (
+                          <label key={val} style={styles.filterOption}>
+                            <input
+                              type="checkbox"
+                              checked={(columnFilters[col.key] || []).includes(val)}
+                              onChange={() => toggleFilterValue(col.key, val)}
+                            />
+                            <span style={{ fontSize: '11px' }}>{val.length > 30 ? val.substring(0, 30) + '...' : val}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <button onClick={() => setOpenFilter(null)} style={styles.filterDoneBtn}>Done</button>
+                    </div>
+                  )}
+                </th>
+              ))}
+              <th style={styles.th}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredOrders.map((order, idx) => (
+              <tr key={order.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                <td style={styles.td}>{idx + 1}</td>
+                {displayedColumns.map(col => (
+                  <td key={col.key} style={styles.td}>{getCellValue(order, col.key)}</td>
+                ))}
+                <td style={{ ...styles.td, whiteSpace: 'nowrap' }}>
+                  {(isAdmin || user.canAssignReminder) && <button onClick={() => setShowReminderForm(order)} style={{ ...styles.tblBtn, background: '#f39c12' }} title="Reminder">Reminder</button>}
+                  {canEditOrders && (
+                    <button onClick={() => { setEditingOrder(order); setShowOrderForm(true) }} style={styles.tblBtn} title="Edit">Edit</button>
+                  )}
+                  {canAddReceipt && (
+                    <button onClick={() => setShowPaymentForm(order)} style={{ ...styles.tblBtn, background: '#27ae60' }} title="Receipt">Receipt</button>
+                  )}
+                  {canDeleteOrders && (
+                    <button onClick={() => setDeleteConfirm(order)} style={{ ...styles.tblBtn, background: '#e74c3c' }} title="Delete">Del</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {filteredOrders.length === 0 && (
+          <p style={{ textAlign: 'center', padding: '40px', color: '#888' }}>No orders found</p>
+        )}
+      </div>
+
+      {/* Summary */}
+      <div style={styles.summary}>
+        <span>Total Orders: {filteredOrders.length}</span>
+        <span>Total Value: {formatCurrency(filteredOrders.reduce((s, o) => s + (o.totalAmount || 0), 0))}</span>
+        <span>Total Received: {formatCurrency(filteredOrders.reduce((s, o) => s + (o.receivedAmount || 0), 0))}</span>
+        <span>Total Balance: {formatCurrency(filteredOrders.reduce((s, o) => s + (o.balance || 0), 0))}</span>
+      </div>
+      </>}
+
+      {/* Deleted Orders Tab */}
+      {activeTab === 'deleted' && (
+        <div style={{ padding: '0 24px' }}>
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>#</th>
+                  <th style={styles.th}>Date</th>
+                  <th style={styles.th}>PO No</th>
+                  <th style={styles.th}>Order No</th>
+                  <th style={styles.th}>Client</th>
+                  <th style={styles.th}>Customer</th>
+                  <th style={styles.th}>GST</th>
+                  <th style={styles.th}>Sales Rep</th>
+                  <th style={styles.th}>Delivery Address</th>
+                  <th style={styles.th}>Phone No</th>
+                  <th style={styles.th}>Total Amount</th>
+                  <th style={styles.th}>Received</th>
+                  <th style={styles.th}>Balance</th>
+                  <th style={styles.th}>Deleted By</th>
+                  <th style={styles.th}>Deleted On</th>
+                  {isAdmin && <th style={styles.th}>Action</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {deletedOrders.map((order, idx) => (
+                  <tr key={order.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                    <td style={styles.td}>{idx + 1}</td>
+                    <td style={styles.td}>{formatDate(order.date)}</td>
+                    <td style={styles.td}>{order.poNo}</td>
+                    <td style={styles.td}>{order.orderNo}</td>
+                    <td style={styles.td}>{order.client}</td>
+                    <td style={styles.td}>{order.customerName}</td>
+                    <td style={styles.td}>{order.gst}</td>
+                    <td style={styles.td}>{order.salesRep}</td>
+                    <td style={styles.td}>{order.deliveryAddress}</td>
+                    <td style={styles.td}>{order.phoneNo}</td>
+                    <td style={styles.td}>{formatCurrency(order.totalAmount)}</td>
+                    <td style={styles.td}>{formatCurrency(order.receivedAmount)}</td>
+                    <td style={styles.td}>{formatCurrency(order.balance)}</td>
+                    <td style={styles.td}>{order.deletedBy}</td>
+                    <td style={styles.td}>{order.deletedAt ? (() => { const d = new Date(order.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''}</td>
+                    {isAdmin && (
+                      <td style={{ ...styles.td, whiteSpace: 'nowrap' }}>
+                        <button onClick={() => handleRestore(order.id)} style={{ ...styles.tblBtn, background: '#27ae60' }}>Restore</button>
+                        <button onClick={() => handlePermanentDelete(order.id)} style={{ ...styles.tblBtn, background: '#e74c3c' }}>Permanent Delete</button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {deletedOrders.length === 0 && (
+              <p style={{ textAlign: 'center', padding: '40px', color: '#888' }}>No deleted/completed orders</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Reports Tab */}
+      {activeTab === 'reports' && (
+        <div style={{ padding: '24px' }}>
+          <div style={styles.reportsGrid}>
+            <div style={styles.reportCardSmall}>
+              <h3 style={styles.reportCardTitle}>Total Orders</h3>
+              <p style={styles.reportCardValueSmall}>{orders.length}</p>
+            </div>
+            <div style={styles.reportCardSmall}>
+              <h3 style={styles.reportCardTitle}>Total Value</h3>
+              <p style={styles.reportCardValueSmall}>{formatCurrency(orders.reduce((s, o) => s + (o.totalAmount || 0), 0))}</p>
+            </div>
+            <div style={styles.reportCardSmall}>
+              <h3 style={styles.reportCardTitle}>Received</h3>
+              <p style={{ ...styles.reportCardValueSmall, color: '#27ae60' }}>{formatCurrency(orders.reduce((s, o) => s + (o.receivedAmount || 0), 0))}</p>
+            </div>
+            <div style={styles.reportCardSmall}>
+              <h3 style={styles.reportCardTitle}>Balance</h3>
+              <p style={{ ...styles.reportCardValueSmall, color: '#e74c3c' }}>{formatCurrency(orders.reduce((s, o) => s + (o.balance || 0), 0))}</p>
+            </div>
+          </div>
+
+          {/* Delivery Due in Next 2 Days & Overdue */}
+          <div style={styles.reportSection}>
+            <h3 style={styles.reportSectionTitle}>Delivery Schedule</h3>
+            {(() => {
+              const today = new Date()
+              today.setHours(0, 0, 0, 0)
+              const twoDaysLater = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000)
+              const parseDelDate = (d) => {
+                if (!d || d === 'DELIVERED' || d === 'ASAP' || d === 'N/A' || d === 'NA' || d === 'HOLD' || d === '') return null
+                const parts = String(d).split('/')
+                if (parts.length === 3) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
+                if (parts.length === 2) return new Date(2026, parseInt(parts[1]) - 1, parseInt(parts[0]))
+                return null
+              }
+              const overdueOrders = orders.filter(o => { const d = parseDelDate(o.deliveryDate); return d && d < today })
+              const dueOrders = orders.filter(o => { const d = parseDelDate(o.deliveryDate); return d && d >= today && d <= twoDaysLater })
+              return (<>
+                {dueOrders.length > 0 ? (<><h4 style={{ margin: '0 0 6px', fontSize: '12px', color: '#f39c12' }}>Due in Next 2 Days ({dueOrders.length})</h4>
+                <div style={{ ...styles.tableWrap, marginBottom: '12px' }}><table style={styles.table}><thead><tr><th style={styles.th}>#</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th><th style={styles.th}>Customer</th><th style={styles.th}>Delivery Date</th><th style={styles.th}>Sales Rep</th><th style={styles.th}>Phone</th><th style={styles.th}>Delivery Address</th></tr></thead><tbody>
+                  {dueOrders.map((o, idx) => (<tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}><td style={styles.td}>{idx+1}</td><td style={styles.td}>{o.orderNo}</td><td style={styles.td}>{o.client}</td><td style={styles.td}>{o.customerName}</td><td style={styles.td}>{o.deliveryDate}</td><td style={styles.td}>{o.salesRep}</td><td style={styles.td}>{o.phoneNo}</td><td style={styles.td}>{o.deliveryAddress}</td></tr>))}
+                </tbody></table></div></>) : (!overdueOrders.length && <p style={{ color: '#888', fontSize: '13px' }}>No deliveries due in next 2 days</p>)}
+                {overdueOrders.length > 0 && (<><h4 style={{ margin: '0 0 6px', fontSize: '12px', color: '#e74c3c' }}>Overdue ({overdueOrders.length})</h4>
+                <div style={styles.tableWrap}><table style={styles.table}><thead><tr><th style={styles.th}>#</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th><th style={styles.th}>Delivery Date</th><th style={styles.th}>Days Overdue</th><th style={styles.th}>Sales Rep</th><th style={styles.th}>Phone</th></tr></thead><tbody>
+                  {overdueOrders.sort((a,b) => parseDelDate(a.deliveryDate) - parseDelDate(b.deliveryDate)).map((o, idx) => {
+                    const days = Math.ceil((today - parseDelDate(o.deliveryDate)) / (1000*60*60*24))
+                    return (<tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}><td style={styles.td}>{idx+1}</td><td style={styles.td}>{o.orderNo}</td><td style={styles.td}>{o.client}</td><td style={styles.td}>{o.deliveryDate}</td><td style={{...styles.td, color:'#e74c3c', fontWeight:'700'}}>{days} days</td><td style={styles.td}>{o.salesRep}</td><td style={styles.td}>{o.phoneNo}</td></tr>)
+                  })}
+                </tbody></table></div></>)}
+              </>)
+            })()}
+          </div>
+
+          {/* Sales Rep Wise Summary */}
+          <div style={styles.reportSection}>
+            <h3 style={styles.reportSectionTitle}>Sales Rep Wise Summary</h3>
+            {!selectedRep ? (
+            <div style={styles.tableWrap}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Sales Rep</th>
+                    <th style={styles.th}>Orders</th>
+                    <th style={styles.th}>Total Value</th>
+                    <th style={styles.th}>Received</th>
+                    <th style={styles.th}>Balance</th>
+                    <th style={styles.th}>% Collection</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const reps = {}
+                    orders.forEach(o => {
+                      const rep = o.salesRep || 'Unknown'
+                      if (!reps[rep]) reps[rep] = { count: 0, total: 0, received: 0, balance: 0 }
+                      reps[rep].count++
+                      reps[rep].total += (o.totalAmount || 0)
+                      reps[rep].received += (o.receivedAmount || 0)
+                      reps[rep].balance += (o.balance || 0)
+                    })
+                    return Object.entries(reps).sort((a, b) => b[1].total - a[1].total).map(([rep, data], idx) => (
+                      <tr key={rep} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                        <td style={{ ...styles.td, color: '#2980b9', cursor: 'pointer', fontWeight: '600' }} onClick={() => setSelectedRep(rep)}>{rep}</td>
+                        <td style={styles.td}>{data.count}</td>
+                        <td style={styles.td}>{formatCurrency(data.total)}</td>
+                        <td style={styles.td}>{formatCurrency(data.received)}</td>
+                        <td style={styles.td}>{formatCurrency(data.balance)}</td>
+                        <td style={styles.td}>{data.total ? ((data.received / data.total) * 100).toFixed(1) + '%' : '0%'}</td>
+                      </tr>
+                    ))
+                  })()}
+                </tbody>
+              </table>
+            </div>
+            ) : (
+            <div>
+              <button onClick={() => setSelectedRep(null)} style={{ padding: '6px 14px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontWeight: '600', marginBottom: '10px' }}>Back</button>
+              <h4 style={{ margin: '0 0 8px', fontSize: '13px' }}>Orders by: {selectedRep}</h4>
+              <div style={styles.tableWrap}>
+                <table style={styles.table}>
+                  <thead><tr>
+                    <th style={styles.th}>#</th><th style={styles.th}>Date</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th><th style={styles.th}>Customer</th><th style={styles.th}>Delivery Date</th><th style={styles.th}>Total</th><th style={styles.th}>Received</th><th style={styles.th}>Balance</th><th style={styles.th}>% Rcv</th><th style={styles.th}>Status</th>
+                  </tr></thead>
+                  <tbody>
+                    {orders.filter(o => (o.salesRep || 'Unknown') === selectedRep).map((o, idx) => (
+                      <tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                        <td style={styles.td}>{idx + 1}</td>
+                        <td style={styles.td}>{formatDate(o.date)}</td>
+                        <td style={styles.td}>{o.orderNo}</td>
+                        <td style={styles.td}>{o.client}</td>
+                        <td style={styles.td}>{o.customerName}</td>
+                        <td style={styles.td}>{o.deliveryDate}</td>
+                        <td style={styles.td}>{formatCurrency(o.totalAmount)}</td>
+                        <td style={styles.td}>{formatCurrency(o.receivedAmount)}</td>
+                        <td style={styles.td}>{formatCurrency(o.balance)}</td>
+                        <td style={styles.td}>{o.percentReceived ? o.percentReceived + '%' : ''}</td>
+                        <td style={styles.td}>{o.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            )}
+          </div>
+
+          {/* Payment Status Summary */}
+          <div style={styles.reportSection}>
+            <h3 style={styles.reportSectionTitle}>Payment Collection Status</h3>
+            {!selectedPayStatus ? (
+            <div style={styles.tableWrap}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Status</th>
+                    <th style={styles.th}>Orders</th>
+                    <th style={styles.th}>Total Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const full = orders.filter(o => o.percentReceived >= 100)
+                    const partial = orders.filter(o => o.percentReceived > 0 && o.percentReceived < 100)
+                    const none = orders.filter(o => !o.percentReceived || o.percentReceived === 0)
+                    return [
+                      { label: 'Fully Paid (100%)', data: full, color: '#27ae60' },
+                      { label: 'Partially Paid', data: partial, color: '#f39c12' },
+                      { label: 'No Payment Received', data: none, color: '#e74c3c' }
+                    ].map((row, idx) => (
+                      <tr key={row.label} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                        <td style={{ ...styles.td, color: row.color, fontWeight: '600', cursor: 'pointer' }} onClick={() => setSelectedPayStatus(row.label)}>{row.label}</td>
+                        <td style={styles.td}>{row.data.length}</td>
+                        <td style={styles.td}>{formatCurrency(row.data.reduce((s, o) => s + (o.totalAmount || 0), 0))}</td>
+                      </tr>
+                    ))
+                  })()}
+                </tbody>
+              </table>
+            </div>
+            ) : (
+            <div>
+              <button onClick={() => setSelectedPayStatus(null)} style={{ padding: '6px 14px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontWeight: '600', marginBottom: '10px' }}>Back</button>
+              <h4 style={{ margin: '0 0 8px', fontSize: '13px' }}>{selectedPayStatus}</h4>
+              <div style={styles.tableWrap}>
+                <table style={styles.table}>
+                  <thead><tr>
+                    <th style={styles.th}>#</th><th style={styles.th}>Date</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th><th style={styles.th}>Customer</th><th style={styles.th}>Sales Rep</th><th style={styles.th}>Total</th><th style={styles.th}>Received</th><th style={styles.th}>Balance</th><th style={styles.th}>% Rcv</th>
+                  </tr></thead>
+                  <tbody>
+                    {(() => {
+                      let filtered = []
+                      if (selectedPayStatus === 'Fully Paid (100%)') filtered = orders.filter(o => o.percentReceived >= 100)
+                      else if (selectedPayStatus === 'Partially Paid') filtered = orders.filter(o => o.percentReceived > 0 && o.percentReceived < 100)
+                      else filtered = orders.filter(o => !o.percentReceived || o.percentReceived === 0)
+                      return filtered.map((o, idx) => (
+                        <tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                          <td style={styles.td}>{idx + 1}</td>
+                          <td style={styles.td}>{formatDate(o.date)}</td>
+                          <td style={styles.td}>{o.orderNo}</td>
+                          <td style={styles.td}>{o.client}</td>
+                          <td style={styles.td}>{o.customerName}</td>
+                          <td style={styles.td}>{o.salesRep}</td>
+                          <td style={styles.td}>{formatCurrency(o.totalAmount)}</td>
+                          <td style={styles.td}>{formatCurrency(o.receivedAmount)}</td>
+                          <td style={styles.td}>{formatCurrency(o.balance)}</td>
+                          <td style={styles.td}>{o.percentReceived ? o.percentReceived + '%' : '0%'}</td>
+                        </tr>
+                      ))
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            )}
+          </div>
+
+          {/* Top 10 Highest Value Orders */}
+          <div style={styles.reportSection}>
+            <h3 style={styles.reportSectionTitle}>Top 10 Highest Value Orders</h3>
+            <div style={styles.tableWrap}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>#</th>
+                    <th style={styles.th}>Order No</th>
+                    <th style={styles.th}>Client</th>
+                    <th style={styles.th}>Total Amount</th>
+                    <th style={styles.th}>Received</th>
+                    <th style={styles.th}>Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...orders].sort((a, b) => (b.totalAmount || 0) - (a.totalAmount || 0)).slice(0, 10).map((o, idx) => (
+                    <tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                      <td style={styles.td}>{idx + 1}</td>
+                      <td style={styles.td}>{o.orderNo}</td>
+                      <td style={styles.td}>{o.client}</td>
+                      <td style={styles.td}>{formatCurrency(o.totalAmount)}</td>
+                      <td style={styles.td}>{formatCurrency(o.receivedAmount)}</td>
+                      <td style={styles.td}>{formatCurrency(o.balance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Daily Reports Tab */}
+      {activeTab === 'daily' && (
+        <div style={{ padding: '24px' }}>
+          {/* Filter Buttons */}
+          <div style={styles.dailyBtnRow}>
+            <button onClick={() => { setDailyFilter('siteVerification'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVerification' ? styles.dailyBtnActive : styles.dailyBtn}>Site Verification</button>
+            <button onClick={() => { setDailyFilter('installationStatus'); setDailyFilterValue([]) }} style={dailyFilter === 'installationStatus' ? styles.dailyBtnActive : styles.dailyBtn}>Installation Status</button>
+            <button onClick={() => { setDailyFilter('sectionDrawing'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'sectionDrawing' ? styles.dailyBtnActive : styles.dailyBtn}>Section Drawing</button>
+            <button onClick={() => { setDailyFilter('inProduction'); setDailyFilterValue([]) }} style={dailyFilter === 'inProduction' ? styles.dailyBtnActive : styles.dailyBtn}>In Production</button>
+            <button onClick={() => { setDailyFilter('percentReceived'); setDailyFilterValue([]); setDailyPercentMax('') }} style={dailyFilter === 'percentReceived' ? styles.dailyBtnActive : styles.dailyBtn}>% Rec</button>
+            <button onClick={() => { setDailyFilter('akhilSirAudit'); setDailyFilterValue([]) }} style={dailyFilter === 'akhilSirAudit' ? styles.dailyBtnActive : styles.dailyBtn}>Akhil Sir Audit</button>
+            <button onClick={() => { setDailyFilter('advanceBill'); setDailyFilterValue([]) }} style={dailyFilter === 'advanceBill' ? styles.dailyBtnActive : styles.dailyBtn}>Advance Bill</button>
+            <button onClick={() => { setDailyFilter('photography'); setDailyFilterValue([]) }} style={dailyFilter === 'photography' ? styles.dailyBtnActive : styles.dailyBtn}>Photography</button>
+            <button onClick={() => { setDailyFilter('siteVideo'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVideo' ? styles.dailyBtnActive : styles.dailyBtn}>Site Video</button>
+            <button onClick={() => { setDailyFilter('review'); setDailyFilterValue([]) }} style={dailyFilter === 'review' ? styles.dailyBtnActive : styles.dailyBtn}>Review</button>
+            <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]) }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR Pending</button>
+            <span style={{ borderLeft: '2px solid #ddd', height: '36px' }}></span>
+            <button onClick={() => handleDailyPrint()} style={{ ...styles.dailyBtn, background: '#2980b9', color: '#fff', borderColor: '#2980b9' }}>Print</button>
+          </div>
+
+          {/* Filter Value Selection */}
+          {dailyFilter && dailyFilter !== 'percentReceived' && (
+            <div style={styles.dailyFilterBar}>
+              <span style={{ fontSize: '12px', fontWeight: '600' }}>Filter by: {ALL_COLUMNS.find(c => c.key === dailyFilter)?.label}</span>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <button onClick={() => setDailyFilterValue([])} style={dailyFilterValue.length === 0 ? styles.dailyValActive : styles.dailyVal}>All</button>
+                <button onClick={() => dailyFilterValue.includes('__blank__') ? setDailyFilterValue(dailyFilterValue.filter(v => v !== '__blank__')) : setDailyFilterValue([...dailyFilterValue, '__blank__'])} style={dailyFilterValue.includes('__blank__') ? styles.dailyValActive : styles.dailyVal}>(Blank)</button>
+                {(() => {
+                  const values = [...new Set(orders.map(o => String(o[dailyFilter] || '').trim()).filter(v => v))]
+                  return values.sort().map(v => (
+                    <button key={v} onClick={() => dailyFilterValue.includes(v) ? setDailyFilterValue(dailyFilterValue.filter(x => x !== v)) : setDailyFilterValue([...dailyFilterValue, v])} style={dailyFilterValue.includes(v) ? styles.dailyValActive : styles.dailyVal}>{v}</button>
+                  ))
+                })()}
+              </div>
+              {dailyFilter === 'sectionDrawing' && <>
+                <span style={{ borderLeft: '2px solid #ddd', height: '24px', margin: '0 4px' }}></span>
+                <span style={{ fontSize: '12px', fontWeight: '600' }}>LOP:</span>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <button onClick={() => setDailyLopFilter([])} style={dailyLopFilter.length === 0 ? styles.dailyValActive : styles.dailyVal}>All</button>
+                  <button onClick={() => dailyLopFilter.includes('__blank__') ? setDailyLopFilter(dailyLopFilter.filter(v => v !== '__blank__')) : setDailyLopFilter([...dailyLopFilter, '__blank__'])} style={dailyLopFilter.includes('__blank__') ? styles.dailyValActive : styles.dailyVal}>(Blank)</button>
+                  {(() => {
+                    const values = [...new Set(orders.map(o => String(o.lop || '').trim()).filter(v => v))]
+                    return values.sort().map(v => (
+                      <button key={v} onClick={() => dailyLopFilter.includes(v) ? setDailyLopFilter(dailyLopFilter.filter(x => x !== v)) : setDailyLopFilter([...dailyLopFilter, v])} style={dailyLopFilter.includes(v) ? styles.dailyValActive : styles.dailyVal}>{v}</button>
+                    ))
+                  })()}
+                </div>
+              </>}
+            </div>
+          )}
+
+          {/* Percent Received Filter */}
+          {dailyFilter === 'percentReceived' && (
+            <div style={styles.dailyFilterBar}>
+              <span style={{ fontSize: '12px', fontWeight: '600' }}>Show orders with % Received less than:</span>
+              <input
+                type="number"
+                value={dailyPercentMax}
+                onChange={e => setDailyPercentMax(e.target.value)}
+                placeholder="Enter value (e.g. 50)"
+                style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '13px', width: '180px' }}
+              />
+              <span style={{ fontSize: '11px', color: '#888' }}>{dailyPercentMax ? `Showing orders < ${dailyPercentMax}%` : 'Enter a value to filter'}</span>
+            </div>
+          )}
+
+          {/* Results Table */}
+          {dailyFilter === 'orRecvd' ? (
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>S.No</th>
+                  <th style={styles.th}>Date</th>
+                  <th style={styles.th}>Order No</th>
+                  <th style={styles.th}>Client</th>
+                  <th style={styles.th}>Issue To</th>
+                  <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Collected By</th>
+                  <th style={styles.th}>Return Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  let filtered = getDailyFilteredData()
+                  // Sort: ISSUE first, then PENDING, then ISSUED TO (alphabetically by user), then RECEIVED
+                  filtered = filtered.sort((a, b) => {
+                    const getOrder = (val) => {
+                      const v = (val || '').toUpperCase()
+                      if (v === '' || v === '-') return 4
+                      if (v === 'ISSUE') return 0
+                      if (v === 'PENDING') return 1
+                      if (v.startsWith('ISSUED TO')) return 2
+                      if (v === 'PAPER RECEIVED') return 3
+                      return 2
+                    }
+                    const aOrder = getOrder(a.orRecvd)
+                    const bOrder = getOrder(b.orRecvd)
+                    if (aOrder !== bOrder) return aOrder - bOrder
+                    // Within ISSUED TO, sort alphabetically by user name
+                    if (aOrder === 2) return (a.orRecvd || '').localeCompare(b.orRecvd || '')
+                    return (b.date || '').localeCompare(a.date || '')
+                  })
+                  return filtered.map((o, idx) => (
+                    <tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                      <td style={styles.td}>{idx + 1}</td>
+                      <td style={styles.td}>{formatDate(o.date)}</td>
+                      <td style={styles.td}>{o.orderNo}</td>
+                      <td style={styles.td}>{o.client}</td>
+                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? pr.requestedBy : '-' })()}</td>
+                      <td style={{ ...styles.td, fontWeight: '600', color: (o.orRecvd || '').toLowerCase().includes('received') ? '#27ae60' : (o.orRecvd || '').toLowerCase().includes('issued') ? '#8e44ad' : (o.orRecvd || '').toLowerCase().includes('issue') ? '#e74c3c' : '#888' }}>{o.orRecvd || '-'}</td>
+                      <td style={styles.td}>{(() => { const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt ? rt.acceptedBy || rt.returnTo : '-' })()}</td>
+                      <td style={styles.td}>{(() => { const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' })()}</td>
+                    </tr>
+                  ))
+                })()}
+              </tbody>
+            </table>
+          </div>
+          ) : (
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>#</th>
+                  <th style={styles.th}>Date</th>
+                  <th style={styles.th}>PO No</th>
+                  <th style={styles.th}>Client</th>
+                  <th style={styles.th}>Order No</th>
+                  <th style={styles.th}>GST</th>
+                  <th style={styles.th}>Follow Up</th>
+                  {dailyFilter && <th style={styles.th}>{ALL_COLUMNS.find(c => c.key === dailyFilter)?.label}</th>}
+                  {dailyFilter === 'siteVerification' && <th style={styles.th}>Site Verification Remarks</th>}
+                  {dailyFilter === 'installationStatus' && <th style={styles.th}>Installation Remarks</th>}
+                  {dailyFilter === 'sectionDrawing' && <th style={styles.th}>LOP</th>}
+                  {dailyFilter === 'sectionDrawing' && <th style={styles.th}>SD Remarks</th>}
+                  {dailyFilter === 'photography' && <th style={styles.th}>Photography Remarks</th>}
+                  {dailyFilter === 'siteVideo' && <th style={styles.th}>Site Video Remarks</th>}
+                  {dailyFilter === 'review' && <th style={styles.th}>Review Remarks</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const filtered = getDailyFilteredData()
+                  return filtered.map((o, idx) => (
+                    <tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                      <td style={styles.td}>{idx + 1}</td>
+                      <td style={styles.td}>{formatDate(o.date)}</td>
+                      <td style={styles.td}>{o.poNo}</td>
+                      <td style={styles.td}>{o.client}</td>
+                      <td style={styles.td}>{o.orderNo}</td>
+                      <td style={styles.td}>{o.gst}</td>
+                      <td style={styles.td}>{o.followUp}</td>
+                      {dailyFilter && <td style={styles.td}>{o[dailyFilter]}</td>}
+                      {dailyFilter === 'siteVerification' && <td style={styles.td}>{o.siteVerificationRemarks}</td>}
+                      {dailyFilter === 'installationStatus' && <td style={styles.td}>{o.installationRemarks}</td>}
+                      {dailyFilter === 'sectionDrawing' && <td style={styles.td}>{o.lop}</td>}
+                      {dailyFilter === 'sectionDrawing' && <td style={styles.td}>{o.sectionDrawingRemarks}</td>}
+                      {dailyFilter === 'photography' && <td style={styles.td}>{o.photographyRemarks}</td>}
+                      {dailyFilter === 'siteVideo' && <td style={styles.td}>{o.siteVideoRemarks}</td>}
+                      {dailyFilter === 'review' && <td style={styles.td}>{o.reviewRemarks}</td>}
+                    </tr>
+                  ))
+                })()}
+              </tbody>
+            </table>
+          </div>
+          )}
+        </div>
+      )}
+
+      {/* Paper Issue Request Tab */}
+      {activeTab === 'paperIssue' && (
+        <div style={{ padding: '16px 24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+            <div style={{ ...styles.reportSection, marginBottom: 0, padding: '12px' }}>
+              <h4 style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700' }}>Request Order Paper</h4>
+              {rerouteId ? (
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <input value={(() => { const r = (paperRequests || []).find(x => x.id === rerouteId); return r ? r.orderNo : '' })()} disabled style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '120px', background: '#f0f0f0' }} />
+                  <div style={{ flex: '1', position: 'relative' }}>
+                    <input value={rerouteSearch} onChange={e => { setRerouteSearch(e.target.value); setShowRerouteDrop(true); setRerouteTo('') }} onFocus={() => setShowRerouteDrop(true)} placeholder="Reroute To..." style={{ padding: '6px', border: '2px solid #8e44ad', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
+                    {rerouteTo && <span style={{ fontSize: '9px', color: '#27ae60' }}>{rerouteTo}</span>}
+                    {showRerouteDrop && rerouteSearch && (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>
+                        {allUsers.filter(u => u.username !== user.username && ((u.fullName || '').toLowerCase().includes(rerouteSearch.toLowerCase()) || u.username.toLowerCase().includes(rerouteSearch.toLowerCase()))).map(u => (
+                          <div key={u.id} onClick={() => { setRerouteTo(u.username); setRerouteSearch(u.fullName || u.username); setShowRerouteDrop(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.target.style.background='#f0f8ff'} onMouseLeave={e => e.target.style.background='#fff'}>{u.fullName || u.username} ({u.username})</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={async () => { if (!rerouteTo) { alert('Select user'); return } await axios.post(`/api/orders/paper-requests/${rerouteId}/reroute`, { rerouteTo }); setRerouteId(null); setRerouteTo(''); setRerouteSearch(''); fetchPaperRequests(); alert('Rerouted!') }} style={{ padding: '6px 10px', background: '#8e44ad', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>Send</button>
+                  <button onClick={() => { setRerouteId(null); setRerouteTo(''); setRerouteSearch('') }} style={{ padding: '6px 10px', background: '#eee', border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer' }}>X</button>
+                </div>
+              ) : (
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1', position: 'relative', minWidth: '130px' }}>
+                  {paperOrderNo.length > 0 && <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '3px' }}>{paperOrderNo.map(on => <span key={on} style={{ padding: '1px 4px', background: '#e8f5e9', borderRadius: '2px', fontSize: '9px' }}>{on}<button onClick={() => setPaperOrderNo(paperOrderNo.filter(x => x !== on))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '9px', color: '#e74c3c', marginLeft: '2px' }}>x</button></span>)}</div>}
+                  <input value={paperOrderSearch} onChange={e => { setPaperOrderSearch(e.target.value); setShowOrderDropdown(true) }} onFocus={() => setShowOrderDropdown(true)} placeholder="Order No..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} disabled={paperOrderNo.length >= 5} />
+                  {showOrderDropdown && paperOrderSearch && paperOrderNo.length < 5 && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)', minWidth: '300px' }}>{orders.filter(o => !paperOrderNo.includes(o.orderNo) && ((o.orderNo || '').toLowerCase().includes(paperOrderSearch.toLowerCase()) || (o.client || '').toLowerCase().includes(paperOrderSearch.toLowerCase()))).slice(0, 8).map(o => (<div key={o.id} onClick={() => { setPaperOrderNo([...paperOrderNo, o.orderNo]); setPaperOrderSearch(''); setShowOrderDropdown(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.target.style.background='#f0f8ff'} onMouseLeave={e => e.target.style.background='#fff'}>{o.orderNo} - {o.client || ''}</div>))}</div>)}
+                </div>
+                <div style={{ flex: '1', position: 'relative', minWidth: '100px' }}>
+                  <input value={paperUserSearch} onChange={e => { setPaperUserSearch(e.target.value); setShowUserDropdown(true); setPaperIssueTo('') }} onFocus={() => setShowUserDropdown(true)} placeholder="Request To..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
+                  {paperIssueTo && <span style={{ fontSize: '9px', color: '#27ae60' }}>{paperIssueTo}</span>}
+                  {showUserDropdown && paperUserSearch && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>{allUsers.filter(u => u.username !== user.username && ((u.fullName || '').toLowerCase().includes(paperUserSearch.toLowerCase()) || u.username.toLowerCase().includes(paperUserSearch.toLowerCase()))).map(u => (<div key={u.id} onClick={() => { setPaperIssueTo(u.username); setPaperUserSearch(u.fullName || u.username); setShowUserDropdown(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.target.style.background='#f0f8ff'} onMouseLeave={e => e.target.style.background='#fff'}>{u.fullName || u.username}</div>))}</div>)}
+                </div>
+                <button onClick={async () => { if (!paperOrderNo.length || !paperIssueTo) { alert('Select Order & User'); return } try { for (const on of paperOrderNo) { await axios.post('/api/orders/paper-requests', { orderNo: on, issueTo: paperIssueTo }) } setPaperOrderNo([]); setPaperIssueTo(''); setPaperOrderSearch(''); setPaperUserSearch(''); fetchPaperRequests(); alert('Submitted!') } catch (err) { alert(err.response?.data?.error || 'Failed') } }} style={{ padding: '6px 10px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>Issue</button>
+              </div>)}
+            </div>
+            <div style={{ ...styles.reportSection, marginBottom: 0, padding: '12px' }}>
+              <h4 style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700' }}>Return Order Paper</h4>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1', position: 'relative', minWidth: '130px' }}>
+                  {returnOrderNo.length > 0 && <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '3px' }}>{returnOrderNo.map(on => <span key={on} style={{ padding: '1px 4px', background: '#e8f5e9', borderRadius: '2px', fontSize: '9px' }}>{on}<button onClick={() => setReturnOrderNo(returnOrderNo.filter(x => x !== on))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '9px', color: '#e74c3c', marginLeft: '2px' }}>x</button></span>)}</div>}
+                  <input value={returnOrderSearch} onChange={e => { setReturnOrderSearch(e.target.value); setShowReturnOrderDrop(true) }} onFocus={() => setShowReturnOrderDrop(true)} placeholder="Order No..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} disabled={returnOrderNo.length >= 5} />
+                  {showReturnOrderDrop && returnOrderSearch && returnOrderNo.length < 5 && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)', minWidth: '300px' }}>{orders.filter(o => !returnOrderNo.includes(o.orderNo) && ((o.orderNo || '').toLowerCase().includes(returnOrderSearch.toLowerCase()) || (o.client || '').toLowerCase().includes(returnOrderSearch.toLowerCase()))).slice(0, 8).map(o => (<div key={o.id} onClick={() => { setReturnOrderNo([...returnOrderNo, o.orderNo]); setReturnOrderSearch(''); setShowReturnOrderDrop(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.target.style.background='#f0f8ff'} onMouseLeave={e => e.target.style.background='#fff'}>{o.orderNo} - {o.client || ''}</div>))}</div>)}
+                </div>
+                <div style={{ flex: '1', position: 'relative', minWidth: '100px' }}>
+                  <input value={returnUserSearch} onChange={e => { setReturnUserSearch(e.target.value); setShowReturnUserDrop(true); setReturnIssueTo('') }} onFocus={() => setShowReturnUserDrop(true)} placeholder="Return To..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
+                  {returnIssueTo && <span style={{ fontSize: '9px', color: '#27ae60' }}>{returnIssueTo}</span>}
+                  {showReturnUserDrop && returnUserSearch && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>{allUsers.filter(u => u.username !== user.username && ((u.fullName || '').toLowerCase().includes(returnUserSearch.toLowerCase()) || u.username.toLowerCase().includes(returnUserSearch.toLowerCase()))).map(u => (<div key={u.id} onClick={() => { setReturnIssueTo(u.username); setReturnUserSearch(u.fullName || u.username); setShowReturnUserDrop(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.target.style.background='#f0f8ff'} onMouseLeave={e => e.target.style.background='#fff'}>{u.fullName || u.username}</div>))}</div>)}
+                </div>
+                <button onClick={async () => { if (!returnOrderNo.length || !returnIssueTo) { alert('Select Order & User'); return } try { for (const on of returnOrderNo) { await axios.post('/api/orders/return-requests', { orderNo: on, returnTo: returnIssueTo }) } setReturnOrderNo([]); setReturnIssueTo(''); setReturnOrderSearch(''); setReturnUserSearch(''); fetchPaperRequests(); alert('Return submitted!') } catch (err) { alert(err.response?.data?.error || 'Failed') } }} style={{ padding: '6px 10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>Return</button>
+              </div>
+            </div>
+          </div>
+          {(myPaperRequests.length > 0 || myReturnRequests.length > 0) && (<div style={{ display: 'grid', gridTemplateColumns: myPaperRequests.length > 0 && myReturnRequests.length > 0 ? '1fr 1fr' : '1fr', gap: '12px', marginBottom: '12px' }}>
+            {myPaperRequests.length > 0 && (<div style={{ ...styles.reportSection, marginBottom: 0, padding: '10px', border: '2px solid #f39c12' }}><h4 style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700', color: '#f39c12' }}>Issue Requests ({myPaperRequests.length})</h4><table style={{ ...styles.table, fontSize: '10px' }}><thead><tr><th style={styles.th}>Order</th><th style={styles.th}>By</th><th style={styles.th}>Action</th></tr></thead><tbody>{myPaperRequests.map(r => (<tr key={r.id}><td style={styles.td}>{r.orderNo}</td><td style={styles.td}>{r.requestedBy}</td><td style={{...styles.td,whiteSpace:'nowrap'}}><button onClick={async()=>{await axios.post(`/api/orders/paper-requests/${r.id}/accept`);fetchPaperRequests();fetchOrders();alert('Accepted!')}} style={{...styles.tblBtn,background:'#27ae60'}}>Accept</button><button onClick={async()=>{const rm=window.prompt('Reject reason:');if(!rm||!rm.trim()){alert('Required');return}await axios.post(`/api/orders/paper-requests/${r.id}/reject`,{remarks:rm});fetchPaperRequests()}} style={{...styles.tblBtn,background:'#e74c3c'}}>Reject</button><button onClick={()=>{setRerouteId(r.id);setRerouteTo('')}} style={{...styles.tblBtn,background:'#8e44ad'}}>Reroute</button></td></tr>))}</tbody></table></div>)}
+            {myReturnRequests.length > 0 && (<div style={{ ...styles.reportSection, marginBottom: 0, padding: '10px', border: '2px solid #27ae60' }}><h4 style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700', color: '#27ae60' }}>Return Requests ({myReturnRequests.length})</h4><table style={{ ...styles.table, fontSize: '10px' }}><thead><tr><th style={styles.th}>Order</th><th style={styles.th}>By</th><th style={styles.th}>Action</th></tr></thead><tbody>{myReturnRequests.map(r => (<tr key={r.id}><td style={styles.td}>{r.orderNo}</td><td style={styles.td}>{r.requestedBy}</td><td style={{...styles.td,whiteSpace:'nowrap'}}><button onClick={async()=>{await axios.post(`/api/orders/return-requests/${r.id}/accept`);fetchPaperRequests();fetchOrders();alert('Returned!')}} style={{...styles.tblBtn,background:'#27ae60'}}>Accept</button><button onClick={async()=>{const rm=window.prompt('Reject reason:');if(!rm||!rm.trim()){alert('Required');return}await axios.post(`/api/orders/return-requests/${r.id}/reject`,{remarks:rm});fetchPaperRequests()}} style={{...styles.tblBtn,background:'#e74c3c'}}>Reject</button></td></tr>))}</tbody></table></div>)}
+          </div>)}
+          <div style={{ ...styles.reportSection, padding: '10px' }}><h4 style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700' }}>All Requests</h4><div style={styles.tableWrap}><table style={{ ...styles.table, fontSize: '10px' }}><thead><tr><th style={styles.th}>#</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th><th style={styles.th}>Issue Date</th><th style={styles.th}>Issue By</th><th style={styles.th}>Issue To</th><th style={styles.th}>Issue Status</th><th style={styles.th}>Return Date</th><th style={styles.th}>Return By</th><th style={styles.th}>Return To</th><th style={styles.th}>Return Status</th><th style={styles.th}>Rejection Remark</th></tr></thead><tbody>{paperRequests.map((r, idx) => { const ret = returnRequests.find(rt => rt.orderNo === r.orderNo); return (<tr key={r.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}><td style={styles.td}>{idx + 1}</td><td style={styles.td}>{r.orderNo}</td><td style={styles.td}>{r.client}</td><td style={styles.td}>{r.createdAt ? formatDate(r.createdAt.split('T')[0]) : ''}</td><td style={styles.td}>{r.requestedBy}</td><td style={styles.td}>{r.issueTo}</td><td style={{ ...styles.td, fontWeight: '600', color: r.status === 'PENDING' ? '#f39c12' : r.status === 'ACCEPTED' ? '#27ae60' : r.status === 'ISSUE' ? '#e74c3c' : (r.status||'').startsWith('REROUTED') ? '#8e44ad' : '#e74c3c' }}>{r.status}</td><td style={styles.td}>{ret ? (ret.createdAt ? formatDate(ret.createdAt.split('T')[0]) : '') : '-'}</td><td style={styles.td}>{ret ? ret.requestedBy : '-'}</td><td style={styles.td}>{ret ? ret.returnTo : '-'}</td><td style={{ ...styles.td, fontWeight: '600', color: ret ? (ret.status === 'PENDING' ? '#f39c12' : ret.status === 'ACCEPTED' ? '#27ae60' : '#e74c3c') : '#888' }}>{ret ? ret.status : '-'}</td><td style={styles.td}>{(() => { const parts = []; if (r.rejectRemarks) parts.push(<span key='i' style={{color:'#8e44ad'}}>ISSUE (R): {r.rejectRemarks}</span>); if (ret && ret.rejectRemarks) parts.push(<span key='r' style={{color:'#e74c3c'}}>RETURN (R): {ret.rejectRemarks}</span>); return parts.length > 0 ? parts.reduce((a,b) => [a, <br key='br'/>, b]) : '-' })()}</td></tr>) })}</tbody></table>{paperRequests.length === 0 && <p style={{ textAlign: 'center', padding: '15px', color: '#888', fontSize: '11px' }}>No requests yet</p>}</div></div>
+        </div>
+      )}
+
+
+            {/* Paper Issue Pending Popup */}
+      {paperIssuePopup.length > 0 && (
+        <div style={{ position: 'fixed', top: '20px', right: '20px', background: '#fff', border: '2px solid #f39c12', borderRadius: '10px', padding: '16px', boxShadow: '0 6px 20px rgba(0,0,0,0.2)', zIndex: 3000, maxWidth: '350px', animation: 'pulse 1s infinite' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <h4 style={{ margin: 0, fontSize: '13px', color: '#f39c12' }}>Paper Issue Request Pending!</h4>
+            <button onClick={() => setPaperIssuePopup([])} style={{ background: 'none', border: 'none', fontSize: '16px', cursor: 'pointer', fontWeight: '700' }}>X</button>
+          </div>
+          {paperIssuePopup.map(r => (
+            <div key={r.id} style={{ padding: '6px 8px', background: '#fff9e6', borderRadius: '4px', marginBottom: '4px', fontSize: '11px' }}>
+              <strong>{r.orderNo}</strong> - {r.client}<br/>
+              <span style={{ color: '#888' }}>Requested by: {r.requestedBy}</span>
+            </div>
+          ))}
+          <button onClick={() => { setActiveTab('paperIssue'); setPaperIssuePopup([]) }} style={{ marginTop: '8px', padding: '6px 12px', background: '#f39c12', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', width: '100%' }}>Go to Paper Issue Request</button>
+        </div>
+      )}
+
+      {/* Print Layout Selection Modal */}
+      {showPrintPreview && (
+        <div style={styles.overlay}>
+          <div style={{ ...styles.modal, maxWidth: '400px', textAlign: 'center' }}>
+            <h3 style={{ margin: '0 0 8px' }}>Select Print Layout</h3>
+            <p style={{ fontSize: '13px', color: '#666', margin: '0 0 20px' }}>Choose page orientation for A4 paper</p>
+            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+              <button onClick={() => handleDailyPrint('portrait')} style={styles.printOptBtn}>
+                <div style={{ width: '60px', height: '80px', border: '2px solid #1a1a2e', borderRadius: '4px', margin: '0 auto 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#888' }}>A4</div>
+                <span style={{ fontSize: '13px', fontWeight: '600' }}>Portrait</span>
+              </button>
+              <button onClick={() => handleDailyPrint('landscape')} style={styles.printOptBtn}>
+                <div style={{ width: '80px', height: '60px', border: '2px solid #1a1a2e', borderRadius: '4px', margin: '0 auto 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#888' }}>A4</div>
+                <span style={{ fontSize: '13px', fontWeight: '600' }}>Landscape</span>
+              </button>
+            </div>
+            <button onClick={() => setShowPrintPreview(false)} style={{ ...styles.cancelBtn, marginTop: '20px' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Reminder Popup on load */}
+      {showReminderPopup && (
+        <ReminderPopup onClose={() => setShowReminderPopup(false)} />
+      )}
+
+      {/* Modals */}
+      {showOrderForm && (
+        <OrderForm
+          order={editingOrder}
+          onClose={() => { setShowOrderForm(false); setEditingOrder(null) }}
+          onSaved={handleOrderSaved}
+          canEditColumn={canEditColumn}
+          isAdmin={isAdmin}
+        />
+      )}
+
+      {showPaymentForm && (
+        <PaymentForm order={showPaymentForm} onClose={() => setShowPaymentForm(null)} onSaved={handlePaymentSaved} />
+      )}
+
+      {showReminderForm && (
+        <ReminderForm
+          order={showReminderForm}
+          onClose={() => setShowReminderForm(null)}
+          onSaved={() => { setShowReminderForm(null); alert('Reminder set successfully') }}
+        />
+      )}
+
+      {showPasswordModal && (
+        <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />
+      )}
+
+      {/* Delete Confirmation */}
+      {deleteConfirm && (
+        <div style={styles.overlay}>
+          <div style={styles.modal}>
+            <h3>Confirm Deletion</h3>
+            <p>Are you sure you want to delete order <strong>{deleteConfirm.orderNo}</strong>?</p>
+            <p style={{ color: '#e74c3c', fontSize: '13px' }}>This action cannot be undone.</p>
+            <div style={styles.modalActions}>
+              <button onClick={() => setDeleteConfirm(null)} style={styles.cancelBtn}>Cancel</button>
+              <button onClick={() => handleDelete(deleteConfirm.id)} style={styles.dangerBtn}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Duplicates Confirmation */}
+      {importDuplicates && (
+        <div style={styles.overlay}>
+          <div style={styles.modal}>
+            <h3>Duplicate Orders Found</h3>
+            <p>The following order numbers already exist:</p>
+            <ul style={{ maxHeight: '200px', overflow: 'auto', fontSize: '13px' }}>
+              {importDuplicates.map(d => <li key={d}>{d}</li>)}
+            </ul>
+            <p>Do you want to overwrite existing data?</p>
+            <div style={styles.modalActions}>
+              <button onClick={() => { setImportDuplicates(null); setPendingImport(null) }} style={styles.cancelBtn}>Cancel</button>
+              <button onClick={confirmImportOverwrite} style={styles.dangerBtn}>Overwrite All</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const styles = {
+  wrapper: { minHeight: '100vh', background: '#f0f2f5', overflow: 'auto' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', background: '#1a1a2e', color: '#fff' },
+  headerLeft: { display: 'flex', alignItems: 'center', gap: '16px' },
+  headerTitle: { fontSize: '20px', fontWeight: '700', margin: 0 },
+  headerUser: { fontSize: '13px', opacity: 0.8 },
+  headerRight: { display: 'flex', gap: '8px' },
+  headerBtn: { padding: '8px 14px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' },
+  toolbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', flexWrap: 'wrap', gap: '12px' },
+  tabBar: { display: 'flex', gap: '0', padding: '16px 24px 0', borderBottom: '2px solid #e0e0e0' },
+  tab: { padding: '10px 20px', background: 'none', border: 'none', borderBottom: '2px solid transparent', fontSize: '13px', fontWeight: '600', cursor: 'pointer', color: '#666', marginBottom: '-2px' },
+  tabActive: { padding: '10px 20px', background: 'none', border: 'none', borderBottom: '2px solid #1a1a2e', fontSize: '13px', fontWeight: '600', cursor: 'pointer', color: '#1a1a2e', marginBottom: '-2px' },
+  searchWrap: { flex: '1', minWidth: '300px', maxWidth: '500px' },
+  searchInput: { width: '100%', padding: '12px 16px', border: '1.5px solid #ddd', borderRadius: '8px', fontSize: '14px', outline: 'none', textTransform: 'uppercase' },
+  actions: { display: 'flex', gap: '8px', flexWrap: 'wrap' },
+  actionBtn: { padding: '10px 16px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' },
+  columnPicker: { margin: '0 24px 16px', padding: '16px', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', maxHeight: '300px', overflowY: 'auto' },
+  columnPickerHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' },
+  closeBtn: { background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', fontWeight: '700' },
+  selectAllBtn: { padding: '5px 12px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' },
+  deselectAllBtn: { padding: '5px 12px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' },
+  columnGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' },
+  columnCheckbox: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' },
+  filterSummary: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 24px', flexWrap: 'wrap' },
+  filterTag: { display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', background: '#fff3cd', borderRadius: '4px', fontSize: '11px', fontWeight: '500' },
+  filterTagClose: { background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#856404', marginLeft: '2px' },
+  clearAllBtn: { padding: '4px 10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' },
+  tableWrap: { margin: '0 24px', overflowX: 'auto', overflowY: 'auto', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', maxHeight: '60vh' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: '12px' },
+  th: { padding: '10px 8px', background: '#1a1a2e', color: '#fff', fontWeight: '600', textAlign: 'left', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 10 },
+  thContent: { display: 'flex', alignItems: 'center', gap: '4px' },
+  filterBtn: { padding: '2px 5px', border: 'none', borderRadius: '3px', color: '#fff', fontSize: '8px', cursor: 'pointer' },
+  filterDropdown: { position: 'absolute', top: '100%', left: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '8px', minWidth: '180px', maxWidth: '250px', zIndex: 100, display: 'flex', flexDirection: 'column' },
+  filterDropdownHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', paddingBottom: '4px', borderBottom: '1px solid #eee' },
+  filterOptions: { maxHeight: '220px', minHeight: '60px', overflow: 'auto', flex: '1' },
+  filterOption: { display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', cursor: 'pointer', color: '#333' },
+  filterDoneBtn: { marginTop: '8px', padding: '6px 12px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', width: '100%', flexShrink: 0 },
+  td: { padding: '8px', borderBottom: '1px solid #eee', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' },
+  trEven: { background: '#fff' },
+  trOdd: { background: '#f8f9fa' },
+  tblBtn: { padding: '3px 6px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '3px', fontSize: '10px', cursor: 'pointer', marginRight: '3px' },
+  summary: { display: 'flex', gap: '24px', padding: '16px 24px', fontSize: '14px', fontWeight: '600', flexWrap: 'wrap' },
+  overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
+  modal: { background: '#fff', borderRadius: '12px', padding: '32px', maxWidth: '500px', width: '90%' },
+  modalActions: { display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' },
+  cancelBtn: { padding: '10px 20px', background: '#eee', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' },
+  dangerBtn: { padding: '10px 20px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' },
+  reportsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' },
+  reportCard: { background: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', textAlign: 'center' },
+  reportCardSmall: { background: '#fff', borderRadius: '8px', padding: '12px 16px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)', textAlign: 'center' },
+  reportCardTitle: { fontSize: '10px', fontWeight: '600', color: '#888', margin: '0 0 4px', textTransform: 'uppercase' },
+  reportCardValue: { fontSize: '22px', fontWeight: '700', color: '#1a1a2e', margin: '0 0 4px' },
+  reportCardValueSmall: { fontSize: '16px', fontWeight: '700', color: '#1a1a2e', margin: 0 },
+  reportCardSub: { fontSize: '11px', color: '#aaa' },
+  reportSection: { background: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginBottom: '20px' },
+  reportSectionTitle: { fontSize: '15px', fontWeight: '700', color: '#1a1a2e', margin: '0 0 12px' },
+  dailyBtnRow: { display: 'flex', gap: '8px', flexWrap: 'nowrap', marginBottom: '16px', overflowX: 'auto', alignItems: 'center' },
+  dailyBtn: { padding: '8px 14px', background: '#fff', color: '#1a1a2e', border: '2px solid #ddd', borderRadius: '8px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' },
+  dailyBtnActive: { padding: '8px 14px', background: '#1a1a2e', color: '#fff', border: '2px solid #1a1a2e', borderRadius: '8px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' },
+  dailyFilterBar: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', padding: '12px', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)', flexWrap: 'wrap' },
+  dailyVal: { padding: '5px 12px', background: '#f0f0f0', border: '1px solid #ddd', borderRadius: '20px', fontSize: '11px', cursor: 'pointer', fontWeight: '500' },
+  dailyValActive: { padding: '5px 12px', background: '#2980b9', color: '#fff', border: '1px solid #2980b9', borderRadius: '20px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' },
+  printOptBtn: { padding: '16px 24px', background: '#fff', border: '2px solid #ddd', borderRadius: '10px', cursor: 'pointer', transition: 'border-color 0.2s' }
+}
+
+export default Dashboard
+
+
+
+
+
+
+

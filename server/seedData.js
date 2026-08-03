@@ -1,0 +1,257 @@
+export function getInitialOrders() {
+  return [
+    {
+      date: '2026-07-30', poNo: 'PO#LMCP-26-27-001 DT:30.07.2026', client: 'LE MARCHE (CHANAKYAPURI, DELHI) (WALL SHELF)',
+      orderNo: 'OR/2026-27/239 AB', status: 'Req', deliveryDate: '', deliveryRemarks: '',
+      customerName: 'SUSANT', gst: '07AACCN0372K1ZH', billingAddress: 'DELHI', followUp: 'SHEKHAR',
+      salesRep: 'ABHISHEK SIR', deliveryAddress: 'DELHI', phoneNo: '8130111414',
+      siteVerification: '', siteVerificationRemarks: '', installationStatus: '', installationRemarks: '',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 14160, receivedAmount: 0, balance: 14160,
+      percentReceived: 0, paymentRemarks: '30.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 1,
+      remarks: '30.07.26: PO ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'JYOTI', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-30', poNo: 'NR', client: 'KARIGARI (MEERUT) (ADDITIONAL KITCHEN EQUIPMENT)',
+      orderNo: 'OR/2026-27/238 NI', status: 'Req', deliveryDate: '', deliveryRemarks: '',
+      customerName: 'MANISH SHARMA', gst: '09ACGFM3448N1ZN', billingAddress: 'MEERUT', followUp: 'SHEKHAR',
+      salesRep: 'NIKHIL SIR', deliveryAddress: 'MEERUT', phoneNo: '9996331271',
+      siteVerification: '', siteVerificationRemarks: '', installationStatus: '', installationRemarks: '',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 91733, receivedAmount: 0, balance: 91733,
+      percentReceived: 0, paymentRemarks: '30.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 1,
+      remarks: '30.07.26: GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'JYOTI', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-30', poNo: 'PO#5500004221 DT: 16/07/26', client: 'HALDIRAM SNACKS PVT LTD (HALL NO. 8, SEC-155 NOIDA) (COLD ROOM RACKS)',
+      orderNo: 'OR/2026-27/237 AB', status: 'Req', deliveryDate: '', deliveryRemarks: '',
+      customerName: 'SANDEEP', gst: '09AAGCH6000C1Z3', billingAddress: 'NOIDA', followUp: 'SHEKHAR',
+      salesRep: 'ABHISHEK SIR', deliveryAddress: 'NOIDA', phoneNo: '8630042956',
+      siteVerification: '', siteVerificationRemarks: '', installationStatus: '', installationRemarks: '',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 852550, receivedAmount: 0, balance: 852550,
+      percentReceived: 0, paymentRemarks: '30.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 1,
+      remarks: '30.07.26: PO ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'JYOTI', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-30', poNo: 'NR', client: 'MOHIT DANG (SHAKTI NAGAR) (KITCHEN EQUIPMENT)',
+      orderNo: 'OR/2026-27/236 AB', status: 'Req', deliveryDate: '', deliveryRemarks: '',
+      customerName: 'MOHIT', gst: 'APPLIED', billingAddress: 'DELHI', followUp: 'SHEKHAR',
+      salesRep: 'ABHISHEK SIR', deliveryAddress: 'DELHI', phoneNo: '9910440208',
+      siteVerification: '', siteVerificationRemarks: '', installationStatus: '', installationRemarks: '',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 70623, receivedAmount: 25000, balance: 45623,
+      percentReceived: 35.4, paymentRemarks: '29.07.26: RECEIVED Rs-25000/- 30.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 1,
+      remarks: '30.07.26: GST Applied by client, will come after 15 days', akhilSirAudit: '', advanceBill: '', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-29', poNo: 'RE', client: 'HALDIRAM MARKETING PVT LTD (ALIGARH) (HOT BAIN MARIE FOR GHEWAR)',
+      orderNo: 'OR/2026-27/235 AB', status: 'Req', deliveryDate: '', deliveryRemarks: '',
+      customerName: 'SANJEEV YADAV', gst: '09AAACH0189A1ZZ', billingAddress: 'UTTAR PRADESH', followUp: 'SHEKHAR',
+      salesRep: 'ABHISHEK SIR', deliveryAddress: 'UTTAR PRADESH', phoneNo: '9811558970',
+      siteVerification: '', siteVerificationRemarks: '', installationStatus: 'NR', installationRemarks: 'NR',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 70800, receivedAmount: 0, balance: 70800,
+      percentReceived: 0, paymentRemarks: '29.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 2,
+      remarks: '29.07.26: GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'JYOTI', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-29', poNo: 'PO#LMMI-26-27-001 DT: 28.07.2026', client: 'LE MARCHE (MALL OF INDIA, NOIDA) (GREASE TRAP)',
+      orderNo: 'OR/2026-27/234 AB', status: 'Mentioned', deliveryDate: '2026-07-30', deliveryRemarks: '29.07.26: As discussed with Abhishek sir, DOD updated (RIYA)',
+      customerName: 'SUSANT', gst: '09AACCN0372K2ZC', billingAddress: 'NOIDA', followUp: 'SHEKHAR',
+      salesRep: 'ABHISHEK SIR', deliveryAddress: 'NOIDA', phoneNo: '8130111414',
+      siteVerification: '', siteVerificationRemarks: '', installationStatus: 'NR', installationRemarks: 'NR',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 24780, receivedAmount: 0, balance: 24780,
+      percentReceived: 0, paymentRemarks: '29.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 2,
+      remarks: '29.07.26: PO & GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'NR', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-29', poNo: 'NR', client: 'SHREE SAI SERVICES -AIIMS (RAIPUR) (KITCHEN EQUIPMENT)',
+      orderNo: 'OR/2026-27/232 NI', status: 'Mentioned', deliveryDate: '2026-08-20', deliveryRemarks: '29.07.26: As discussed with Nikhil sir, DOD updated (RIYA)',
+      customerName: 'NITIN SAHNI', gst: '22ABGCS0268L1Z9', billingAddress: 'RAIPUR', followUp: 'SHEKHAR',
+      salesRep: 'NIKHIL SIR', deliveryAddress: 'RAIPUR', phoneNo: '',
+      siteVerification: '', siteVerificationRemarks: '', installationStatus: 'RE', installationRemarks: 'ANIL',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 1239000, receivedAmount: 200000, balance: 1039000,
+      percentReceived: 16.14, paymentRemarks: '24.07.26: RECEIVED Rs- 200000/- 29.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 2,
+      remarks: '30.07.26: GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'JYOTI', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-28', poNo: 'NR', client: 'KUNDAN SWEETS (RAMNAGAR) (DISPLAY COUNTER)',
+      orderNo: 'OR/2026-27/231 NI', status: 'Mentioned', deliveryDate: '2026-09-10', deliveryRemarks: '28.07.26: As discussed with Nikhil sir, DOD updated (RIYA)',
+      customerName: 'BHARAT', gst: '05CHDPA1113Q1ZP', billingAddress: 'UTTRAKHAND', followUp: 'SHEKHAR',
+      salesRep: 'NIKHIL SIR', deliveryAddress: 'UTTRAKHAND', phoneNo: '9811232738',
+      siteVerification: '', siteVerificationRemarks: '', installationStatus: 'RE', installationRemarks: 'ANIL',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 1404200, receivedAmount: 0, balance: 1404200,
+      percentReceived: 0, paymentRemarks: '28.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 3,
+      remarks: '28.07.26: GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'JYOTI', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-28', poNo: 'RE', client: 'CHAAYOS (PUNE) (INDUCTION KADHAI)',
+      orderNo: 'OR/2026-27/230 AB', status: 'Mentioned', deliveryDate: 'ASAP', deliveryRemarks: '',
+      customerName: 'PRADEEP JI', gst: '27AARCS3853M1ZJ', billingAddress: 'PUNE', followUp: 'SHEKHAR',
+      salesRep: 'ABHISHEK SIR', deliveryAddress: 'PUNE', phoneNo: '958200200',
+      siteVerification: '', siteVerificationRemarks: '', installationStatus: 'NR', installationRemarks: 'NR',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 513300, receivedAmount: 0, balance: 513300,
+      percentReceived: 0, paymentRemarks: '28.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 3,
+      remarks: '28.07.26: GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'JYOTI', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-27', poNo: 'NR', client: 'LYALLJI SWEETS (LUDHIANA) (DISPLAY COUNTER & KITCHEN EQUIPMENT)',
+      orderNo: 'OR/2026-27/229 NI', status: 'Mentioned', deliveryDate: '2026-09-10', deliveryRemarks: '29.07.26: As discussed with Nikhil sir, DOD updated (RIYA)',
+      customerName: 'ROHIT KHARBANDA', gst: '03AAGCL6577Q1ZS', billingAddress: 'LUDHIANA', followUp: 'SHEKHAR',
+      salesRep: 'NIKHIL SIR', deliveryAddress: 'LUDHIANA', phoneNo: '9417900049',
+      siteVerification: '', siteVerificationRemarks: '', installationStatus: 'RE', installationRemarks: 'ANIL',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 8171500, receivedAmount: 999100, balance: 7172400,
+      percentReceived: 12.23, paymentRemarks: '20.07.26: RECEIVED Rs-999100/- 27.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 4,
+      remarks: '28.07.26: GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'JYOTI', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-24', poNo: 'NR', client: 'JANTA SWEET -5 STAR (DEHRADOON) (RETAIL RACKS)',
+      orderNo: 'OR/2026-27/228 AN', status: 'Req', deliveryDate: '', deliveryRemarks: '',
+      customerName: 'RAGHAV', gst: '05AAICK4211E1Z1', billingAddress: 'UTTRAKHAND', followUp: 'SHEKHAR',
+      salesRep: 'ANUJ SIR', deliveryAddress: 'UTTRAKHAND', phoneNo: '9761300160',
+      siteVerification: 'NR', siteVerificationRemarks: '', installationStatus: 'NR', installationRemarks: 'NR',
+      lop: 'Yes', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 125080, receivedAmount: 62540, balance: 62540,
+      percentReceived: 50, paymentRemarks: '26.07.26: RECEIVED Rs-62540/- 24.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 7,
+      remarks: '24.07.26: GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'DONE', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-24', poNo: 'PO#DPL-PO-PSLLP/26/06-MU-2024 DT: 17.07.2026', client: 'DESIGNCO PVT LTD (LOHIA GROUP - MORADABAD) (WASH BASIN SINKS)',
+      orderNo: 'OR/2026-27/227 AB', status: 'Mentioned', deliveryDate: '2026-08-13', deliveryRemarks: '24.07.26: As discussed with Abhishek sir, DOD updated (RIYA)',
+      customerName: 'DEEPAK SINGH', gst: '09AAGCD5878C1ZF', billingAddress: 'MORADABAD', followUp: 'SHEKHAR',
+      salesRep: 'ABHISHEK SIR', deliveryAddress: 'MORADABAD', phoneNo: '8178276446',
+      siteVerification: '', siteVerificationRemarks: '', installationStatus: 'NR', installationRemarks: 'NR',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 152220, receivedAmount: 64500, balance: 87720,
+      percentReceived: 42.37, paymentRemarks: '27.07.26: RECEIVED Rs-64500/- 24.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 7,
+      remarks: '24.07.26: PO ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'DONE', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-21', poNo: 'NR', client: 'BERCOS (DELHI) (KITCHEN EQUIPMENT)',
+      orderNo: 'OR/2026-27/225 AB', status: 'Mentioned', deliveryDate: '2026-09-04', deliveryRemarks: '23.07.26: As discussed with Abhishek sir, DOD updated (RIYA)',
+      customerName: 'ASHISH', gst: '', billingAddress: 'DELHI', followUp: 'SHEKHAR',
+      salesRep: 'ABHISHEK SIR', deliveryAddress: 'DELHI', phoneNo: '9811242423',
+      siteVerification: 'Issue', siteVerificationRemarks: '', installationStatus: 'RE', installationRemarks: 'MADHU MA\'AM',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 1434238, receivedAmount: 450000, balance: 984238,
+      percentReceived: 31.38, paymentRemarks: '21.07.26: RECEIVED Rs-450000/- 21.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 10,
+      remarks: '30.07.26: As discussed with customer gst will come after 10 days', akhilSirAudit: '', advanceBill: '', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-16', poNo: 'NR', client: 'SHAHI BAKERS (ANANT NAG, KASHMIR) (DISPLAY COUNTER)',
+      orderNo: 'OR/2026-27/219 AB', status: 'Mentioned', deliveryDate: '2026-08-10', deliveryRemarks: '23.07.26: As discussed with Abhishek sir, DOD updated (RIYA)',
+      customerName: 'MAJID', gst: '01BLRPS6532G1ZX', billingAddress: 'KASHMIR', followUp: 'SHEKHAR',
+      salesRep: 'ABHISHEK SIR', deliveryAddress: 'KASHMIR', phoneNo: '9906841966',
+      siteVerification: 'NR', siteVerificationRemarks: '', installationStatus: 'NR', installationRemarks: 'NR',
+      lop: 'Yes', sectionDrawing: 'YES', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 927480, receivedAmount: 920000, balance: 7480,
+      percentReceived: 99.19, paymentRemarks: '18.07.26: RECEIVED Rs-500000+200000+200000/- 16.07.26: RECEIVED Rs-20000/-', daysToOrder: 15,
+      remarks: '17.7.26: GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'DONE', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-16', poNo: 'NR', client: 'KABILA SJ (SAN JOSE, USA) (DISPLAY COUNTER)',
+      orderNo: 'OR/2026-27/218 NI', status: 'Mentioned', deliveryDate: '2026-08-10', deliveryRemarks: '',
+      customerName: 'PERMINDER SINGH', gst: 'EXPORT', billingAddress: 'USA', followUp: 'SHEKHAR',
+      salesRep: 'NIKHIL SIR', deliveryAddress: 'USA', phoneNo: '(510) 427-2448',
+      siteVerification: 'NR', siteVerificationRemarks: '', installationStatus: 'Yes', installationRemarks: 'Yes',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 1023600, receivedAmount: 1022850.88, balance: 749.12,
+      percentReceived: 99.93, paymentRemarks: '23.07.26: RECEIVED Rs-653585.40/- 20.07.26: RECEIVED Rs-369265.48/-', daysToOrder: 15,
+      remarks: '22.07.26: Billing & shipping address attached', akhilSirAudit: 'Approved', advanceBill: 'NR', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-15', poNo: 'PO#5500021678 DT: 13/07/2026', client: 'HALDIRAM MARKETING PVT LTD (ETHNIC) (SHAMLI, UP) (DISPLAY WITH SERVICE COUNTER & KITCHEN EQUIPMENT)',
+      orderNo: 'OR/2026-27/210 NI', status: 'Mentioned', deliveryDate: '2026-09-01', deliveryRemarks: '18.07.26: As discussed with Nikhil sir, DOD updated (RIYA)',
+      customerName: 'DHIRENDER', gst: '09AAACH0189A1ZZ', billingAddress: 'UTTAR PRADESH', followUp: 'SHEKHAR',
+      salesRep: 'NIKHIL SIR', deliveryAddress: 'UTTAR PRADESH', phoneNo: '93136 48614',
+      siteVerification: 'Issue', siteVerificationRemarks: '', installationStatus: 'Yes', installationRemarks: 'Yes',
+      lop: '', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 5347937, receivedAmount: 0, balance: 5347937,
+      percentReceived: 0, paymentRemarks: '15.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 16,
+      remarks: '15.07.26: PO ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'DONE', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-14', poNo: 'NR', client: 'SAMRAT INDUSTRIES (BENGLORE) (HOODS)',
+      orderNo: 'OR/2026-27/204 NI', status: 'Mentioned', deliveryDate: '2026-08-10', deliveryRemarks: '15.07.26: As discussed with Nikhil sir, DOD updated (RIYA)',
+      customerName: 'MANCHIT SAMRAT', gst: '09CHNPS6678A1ZQ', billingAddress: 'BENGLORE', followUp: 'SHEKHAR',
+      salesRep: 'NIKHIL SIR', deliveryAddress: 'BENGLORE', phoneNo: '9312627958',
+      siteVerification: 'NR', siteVerificationRemarks: '', installationStatus: 'NR', installationRemarks: 'NR',
+      lop: 'Yes', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 7165349, receivedAmount: 2000000, balance: 5165349,
+      percentReceived: 27.91, paymentRemarks: '15.07.26: RECEIVED Rs-1000000/- 14.07.26: RECEIVED Rs-1000000/-', daysToOrder: 17,
+      remarks: '18.07.26: GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'DONE', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-11', poNo: 'NR', client: 'GUPTA BROTHERS (GORAKHPUR) (DISPLAY COUNTER)',
+      orderNo: 'OR/2026-27/199 AN', status: 'Mentioned', deliveryDate: '2026-08-11', deliveryRemarks: '11.07.26: As discussed with Anuj sir, DOD updated (RIYA)',
+      customerName: 'VINNET GUPTA', gst: '09AASCA9635L1ZS', billingAddress: 'GORAKHPUR', followUp: 'SHEKHAR',
+      salesRep: 'ANUJ SIR', deliveryAddress: 'GORAKHPUR', phoneNo: '9836199154',
+      siteVerification: 'YES', siteVerificationRemarks: '', installationStatus: 'Yes', installationRemarks: 'Yes',
+      lop: 'Yes', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 467870, receivedAmount: 280000, balance: 187870,
+      percentReceived: 59.85, paymentRemarks: '10.07.26: RECEIVED Rs-280000/- 11.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 20,
+      remarks: '11.07.26: GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'DONE', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-04', poNo: 'RE', client: 'BIKANERVALA FOODS PVT LTD (NDLS RAILWAY STATION) (DISPLAY/ SERVICE/ COUNTER AND KITCHEN EQUIPMENT)',
+      orderNo: 'OR/2026-27/182 NI', status: 'Mentioned', deliveryDate: '2026-08-13', deliveryRemarks: '4.07.26: As discussed with Nikhil sir, DOD updated. (RIYA)',
+      customerName: 'VISHAL MATHUR', gst: '', billingAddress: 'NEW DELHI', followUp: 'SHEKHAR',
+      salesRep: 'NIKHIL SIR', deliveryAddress: 'NEW DELHI', phoneNo: '9650261188',
+      siteVerification: '?', siteVerificationRemarks: '', installationStatus: 'Yes', installationRemarks: 'Yes',
+      lop: 'Yes', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 3274264, receivedAmount: 1000000, balance: 2274264,
+      percentReceived: 30.54, paymentRemarks: '3.07.26: RECEIVED Rs-1000000/- 4.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 27,
+      remarks: '18.07.26: As discussed with client, he will share gst details after 10 days', akhilSirAudit: '', advanceBill: '', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-04', poNo: 'NR', client: 'JANTA SWEET (FARIDABAD) (DISPLAY & KITCHEN EQUIPMENT)',
+      orderNo: 'OR/2026-27/181 NI', status: 'Mentioned', deliveryDate: '2026-08-13', deliveryRemarks: '4.07.26: As discussed with Nikhil sir, DOD updated. (RIYA)',
+      customerName: 'CHIRAG AHUJA', gst: '', billingAddress: 'FARIDABAD', followUp: 'SHEKHAR',
+      salesRep: 'NIKHIL SIR', deliveryAddress: 'FARIDABAD', phoneNo: '9759050007',
+      siteVerification: 'NR', siteVerificationRemarks: '', installationStatus: 'Yes', installationRemarks: 'Yes',
+      lop: 'Yes', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 3023986, receivedAmount: 900000, balance: 2123986,
+      percentReceived: 29.76, paymentRemarks: '09.07.26: RECEIVED Rs-900000/- 4.07.2026: ORDER PUNCHED (RIYA)', daysToOrder: 27,
+      remarks: '27.07.26: GST will come after 3,4 days', akhilSirAudit: '', advanceBill: '', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-02', poNo: 'NR', client: 'PRAMOD LADDU (GANDHI MAIDAN, GAYA) (DISPLAY & KITCHEN EQUIPMENT)',
+      orderNo: 'OR/2026-27/176 NI', status: 'Mentioned', deliveryDate: '2026-09-30', deliveryRemarks: '2.07.26: As discussed with Nikhil sir, DOD updated. (RIYA)',
+      customerName: 'MR VINOD PRASHAD', gst: '10AAMFP0204F1Z0', billingAddress: 'BIHAR', followUp: 'SHEKHAR',
+      salesRep: 'NIKHIL SIR', deliveryAddress: 'BIHAR', phoneNo: '9431271875',
+      siteVerification: 'RE', siteVerificationRemarks: '', installationStatus: 'Yes', installationRemarks: 'Yes',
+      lop: 'Yes', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 9854558, receivedAmount: 0, balance: 9854558,
+      percentReceived: 0, paymentRemarks: '2.07.2026: ORDER PUNCHED (MANISHA)', daysToOrder: 29,
+      remarks: '14.07.26: GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'DONE', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-07-02', poNo: 'NR', client: 'SFB COOKIES (PITAMPURA, DELHI) (DISPLAY COUNTER)',
+      orderNo: 'OR/2026-27/175 AN', status: 'Mentioned', deliveryDate: '2026-08-07', deliveryRemarks: '2.07.26: As discussed with Anuj sir, DOD updated. (RIYA)',
+      customerName: 'LALIT JI', gst: '07BAQPS6861J1ZU', billingAddress: 'DELHI', followUp: 'SHEKHAR',
+      salesRep: 'ANUJ SIR', deliveryAddress: 'DELHI', phoneNo: '9873876851',
+      siteVerification: 'NR', siteVerificationRemarks: '', installationStatus: 'Yes', installationRemarks: 'Yes',
+      lop: 'Yes', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 1224840, receivedAmount: 500000, balance: 724840,
+      percentReceived: 40.82, paymentRemarks: '04.07.26: RECEIVED Rs-100000/- 03.07.26: RECEIVED Rs-400000/-', daysToOrder: 29,
+      remarks: '2.07.26: GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'DONE', orRecvd: 'Paper Received'
+    },
+    {
+      date: '2026-06-29', poNo: 'RE', client: 'BIKANERVALA PVT LTD (MOHALI MEDALLIAN) (DISPLAY & KITCHEN EQUIPMENT)',
+      orderNo: 'OR/2026-27/173 NI', status: 'Mentioned', deliveryDate: '2026-08-10', deliveryRemarks: '2.07.26: As discussed with Nikhil sir, DOD updated. (RIYA)',
+      customerName: 'VISHAL MATHUR', gst: '03AAQFT3429A2ZF', billingAddress: 'MOHALI', followUp: 'SHEKHAR',
+      salesRep: 'NIKHIL SIR', deliveryAddress: 'MOHALI', phoneNo: '9650261188',
+      siteVerification: '?', siteVerificationRemarks: '', installationStatus: 'Yes', installationRemarks: 'Yes',
+      lop: 'Yes', sectionDrawing: '', sectionDrawingRemarks: '', inProduction: '',
+      billing: '', installation: '', totalAmount: 4875760, receivedAmount: 2700000, balance: 2175760,
+      percentReceived: 55.38, paymentRemarks: '07.07.26: RECEIVED Rs-2700000/- 29.06.2026: ORDER PUNCHED (RIYA)', daysToOrder: 32,
+      remarks: '17.07.26: GST ATTACHED (RIYA)', akhilSirAudit: 'Approved', advanceBill: 'DONE', orRecvd: 'Paper Received'
+    },
+  ]
+}
