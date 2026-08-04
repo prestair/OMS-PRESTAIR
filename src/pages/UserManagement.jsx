@@ -88,14 +88,14 @@ function UserManagement() {
         </div>
 
         <table style={s.table}><thead><tr>
-          <th style={s.th}>#</th><th style={s.th}>Username</th><th style={s.th}>Full Name</th><th style={s.th}>Role</th><th style={s.th}>Group</th><th style={s.th}>Actions</th>
+          <th style={{...s.th,padding:'5px 8px'}}>#</th><th style={{...s.th,padding:'5px 8px'}}>Username</th><th style={{...s.th,padding:'5px 8px'}}>Full Name</th><th style={{...s.th,padding:'5px 8px'}}>Role</th><th style={{...s.th,padding:'5px 8px'}}>Group</th><th style={{...s.th,padding:'5px 8px'}}>Actions</th>
         </tr></thead><tbody>
           {users.filter(u => !userSearch || (u.fullName||'').toLowerCase().includes(userSearch.toLowerCase()) || u.username.toLowerCase().includes(userSearch.toLowerCase())).map((u, i) => (
             <tr key={u.id} style={i%2?{background:'#f8f9fa'}:{}}>
-              <td style={s.td}>{i+1}</td><td style={s.td}>{u.username}</td><td style={s.td}>{u.fullName}</td>
-              <td style={s.td}><span style={u.role==='admin'?s.badgeA:s.badgeU}>{u.role}</span></td>
-              <td style={s.td}>{u.group||'-'}</td>
-              <td style={s.td}>
+              <td style={{...s.td,padding:'3px 6px',fontSize:'11px'}}>{i+1}</td><td style={{...s.td,padding:'3px 6px',fontSize:'11px'}}>{u.username}</td><td style={{...s.td,padding:'3px 6px',fontSize:'11px'}}>{u.fullName}</td>
+              <td style={{...s.td,padding:'3px 6px',fontSize:'11px'}}><span style={u.role==='admin'?s.badgeA:s.badgeU}>{u.role}</span></td>
+              <td style={{...s.td,padding:'3px 6px',fontSize:'11px'}}>{u.group||'-'}</td>
+              <td style={{...s.td,padding:'3px 6px',fontSize:'11px',whiteSpace:'nowrap'}}>
                 <button onClick={() => { setEditingUser(u); setForm({ username:u.username, password:'', fullName:u.fullName, role:u.role, group:u.group||'', columnPermissions:u.columnPermissions||{}, canEdit:u.canEdit!==undefined?u.canEdit:false, canReceipt:u.canReceipt!==undefined?u.canReceipt:false, canAssignReminder:u.canAssignReminder||false, canDelete:u.canDelete||false, canCreateQuote:u.canCreateQuote||false, canColor:u.canColor||false }); setShowForm(true) }} style={s.tBtn}>Edit</button>
                 <button onClick={() => setResetPassword(u)} style={{...s.tBtn,background:'#f39c12'}}>Pass</button>
                 {u.id!==user.id && <button onClick={async()=>{if(window.confirm('Delete?')){await axios.delete(`/api/users/${u.id}`);fetchUsers()}}} style={{...s.tBtn,background:'#e74c3c'}}>Del</button>}
