@@ -105,7 +105,7 @@ function Dashboard() {
   const [returnRequests, setReturnRequests] = useState([])
   const [myReturnRequests, setMyReturnRequests] = useState([])
   const [allUsers, setAllUsers] = useState([])
-  const [colorFilter, setColorFilter] = useState('')
+  const [colorFilter, setColorFilter] = useState([])
   const fileInputRef = useRef(null)
 
   // Determine columns user is allowed to see
@@ -178,8 +178,8 @@ function Dashboard() {
     })
 
     // Apply color filter
-    if (colorFilter) {
-      result = result.filter(o => o.rowColor === colorFilter)
+    if (colorFilter.length > 0) {
+      result = result.filter(o => colorFilter.includes(o.rowColor))
     }
 
     setFilteredOrders(result)
@@ -633,12 +633,17 @@ function Dashboard() {
             onChange={handleSearch}
             style={styles.searchInput}
           />
-          <select value={colorFilter} onChange={e => setColorFilter(e.target.value)} style={{ padding:'7px 10px', borderRadius:'5px', border:'1px solid #ddd', fontSize:'12px', fontWeight:'600', marginLeft:'8px' }}>
-            <option value="">All Colors</option>
-            <option value="red" style={{background:'#ffcccc'}}>Red</option>
-            <option value="orange" style={{background:'#ffe0b2'}}>Orange</option>
-            <option value="yellow" style={{background:'#fff9c4'}}>Yellow</option>
-          </select>
+          <div style={{display:'inline-flex',alignItems:'center',gap:'6px',marginLeft:'10px'}}>
+            <span style={{fontSize:'11px',fontWeight:'600',color:'#555'}}>Filter:</span>
+            {[{c:'red',bg:'#e74c3c',label:'Red'},{c:'orange',bg:'#f39c12',label:'Orange'},{c:'yellow',bg:'#f1c40f',label:'Yellow'}].map(({c,bg,label})=>(
+              <label key={c} style={{display:'flex',alignItems:'center',gap:'3px',cursor:'pointer',padding:'3px 8px',borderRadius:'4px',background:colorFilter.includes(c)?bg+'33':'#f0f0f0',border:colorFilter.includes(c)?`2px solid ${bg}`:'2px solid transparent',fontSize:'11px',fontWeight:'600'}}>
+                <input type="checkbox" checked={colorFilter.includes(c)} onChange={e=>{if(e.target.checked)setColorFilter([...colorFilter,c]);else setColorFilter(colorFilter.filter(x=>x!==c))}} style={{display:'none'}}/>
+                <span style={{width:'12px',height:'12px',borderRadius:'50%',background:bg,display:'inline-block'}}></span>
+                {label}
+              </label>
+            ))}
+            {colorFilter.length > 0 && <button onClick={()=>setColorFilter([])} style={{fontSize:'10px',background:'#eee',border:'none',borderRadius:'3px',padding:'3px 6px',cursor:'pointer'}}>Clear</button>}
+          </div>
         </div>
         <div style={styles.actions}>
           {canCreateOrder && <button onClick={() => { setEditingOrder(null); setShowOrderForm(true) }} style={styles.actionBtn}>+ Add New Order</button>}
