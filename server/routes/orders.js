@@ -284,7 +284,7 @@ router.get('/:id/reminders', async (req, res) => {
 // Helper: map snake_case DB row to camelCase for frontend
 function mapOrder(o) {
   if (!o) return o
-  return { id: o.id, date: o.date, poNo: o.po_no, client: o.client, orderNo: o.order_no, status: o.status, deliveryDate: o.delivery_date, deliveryRemarks: o.delivery_remarks, customerName: o.customer_name, gst: o.gst, billingAddress: o.billing_address, followUp: o.follow_up, salesRep: o.sales_rep, deliveryAddress: o.delivery_address, phoneNo: o.phone_no, siteVerification: o.site_verification, siteVerificationRemarks: o.site_verification_remarks, installationStatus: o.installation_status, installationRemarks: o.installation_remarks, lop: o.lop, sectionDrawing: o.section_drawing, sectionDrawingRemarks: o.section_drawing_remarks, inProduction: o.in_production, billing: o.billing, installation: o.installation, totalAmount: o.total_amount, receivedAmount: o.received_amount, balance: o.balance, percentReceived: o.percent_received, paymentRemarks: o.payment_remarks, daysToOrder: o.days_to_order, remarks: o.remarks, akhilSirAudit: o.akhil_sir_audit, advanceBill: o.advance_bill, orRecvd: o.or_recvd, photography: o.photography, photographyRemarks: o.photography_remarks, siteVideo: o.site_video, siteVideoRemarks: o.site_video_remarks, review: o.review, reviewRemarks: o.review_remarks, createdAt: o.created_at }
+  return { id: o.id, date: o.date, poNo: o.po_no, client: o.client, orderNo: o.order_no, status: o.status, deliveryDate: o.delivery_date, deliveryRemarks: o.delivery_remarks, customerName: o.customer_name, gst: o.gst, billingAddress: o.billing_address, followUp: o.follow_up, salesRep: o.sales_rep, deliveryAddress: o.delivery_address, phoneNo: o.phone_no, siteVerification: o.site_verification, siteVerificationRemarks: o.site_verification_remarks, installationStatus: o.installation_status, installationRemarks: o.installation_remarks, lop: o.lop, sectionDrawing: o.section_drawing, sectionDrawingRemarks: o.section_drawing_remarks, inProduction: o.in_production, billing: o.billing, installation: o.installation, totalAmount: o.total_amount, receivedAmount: o.received_amount, balance: o.balance, percentReceived: o.percent_received, paymentRemarks: o.payment_remarks, daysToOrder: o.days_to_order, remarks: o.remarks, akhilSirAudit: o.akhil_sir_audit, advanceBill: o.advance_bill, orRecvd: o.or_recvd, photography: o.photography, photographyRemarks: o.photography_remarks, siteVideo: o.site_video, siteVideoRemarks: o.site_video_remarks, review: o.review, reviewRemarks: o.review_remarks, rowColor: o.row_color || '', createdAt: o.created_at }
 }
 
 // Helper: map camelCase frontend data to snake_case for DB
@@ -331,6 +331,7 @@ function snakeOrder(o) {
   if (o.siteVideoRemarks !== undefined) s.site_video_remarks = o.siteVideoRemarks
   if (o.review !== undefined) s.review = o.review
   if (o.reviewRemarks !== undefined) s.review_remarks = o.reviewRemarks
+  if (o.rowColor !== undefined) s.row_color = o.rowColor
   return s
 }
 

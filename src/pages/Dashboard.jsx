@@ -105,6 +105,7 @@ function Dashboard() {
   const [returnRequests, setReturnRequests] = useState([])
   const [myReturnRequests, setMyReturnRequests] = useState([])
   const [allUsers, setAllUsers] = useState([])
+  const [colorFilter, setColorFilter] = useState('')
   const fileInputRef = useRef(null)
 
   // Determine columns user is allowed to see
@@ -176,8 +177,13 @@ function Dashboard() {
       }
     })
 
+    // Apply color filter
+    if (colorFilter) {
+      result = result.filter(o => o.rowColor === colorFilter)
+    }
+
     setFilteredOrders(result)
-  }, [searchTerm, orders, columnFilters])
+  }, [searchTerm, orders, columnFilters, colorFilter])
 
   useEffect(() => {
     localStorage.setItem(`oms_columns_${user.username}`, JSON.stringify(visibleColumns))
@@ -627,6 +633,12 @@ function Dashboard() {
             onChange={handleSearch}
             style={styles.searchInput}
           />
+          <select value={colorFilter} onChange={e => setColorFilter(e.target.value)} style={{ padding:'7px 10px', borderRadius:'5px', border:'1px solid #ddd', fontSize:'12px', fontWeight:'600', marginLeft:'8px' }}>
+            <option value="">All Colors</option>
+            <option value="red" style={{background:'#ffcccc'}}>Red</option>
+            <option value="orange" style={{background:'#ffe0b2'}}>Orange</option>
+            <option value="yellow" style={{background:'#fff9c4'}}>Yellow</option>
+          </select>
         </div>
         <div style={styles.actions}>
           {canCreateOrder && <button onClick={() => { setEditingOrder(null); setShowOrderForm(true) }} style={styles.actionBtn}>+ Add New Order</button>}
@@ -720,13 +732,21 @@ function Dashboard() {
             </tr>
           </thead>
           <tbody>
-            {filteredOrders.map((order, idx) => (
-              <tr key={order.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+            {filteredOrders.map((order, idx) => {
+              const rowBg = order.rowColor === 'red' ? '#ffcccc' : order.rowColor === 'orange' ? '#ffe0b2' : order.rowColor === 'yellow' ? '#fff9c4' : (idx % 2 === 0 ? '#f8f9fa' : '#fff')
+              return (
+              <tr key={order.id} style={{ ...styles.trEven, background: rowBg }}>
                 <td style={styles.td}>{idx + 1}</td>
                 {displayedColumns.map(col => (
                   <td key={col.key} style={styles.td}>{getCellValue(order, col.key)}</td>
                 ))}
                 <td style={{ ...styles.td, whiteSpace: 'nowrap' }}>
+                  <span style={{ display:'inline-flex', gap:'2px', marginRight:'4px' }}>
+                    <button onClick={async()=>{await axios.put('/api/orders/'+order.id,{rowColor:'red'});fetchOrders()}} style={{width:'14px',height:'14px',background:'#e74c3c',border:order.rowColor==='red'?'2px solid #000':'1px solid #ccc',borderRadius:'50%',cursor:'pointer',padding:0}} title="Red"/>
+                    <button onClick={async()=>{await axios.put('/api/orders/'+order.id,{rowColor:'orange'});fetchOrders()}} style={{width:'14px',height:'14px',background:'#f39c12',border:order.rowColor==='orange'?'2px solid #000':'1px solid #ccc',borderRadius:'50%',cursor:'pointer',padding:0}} title="Orange"/>
+                    <button onClick={async()=>{await axios.put('/api/orders/'+order.id,{rowColor:'yellow'});fetchOrders()}} style={{width:'14px',height:'14px',background:'#f1c40f',border:order.rowColor==='yellow'?'2px solid #000':'1px solid #ccc',borderRadius:'50%',cursor:'pointer',padding:0}} title="Yellow"/>
+                    <button onClick={async()=>{await axios.put('/api/orders/'+order.id,{rowColor:''});fetchOrders()}} style={{width:'14px',height:'14px',background:'#fff',border:order.rowColor===''||!order.rowColor?'2px solid #000':'1px solid #ccc',borderRadius:'50%',cursor:'pointer',padding:0,fontSize:'8px'}} title="Clear">x</button>
+                  </span>
                   {(isAdmin || user.canAssignReminder) && <button onClick={() => setShowReminderForm(order)} style={{ ...styles.tblBtn, background: '#f39c12' }} title="Reminder">Reminder</button>}
                   {canEditOrders && (
                     <button onClick={() => { setEditingOrder(order); setShowOrderForm(true) }} style={styles.tblBtn} title="Edit">Edit</button>
@@ -739,7 +759,8 @@ function Dashboard() {
                   )}
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
         {filteredOrders.length === 0 && (
