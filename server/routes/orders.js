@@ -52,7 +52,7 @@ router.get('/payments/all', async (req, res) => {
     ;(allOrders || []).forEach(o => { orderMap[o.id] = o })
     const result = (payments || []).map(p => {
       const order = orderMap[p.order_id] || {}
-      return { id: p.id, paymentDate: p.date, amount: p.amount, mode: p.mode, remarks: p.remarks, orderNo: order.order_no || '', client: order.client || '', orderDate: order.date || '', totalAmount: order.total_amount || 0, receivedAmount: order.received_amount || 0, balance: order.balance || 0 }
+      return { id: p.id, orderId: p.order_id, paymentDate: p.date, amount: p.amount, mode: p.mode, remarks: p.remarks, orderNo: order.order_no || '', client: order.client || '', orderDate: order.date || '', totalAmount: order.total_amount || 0, receivedAmount: order.received_amount || 0, balance: order.balance || 0 }
     })
     res.json(result)
   } catch (e) { res.status(500).json({ error: e.message }) }
@@ -270,6 +270,17 @@ router.post('/:id/payments', async (req, res) => {
 router.get('/:id/payments', async (req, res) => {
   const { data } = await supabase.from('payments').select('*').eq('order_id', parseInt(req.params.id)).order('date', { ascending: false })
   res.json(data || [])
+})
+
+router.put('/:id/payments/:paymentId', adminOnly, async (req, res) => {
+  const { date, mode, amount, remarks } = req.body
+  await supabase.from('payments').update({ date, mode, amount: parseFloat(amount), remarks }).eq('id', parseInt(req.params.paymentId))
+  const { data: payments } = await supabase.from('payments').select('amount').eq('order_id', parseInt(req.params.id))
+  const totalReceived = (payments || []).reduce((s, p) => s + (p.amount || 0), 0)
+  const { data: order } = await supabase.from('orders').select('total_amount').eq('id', parseInt(req.params.id))
+  const totalAmt = order?.[0]?.total_amount || 0
+  await supabase.from('orders').update({ received_amount: totalReceived, balance: totalAmt - totalReceived, percent_received: totalAmt ? parseFloat(((totalReceived / totalAmt) * 100).toFixed(2)) : 0 }).eq('id', parseInt(req.params.id))
+  res.json({ message: 'Updated' })
 })
 
 router.delete('/:id/payments/:paymentId', adminOnly, async (req, res) => {

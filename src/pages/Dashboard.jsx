@@ -1238,7 +1238,7 @@ function Dashboard() {
                       <td style={styles.td}>{p.amount ? p.amount.toLocaleString() : '0'}</td>
                       <td style={styles.td}>{p.remarks || '-'}</td>
                       <td style={styles.td}>{p.totalAmount ? p.totalAmount.toLocaleString() : '0'}</td>
-                      <td style={styles.td}>{p.receivedAmount ? p.receivedAmount.toLocaleString() : '0'}</td>
+                      <td style={styles.td}><span onClick={async()=>{try{const res=await axios.get(`/api/orders/${p.orderId||0}/payments`);setReceiptDrillDown({order:{id:p.orderId,orderNo:p.orderNo,client:p.client},payments:res.data})}catch{}}} style={{cursor:'pointer',color:'#2980b9',textDecoration:'underline',fontWeight:'600'}}>{p.receivedAmount ? p.receivedAmount.toLocaleString() : '0'}</span></td>
                       <td style={styles.td}>{p.balance ? p.balance.toLocaleString() : '0'}</td>
                     </tr>
                   ))

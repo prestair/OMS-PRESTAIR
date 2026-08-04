@@ -7,6 +7,8 @@ function PaymentForm({ order, onClose, onSaved }) {
   const isAdmin = user.role === 'admin'
   const [payments, setPayments] = useState([{ date: '', mode: '', amount: '', remarks: '' }])
   const [existingPayments, setExistingPayments] = useState([])
+  const [editingPayment, setEditingPayment] = useState(null)
+  const [editForm, setEditForm] = useState({ date: '', mode: '', amount: '', remarks: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -67,6 +69,18 @@ function PaymentForm({ order, onClose, onSaved }) {
     }
   }
 
+  const handleEditPayment = async () => {
+    try {
+      await axios.put(`/api/orders/${order.id}/payments/${editingPayment.id}`, {
+        date: editForm.date, mode: editForm.mode ? editForm.mode.toUpperCase() : '', amount: parseFloat(editForm.amount), remarks: editForm.remarks ? editForm.remarks.toUpperCase() : ''
+      })
+      setEditingPayment(null)
+      fetchPayments()
+    } catch (err) {
+      alert('Edit failed: ' + (err.response?.data?.error || 'Failed'))
+    }
+  }
+
   const totalExisting = existingPayments.reduce((s, p) => s + (p.amount || 0), 0)
   const totalNew = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
 
@@ -106,6 +120,7 @@ function PaymentForm({ order, onClose, onSaved }) {
                     <td style={styles.td}>{p.remarks || '-'}</td>
                     {isAdmin && (
                       <td style={styles.td}>
+                        <button onClick={() => { setEditingPayment(p); setEditForm({ date: p.date||'', mode: p.mode||'', amount: p.amount||'', remarks: p.remarks||'' }) }} style={{...styles.delBtn,background:'#2980b9',marginRight:'4px'}}>Edit</button>
                         <button onClick={() => handleDeletePayment(p.id)} style={styles.delBtn}>Delete</button>
                       </td>
                     )}
@@ -117,6 +132,24 @@ function PaymentForm({ order, onClose, onSaved }) {
         )}
 
         <form onSubmit={handleSubmit}>
+          {/* Edit Payment Modal */}
+          {editingPayment && (
+            <div style={{background:'#fff3cd',padding:'12px',borderRadius:'8px',marginBottom:'12px',border:'1px solid #ffc107'}}>
+              <h4 style={{margin:'0 0 8px',fontSize:'12px'}}>Edit Receipt #{editingPayment.id}</h4>
+              <div style={styles.paymentRow}>
+                <input type="date" value={editForm.date} onChange={e=>setEditForm({...editForm,date:e.target.value})} style={styles.input}/>
+                <select value={editForm.mode} onChange={e=>setEditForm({...editForm,mode:e.target.value})} style={styles.input}>
+                  <option value="">Mode</option><option value="Cash">Cash</option><option value="Bank Transfer">Bank Transfer</option><option value="Cheque">Cheque</option><option value="UPI">UPI</option><option value="NEFT/RTGS">NEFT/RTGS</option>
+                </select>
+                <input type="number" value={editForm.amount} onChange={e=>setEditForm({...editForm,amount:e.target.value})} style={styles.input} placeholder="Amount"/>
+                <input type="text" value={editForm.remarks} onChange={e=>setEditForm({...editForm,remarks:e.target.value})} style={styles.input} placeholder="Remarks"/>
+              </div>
+              <div style={{display:'flex',gap:'8px',justifyContent:'flex-end'}}>
+                <button type="button" onClick={()=>setEditingPayment(null)} style={styles.cancelBtn}>Cancel</button>
+                <button type="button" onClick={handleEditPayment} style={{...styles.saveBtn,background:'#f39c12'}}>Update</button>
+              </div>
+            </div>
+          )}
           <h4 style={{ margin: '16px 0 8px' }}>Add New Receipt(s)</h4>
           {payments.map((p, idx) => (
             <div key={idx} style={styles.paymentRow}>
