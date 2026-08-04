@@ -1194,10 +1194,9 @@ function Dashboard() {
               <thead>
                 <tr>
                   <th style={styles.th}>#</th>
-                  <th style={styles.th}>Order Date</th>
+                  <th style={styles.th}>Payment Date</th>
                   <th style={styles.th}>Client</th>
                   <th style={styles.th}>Order No</th>
-                  <th style={styles.th}>Payment Date</th>
                   <th style={styles.th}>Amount</th>
                   <th style={styles.th}>Payment Remarks</th>
                   <th style={styles.th}>Total Amount</th>
@@ -1231,10 +1230,9 @@ function Dashboard() {
                   return filtered.map((p, idx) => (
                     <tr key={p.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
                       <td style={styles.td}>{idx + 1}</td>
-                      <td style={styles.td}>{p.orderDate}</td>
+                      <td style={styles.td}>{formatPayDate(p.paymentDate)}</td>
                       <td style={styles.td}>{p.client}</td>
                       <td style={styles.td}>{p.orderNo}</td>
-                      <td style={styles.td}>{formatPayDate(p.paymentDate)}</td>
                       <td style={styles.td}>{p.amount ? p.amount.toLocaleString() : '0'}</td>
                       <td style={styles.td}>{p.remarks || '-'}</td>
                       <td style={styles.td}>{p.totalAmount ? p.totalAmount.toLocaleString() : '0'}</td>
