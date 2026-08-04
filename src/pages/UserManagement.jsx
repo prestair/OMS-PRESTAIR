@@ -160,12 +160,12 @@ function UserManagement() {
           <h3>Reset Password: {resetPassword.username}</h3>
           <div style={{background:'#f8f9fa',padding:'10px',borderRadius:'6px',marginTop:'10px'}}>
             <span style={{fontSize:'12px',fontWeight:'600',color:'#555'}}>Current Password: </span>
-            <span style={{fontSize:'14px',fontWeight:'700',color:'#e74c3c'}}>{resetPassword.plainPassword || '(not stored)'}</span>
+            <span style={{fontSize:'14px',fontWeight:'700',color:'#e74c3c'}}>{resetPassword.plainPassword || '(not available)'}</span>
           </div>
-          <input type="text" value={newPassword} onChange={e=>setNewPassword(e.target.value)} style={{...s.i,marginTop:'10px'}} placeholder="New password"/>
+          <input type="text" value={newPassword} onChange={e=>setNewPassword(e.target.value)} style={{...s.i,marginTop:'10px'}} placeholder="Enter new password"/>
           <div style={{ display:'flex', gap:'10px', justifyContent:'flex-end', marginTop:'12px' }}>
             <button onClick={()=>{setResetPassword(null);setNewPassword('')}} style={s.cBtn}>Cancel</button>
-            <button onClick={async()=>{if(!newPassword||newPassword.length<4){alert('Min 4 chars');return}await axios.put(`/api/users/${resetPassword.id}/password`,{newPassword});setResetPassword(null);setNewPassword('');alert('Done');fetchUsers()}} style={s.sBtn}>Reset</button>
+            <button onClick={async()=>{if(!newPassword||newPassword.length<3){alert('Min 3 chars');return};try{await axios.put('/api/users/'+resetPassword.id+'/password',{newPassword});alert('Password reset done!');setResetPassword(null);setNewPassword('');fetchUsers()}catch(err){alert('Error: '+(err.response?.data?.error||err.message))}}} style={s.sBtn}>Reset</button>
           </div>
         </div></div>
       )}
