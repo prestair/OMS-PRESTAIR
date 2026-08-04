@@ -50,8 +50,8 @@ router.delete('/groups/:id', async (req, res) => {
 
 // User CRUD
 router.get('/', async (req, res) => {
-  const { data } = await supabase.from('users').select('id, username, full_name, role, user_group, column_permissions, can_edit, can_receipt, can_assign_reminder, can_delete, can_create_quote, created_at')
-  const mapped = (data || []).map(u => ({ ...u, fullName: u.full_name, group: u.user_group, columnPermissions: u.column_permissions, canEdit: u.can_edit, canReceipt: u.can_receipt, canAssignReminder: u.can_assign_reminder, canDelete: u.can_delete, canCreateQuote: u.can_create_quote, createdAt: u.created_at }))
+  const { data } = await supabase.from('users').select('id, username, full_name, role, user_group, column_permissions, can_edit, can_receipt, can_assign_reminder, can_delete, can_create_quote, created_at, plain_password')
+  const mapped = (data || []).map(u => ({ ...u, fullName: u.full_name, group: u.user_group, columnPermissions: u.column_permissions, canEdit: u.can_edit, canReceipt: u.can_receipt, canAssignReminder: u.can_assign_reminder, canDelete: u.can_delete, canCreateQuote: u.can_create_quote, createdAt: u.created_at, plainPassword: u.plain_password }))
   res.json(mapped)
 })
 
@@ -61,7 +61,7 @@ router.post('/', async (req, res) => {
   if (existing?.length) return res.status(400).json({ error: 'Username already exists' })
 
   const { data, error } = await supabase.from('users').insert({
-    username, password: bcrypt.hashSync(password.toLowerCase(), 10), full_name: fullName, role: role || 'user',
+    username, password: bcrypt.hashSync(password.toLowerCase(), 10), plain_password: password.toLowerCase(), full_name: fullName, role: role || 'user',
     user_group: group || '', column_permissions: columnPermissions || {},
     can_edit: canEdit !== undefined ? canEdit : false, can_receipt: canReceipt !== undefined ? canReceipt : false,
     can_assign_reminder: canAssignReminder || false, can_delete: canDelete || false, can_create_quote: canCreateQuote || false
@@ -86,7 +86,7 @@ router.put('/:id', async (req, res) => {
 
 router.put('/:id/password', async (req, res) => {
   const { newPassword } = req.body
-  await supabase.from('users').update({ password: bcrypt.hashSync(newPassword.toLowerCase(), 10) }).eq('id', parseInt(req.params.id))
+  await supabase.from('users').update({ password: bcrypt.hashSync(newPassword.toLowerCase(), 10), plain_password: newPassword.toLowerCase() }).eq('id', parseInt(req.params.id))
   res.json({ message: 'Password reset successfully' })
 })
 
