@@ -1230,6 +1230,7 @@ function Dashboard() {
                   }
                   return filtered.map((p, idx) => (
                     <tr key={p.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                      <td style={styles.td}>{idx + 1}</td>
                       <td style={styles.td}>{p.orderDate}</td>
                       <td style={styles.td}>{p.client}</td>
                       <td style={styles.td}>{p.orderNo}</td>
