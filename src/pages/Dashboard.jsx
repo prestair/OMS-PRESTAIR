@@ -107,7 +107,8 @@ function Dashboard() {
   const [allUsers, setAllUsers] = useState([])
   const [colorFilter, setColorFilter] = useState([])
   const [allPayments, setAllPayments] = useState([])
-  const [paymentDateFilter, setPaymentDateFilter] = useState('')
+  const [paymentDateFrom, setPaymentDateFrom] = useState('')
+  const [paymentDateTo, setPaymentDateTo] = useState('')
   const fileInputRef = useRef(null)
 
   // Determine columns user is allowed to see
@@ -412,6 +413,13 @@ function Dashboard() {
     if (dailyFilter === 'sectionDrawing' && dailyLopFilter.length > 0) {
       filtered = filtered.filter(o => {
         const val = String(o.lop || '').trim()
+        if (dailyLopFilter.includes('__blank__') && val === '') return true
+        return dailyLopFilter.includes(val)
+      })
+    }
+    if (dailyFilter === 'advanceBill' && dailyLopFilter.length > 0) {
+      filtered = filtered.filter(o => {
+        const val = String(o.akhilSirAudit || '').trim()
         if (dailyLopFilter.includes('__blank__') && val === '') return true
         return dailyLopFilter.includes(val)
       })
@@ -1095,7 +1103,7 @@ function Dashboard() {
             <button onClick={() => { setDailyFilter('inProduction'); setDailyFilterValue([]) }} style={dailyFilter === 'inProduction' ? styles.dailyBtnActive : styles.dailyBtn}>In Production</button>
             <button onClick={() => { setDailyFilter('percentReceived'); setDailyFilterValue([]); setDailyPercentMax('') }} style={dailyFilter === 'percentReceived' ? styles.dailyBtnActive : styles.dailyBtn}>% Rec</button>
             <button onClick={() => { setDailyFilter('akhilSirAudit'); setDailyFilterValue([]) }} style={dailyFilter === 'akhilSirAudit' ? styles.dailyBtnActive : styles.dailyBtn}>Akhil Sir Audit</button>
-            <button onClick={() => { setDailyFilter('advanceBill'); setDailyFilterValue([]) }} style={dailyFilter === 'advanceBill' ? styles.dailyBtnActive : styles.dailyBtn}>Advance Bill</button>
+            <button onClick={() => { setDailyFilter('advanceBill'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'advanceBill' ? styles.dailyBtnActive : styles.dailyBtn}>Advance Bill</button>
             <button onClick={() => { setDailyFilter('photography'); setDailyFilterValue([]) }} style={dailyFilter === 'photography' ? styles.dailyBtnActive : styles.dailyBtn}>Photography</button>
             <button onClick={() => { setDailyFilter('siteVideo'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVideo' ? styles.dailyBtnActive : styles.dailyBtn}>Site Video</button>
             <button onClick={() => { setDailyFilter('review'); setDailyFilterValue([]) }} style={dailyFilter === 'review' ? styles.dailyBtnActive : styles.dailyBtn}>Review</button>
@@ -1106,7 +1114,7 @@ function Dashboard() {
           </div>
 
           {/* Filter Value Selection */}
-          {dailyFilter && dailyFilter !== 'percentReceived' && (
+          {dailyFilter && dailyFilter !== 'percentReceived' && dailyFilter !== 'paymentUpdate' && (
             <div style={styles.dailyFilterBar}>
               <span style={{ fontSize: '12px', fontWeight: '600' }}>Filter by: {ALL_COLUMNS.find(c => c.key === dailyFilter)?.label}</span>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -1127,6 +1135,20 @@ function Dashboard() {
                   <button onClick={() => dailyLopFilter.includes('__blank__') ? setDailyLopFilter(dailyLopFilter.filter(v => v !== '__blank__')) : setDailyLopFilter([...dailyLopFilter, '__blank__'])} style={dailyLopFilter.includes('__blank__') ? styles.dailyValActive : styles.dailyVal}>(Blank)</button>
                   {(() => {
                     const values = [...new Set(orders.map(o => String(o.lop || '').trim()).filter(v => v))]
+                    return values.sort().map(v => (
+                      <button key={v} onClick={() => dailyLopFilter.includes(v) ? setDailyLopFilter(dailyLopFilter.filter(x => x !== v)) : setDailyLopFilter([...dailyLopFilter, v])} style={dailyLopFilter.includes(v) ? styles.dailyValActive : styles.dailyVal}>{v}</button>
+                    ))
+                  })()}
+                </div>
+              </>}
+              {dailyFilter === 'advanceBill' && <>
+                <span style={{ borderLeft: '2px solid #ddd', height: '24px', margin: '0 4px' }}></span>
+                <span style={{ fontSize: '12px', fontWeight: '600' }}>Akhil Sir Audit:</span>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <button onClick={() => setDailyLopFilter([])} style={dailyLopFilter.length === 0 ? styles.dailyValActive : styles.dailyVal}>All</button>
+                  <button onClick={() => dailyLopFilter.includes('__blank__') ? setDailyLopFilter(dailyLopFilter.filter(v => v !== '__blank__')) : setDailyLopFilter([...dailyLopFilter, '__blank__'])} style={dailyLopFilter.includes('__blank__') ? styles.dailyValActive : styles.dailyVal}>(Blank)</button>
+                  {(() => {
+                    const values = [...new Set(orders.map(o => String(o.akhilSirAudit || '').trim()).filter(v => v))]
                     return values.sort().map(v => (
                       <button key={v} onClick={() => dailyLopFilter.includes(v) ? setDailyLopFilter(dailyLopFilter.filter(x => x !== v)) : setDailyLopFilter([...dailyLopFilter, v])} style={dailyLopFilter.includes(v) ? styles.dailyValActive : styles.dailyVal}>{v}</button>
                     ))
@@ -1154,10 +1176,12 @@ function Dashboard() {
           {/* Results Table */}
           {dailyFilter === 'paymentUpdate' ? (
           <div style={styles.tableWrap}>
-            <div style={{ marginBottom:'12px', display:'flex', alignItems:'center', gap:'10px' }}>
-              <span style={{fontSize:'12px',fontWeight:'600'}}>Filter by Payment Date:</span>
-              <input type="date" value={paymentDateFilter} onChange={e=>setPaymentDateFilter(e.target.value)} style={{padding:'6px 10px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px'}}/>
-              {paymentDateFilter && <button onClick={()=>setPaymentDateFilter('')} style={{fontSize:'10px',background:'#eee',border:'none',borderRadius:'3px',padding:'4px 8px',cursor:'pointer'}}>Clear</button>}
+            <div style={{ marginBottom:'12px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
+              <span style={{fontSize:'12px',fontWeight:'600'}}>From:</span>
+              <input type="date" value={paymentDateFrom} onChange={e=>setPaymentDateFrom(e.target.value)} style={{padding:'6px 10px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px'}}/>
+              <span style={{fontSize:'12px',fontWeight:'600'}}>To:</span>
+              <input type="date" value={paymentDateTo} onChange={e=>setPaymentDateTo(e.target.value)} style={{padding:'6px 10px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px'}}/>
+              {(paymentDateFrom || paymentDateTo) && <button onClick={()=>{setPaymentDateFrom('');setPaymentDateTo('')}} style={{fontSize:'10px',background:'#eee',border:'none',borderRadius:'3px',padding:'4px 8px',cursor:'pointer'}}>Clear</button>}
             </div>
             <table style={styles.table}>
               <thead>
@@ -1167,6 +1191,7 @@ function Dashboard() {
                   <th style={styles.th}>Client</th>
                   <th style={styles.th}>Order No</th>
                   <th style={styles.th}>Payment Date</th>
+                  <th style={styles.th}>Amount</th>
                   <th style={styles.th}>Payment Remarks</th>
                   <th style={styles.th}>Total Amount</th>
                   <th style={styles.th}>Received</th>
@@ -1176,19 +1201,28 @@ function Dashboard() {
               <tbody>
                 {(() => {
                   let filtered = allPayments
-                  if (paymentDateFilter) {
-                    const fd = paymentDateFilter.split('-')
-                    const filterStr = `${fd[2]}/${fd[1]}/${fd[0]}`
-                    filtered = filtered.filter(p => p.paymentDate === filterStr || p.paymentDate === paymentDateFilter)
+                  const parsePayDate = (d) => {
+                    if (!d) return null
+                    const parts = d.split('/')
+                    if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0])
+                    return new Date(d)
+                  }
+                  if (paymentDateFrom) {
+                    const from = new Date(paymentDateFrom)
+                    filtered = filtered.filter(p => { const pd = parsePayDate(p.paymentDate); return pd && pd >= from })
+                  }
+                  if (paymentDateTo) {
+                    const to = new Date(paymentDateTo); to.setHours(23,59,59)
+                    filtered = filtered.filter(p => { const pd = parsePayDate(p.paymentDate); return pd && pd <= to })
                   }
                   return filtered.map((p, idx) => (
                     <tr key={p.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
-                      <td style={styles.td}>{idx + 1}</td>
                       <td style={styles.td}>{p.orderDate}</td>
                       <td style={styles.td}>{p.client}</td>
                       <td style={styles.td}>{p.orderNo}</td>
                       <td style={styles.td}>{p.paymentDate}</td>
-                      <td style={styles.td}>{p.remarks}</td>
+                      <td style={styles.td}>{p.amount ? p.amount.toLocaleString() : '0'}</td>
+                      <td style={styles.td}>{p.remarks || '-'}</td>
                       <td style={styles.td}>{p.totalAmount ? p.totalAmount.toLocaleString() : '0'}</td>
                       <td style={styles.td}>{p.receivedAmount ? p.receivedAmount.toLocaleString() : '0'}</td>
                       <td style={styles.td}>{p.balance ? p.balance.toLocaleString() : '0'}</td>
@@ -1268,6 +1302,7 @@ function Dashboard() {
                   {dailyFilter === 'installationStatus' && <th style={styles.th}>Installation Remarks</th>}
                   {dailyFilter === 'sectionDrawing' && <th style={styles.th}>LOP</th>}
                   {dailyFilter === 'sectionDrawing' && <th style={styles.th}>SD Remarks</th>}
+                  {dailyFilter === 'advanceBill' && <th style={styles.th}>Akhil Sir Audit</th>}
                   {dailyFilter === 'photography' && <th style={styles.th}>Photography Remarks</th>}
                   {dailyFilter === 'siteVideo' && <th style={styles.th}>Site Video Remarks</th>}
                   {dailyFilter === 'review' && <th style={styles.th}>Review Remarks</th>}
@@ -1290,6 +1325,7 @@ function Dashboard() {
                       {dailyFilter === 'installationStatus' && <td style={styles.td}>{o.installationRemarks}</td>}
                       {dailyFilter === 'sectionDrawing' && <td style={styles.td}>{o.lop}</td>}
                       {dailyFilter === 'sectionDrawing' && <td style={styles.td}>{o.sectionDrawingRemarks}</td>}
+                      {dailyFilter === 'advanceBill' && <td style={styles.td}>{o.akhilSirAudit}</td>}
                       {dailyFilter === 'photography' && <td style={styles.td}>{o.photographyRemarks}</td>}
                       {dailyFilter === 'siteVideo' && <td style={styles.td}>{o.siteVideoRemarks}</td>}
                       {dailyFilter === 'review' && <td style={styles.td}>{o.reviewRemarks}</td>}
