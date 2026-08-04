@@ -109,6 +109,7 @@ function Dashboard() {
   const [allPayments, setAllPayments] = useState([])
   const [paymentDateFrom, setPaymentDateFrom] = useState('')
   const [paymentDateTo, setPaymentDateTo] = useState('')
+  const [receiptDrillDown, setReceiptDrillDown] = useState(null)
   const fileInputRef = useRef(null)
 
   // Determine columns user is allowed to see
@@ -557,7 +558,8 @@ function Dashboard() {
 
   const getCellValue = (order, key) => {
     const val = order[key]
-    if (['totalAmount', 'receivedAmount'].includes(key)) return formatCurrency(val)
+    if (key === 'receivedAmount') return <span onClick={async(e)=>{e.stopPropagation();try{const res=await axios.get(`/api/orders/${order.id}/payments`);setReceiptDrillDown({order,payments:res.data})}catch{}}} style={{cursor:'pointer',color:'#2980b9',textDecoration:'underline',fontWeight:'600'}}>{formatCurrency(val)}</span>
+    if (['totalAmount'].includes(key)) return formatCurrency(val)
     if (key === 'balance') return formatCurrency((order.totalAmount || 0) - (order.receivedAmount || 0))
     if (key === 'percentReceived') return val ? `${val}%` : ''
     if (key === 'date' || key === 'deliveryDate') return formatDate(val)
@@ -1471,6 +1473,45 @@ function Dashboard() {
 
       {showPaymentForm && (
         <PaymentForm order={showPaymentForm} onClose={() => setShowPaymentForm(null)} onSaved={handlePaymentSaved} />
+      )}
+
+      {/* Receipt Drill-Down Popup */}
+      {receiptDrillDown && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:1000}} onClick={()=>setReceiptDrillDown(null)}>
+          <div style={{background:'#fff',borderRadius:'10px',padding:'20px',maxWidth:'600px',width:'90%',maxHeight:'80vh',overflow:'auto'}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+              <h3 style={{margin:0,fontSize:'14px'}}>Payment History: {receiptDrillDown.order.orderNo}</h3>
+              <button onClick={()=>setReceiptDrillDown(null)} style={{background:'none',border:'none',fontSize:'18px',cursor:'pointer',fontWeight:'700'}}>X</button>
+            </div>
+            <p style={{fontSize:'11px',color:'#555',margin:'0 0 10px'}}>{receiptDrillDown.order.client}</p>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:'12px'}}>
+              <thead><tr style={{background:'#1a1a2e',color:'#fff'}}>
+                <th style={{padding:'6px 8px',textAlign:'left'}}>#</th>
+                <th style={{padding:'6px 8px',textAlign:'left'}}>Date</th>
+                <th style={{padding:'6px 8px',textAlign:'left'}}>Mode</th>
+                <th style={{padding:'6px 8px',textAlign:'right'}}>Amount</th>
+                <th style={{padding:'6px 8px',textAlign:'left'}}>Remarks</th>
+              </tr></thead>
+              <tbody>
+                {(receiptDrillDown.payments||[]).map((p,i)=>(
+                  <tr key={p.id} style={{background:i%2?'#f8f9fa':'#fff',borderBottom:'1px solid #eee'}}>
+                    <td style={{padding:'5px 8px'}}>{i+1}</td>
+                    <td style={{padding:'5px 8px'}}>{p.date}</td>
+                    <td style={{padding:'5px 8px'}}>{p.mode||'-'}</td>
+                    <td style={{padding:'5px 8px',textAlign:'right',fontWeight:'600'}}>{p.amount?p.amount.toLocaleString():'0'}</td>
+                    <td style={{padding:'5px 8px'}}>{p.remarks||'-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot><tr style={{background:'#e8f5e9',fontWeight:'700'}}>
+                <td colSpan={3} style={{padding:'6px 8px'}}>Total Received</td>
+                <td style={{padding:'6px 8px',textAlign:'right'}}>{(receiptDrillDown.payments||[]).reduce((s,p)=>s+(p.amount||0),0).toLocaleString()}</td>
+                <td></td>
+              </tr></tfoot>
+            </table>
+            {(!receiptDrillDown.payments||receiptDrillDown.payments.length===0)&&<p style={{textAlign:'center',color:'#888',padding:'15px'}}>No receipts found</p>}
+          </div>
+        </div>
       )}
 
       {showReminderForm && (
