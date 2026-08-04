@@ -45,7 +45,13 @@ function PaymentForm({ order, onClose, onSaved }) {
     setSaving(true)
     try {
       for (const p of payments) {
-        if (p.amount && parseFloat(p.amount) > 0) {
+        if (p.amount && parseFloat(p.amount) !== 0) {
+          // Negative amount = payment returned, remark mandatory
+          if (parseFloat(p.amount) < 0 && (!p.remarks || !p.remarks.trim())) {
+            setError('Remark is mandatory for negative amount (payment returned)')
+            setSaving(false)
+            return
+          }
           await axios.post(`/api/orders/${order.id}/payments`, {
             date: p.date, mode: p.mode ? p.mode.toUpperCase() : '', amount: parseFloat(p.amount), remarks: p.remarks ? p.remarks.toUpperCase() : ''
           })
