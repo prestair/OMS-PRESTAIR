@@ -1210,9 +1210,15 @@ function Dashboard() {
                   let filtered = allPayments
                   const parsePayDate = (d) => {
                     if (!d) return null
+                    if (d.includes('-')) return new Date(d)
                     const parts = d.split('/')
                     if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0])
                     return new Date(d)
+                  }
+                  const formatPayDate = (d) => {
+                    if (!d) return '-'
+                    if (d.includes('-')) { const p = d.split('-'); return `${p[2]}/${p[1]}/${p[0]}` }
+                    return d
                   }
                   if (paymentDateFrom) {
                     const from = new Date(paymentDateFrom)
@@ -1227,7 +1233,7 @@ function Dashboard() {
                       <td style={styles.td}>{p.orderDate}</td>
                       <td style={styles.td}>{p.client}</td>
                       <td style={styles.td}>{p.orderNo}</td>
-                      <td style={styles.td}>{p.paymentDate}</td>
+                      <td style={styles.td}>{formatPayDate(p.paymentDate)}</td>
                       <td style={styles.td}>{p.amount ? p.amount.toLocaleString() : '0'}</td>
                       <td style={styles.td}>{p.remarks || '-'}</td>
                       <td style={styles.td}>{p.totalAmount ? p.totalAmount.toLocaleString() : '0'}</td>
