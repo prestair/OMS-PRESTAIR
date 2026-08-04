@@ -9,7 +9,7 @@ router.use(authenticate)
 // Public - user list for reminders
 router.get('/list', async (req, res) => {
   const { data } = await supabase.from('users').select('id, username, full_name, role')
-  res.json(data || [])
+  res.json((data || []).map(u => ({ id: u.id, username: u.username, fullName: u.full_name, full_name: u.full_name, role: u.role })))
 })
 
 // Public - get groups
