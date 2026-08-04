@@ -106,6 +106,8 @@ function Dashboard() {
   const [myReturnRequests, setMyReturnRequests] = useState([])
   const [allUsers, setAllUsers] = useState([])
   const [colorFilter, setColorFilter] = useState([])
+  const [allPayments, setAllPayments] = useState([])
+  const [paymentDateFilter, setPaymentDateFilter] = useState('')
   const fileInputRef = useRef(null)
 
   // Determine columns user is allowed to see
@@ -205,6 +207,15 @@ function Dashboard() {
       setDeletedOrders(res.data)
     } catch (err) {
       console.error('Failed to fetch deleted orders', err)
+    }
+  }
+
+  const fetchAllPayments = async () => {
+    try {
+      const res = await axios.get('/api/orders/payments/all')
+      setAllPayments(res.data)
+    } catch (err) {
+      console.error('Failed to fetch payments', err)
     }
   }
 
@@ -1089,6 +1100,7 @@ function Dashboard() {
             <button onClick={() => { setDailyFilter('siteVideo'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVideo' ? styles.dailyBtnActive : styles.dailyBtn}>Site Video</button>
             <button onClick={() => { setDailyFilter('review'); setDailyFilterValue([]) }} style={dailyFilter === 'review' ? styles.dailyBtnActive : styles.dailyBtn}>Review</button>
             <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]) }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR Pending</button>
+            <button onClick={() => { setDailyFilter('paymentUpdate'); setDailyFilterValue([]); fetchAllPayments() }} style={dailyFilter === 'paymentUpdate' ? styles.dailyBtnActive : styles.dailyBtn}>Payment Update</button>
             <span style={{ borderLeft: '2px solid #ddd', height: '36px' }}></span>
             <button onClick={() => handleDailyPrint()} style={{ ...styles.dailyBtn, background: '#2980b9', color: '#fff', borderColor: '#2980b9' }}>Print</button>
           </div>
@@ -1140,7 +1152,54 @@ function Dashboard() {
           )}
 
           {/* Results Table */}
-          {dailyFilter === 'orRecvd' ? (
+          {dailyFilter === 'paymentUpdate' ? (
+          <div style={styles.tableWrap}>
+            <div style={{ marginBottom:'12px', display:'flex', alignItems:'center', gap:'10px' }}>
+              <span style={{fontSize:'12px',fontWeight:'600'}}>Filter by Payment Date:</span>
+              <input type="date" value={paymentDateFilter} onChange={e=>setPaymentDateFilter(e.target.value)} style={{padding:'6px 10px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px'}}/>
+              {paymentDateFilter && <button onClick={()=>setPaymentDateFilter('')} style={{fontSize:'10px',background:'#eee',border:'none',borderRadius:'3px',padding:'4px 8px',cursor:'pointer'}}>Clear</button>}
+            </div>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>#</th>
+                  <th style={styles.th}>Order Date</th>
+                  <th style={styles.th}>Client</th>
+                  <th style={styles.th}>Order No</th>
+                  <th style={styles.th}>Payment Date</th>
+                  <th style={styles.th}>Payment Remarks</th>
+                  <th style={styles.th}>Total Amount</th>
+                  <th style={styles.th}>Received</th>
+                  <th style={styles.th}>Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  let filtered = allPayments
+                  if (paymentDateFilter) {
+                    const fd = paymentDateFilter.split('-')
+                    const filterStr = `${fd[2]}/${fd[1]}/${fd[0]}`
+                    filtered = filtered.filter(p => p.paymentDate === filterStr || p.paymentDate === paymentDateFilter)
+                  }
+                  return filtered.map((p, idx) => (
+                    <tr key={p.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                      <td style={styles.td}>{idx + 1}</td>
+                      <td style={styles.td}>{p.orderDate}</td>
+                      <td style={styles.td}>{p.client}</td>
+                      <td style={styles.td}>{p.orderNo}</td>
+                      <td style={styles.td}>{p.paymentDate}</td>
+                      <td style={styles.td}>{p.remarks}</td>
+                      <td style={styles.td}>{p.totalAmount ? p.totalAmount.toLocaleString() : '0'}</td>
+                      <td style={styles.td}>{p.receivedAmount ? p.receivedAmount.toLocaleString() : '0'}</td>
+                      <td style={styles.td}>{p.balance ? p.balance.toLocaleString() : '0'}</td>
+                    </tr>
+                  ))
+                })()}
+              </tbody>
+            </table>
+            {allPayments.length === 0 && <p style={{textAlign:'center',padding:'20px',color:'#888'}}>No payment data</p>}
+          </div>
+          ) : dailyFilter === 'orRecvd' ? (
           <div style={styles.tableWrap}>
             <table style={styles.table}>
               <thead>

@@ -43,6 +43,21 @@ router.get('/export/all', adminOnly, async (req, res) => {
   res.json((data || []).map(o => mapOrder(o)))
 })
 
+// Get all payments (for Payment Update report)
+router.get('/payments/all', async (req, res) => {
+  try {
+    const { data: payments } = await supabase.from('payments').select('*').order('date', { ascending: false })
+    const { data: allOrders } = await supabase.from('orders').select('id, order_no, client, date, total_amount, received_amount, balance')
+    const orderMap = {}
+    ;(allOrders || []).forEach(o => { orderMap[o.id] = o })
+    const result = (payments || []).map(p => {
+      const order = orderMap[p.order_id] || {}
+      return { id: p.id, paymentDate: p.date, amount: p.amount, mode: p.mode, remarks: p.remarks, orderNo: order.order_no || '', client: order.client || '', orderDate: order.date || '', totalAmount: order.total_amount || 0, receivedAmount: order.received_amount || 0, balance: order.balance || 0 }
+    })
+    res.json(result)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 // Get deleted orders
 router.get('/deleted/all', async (req, res) => {
   const { data } = await supabase.from('deleted_orders').select('*').order('deleted_at', { ascending: false })
