@@ -1,6 +1,6 @@
 {
   "name": "oms-dashboard",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "main": "electron.cjs",
   "engines": {
