@@ -47,17 +47,4 @@ router.post('/login', async (req, res) => {
   })
 })
 
-router.post('/change-password', authenticate, async (req, res) => {
-  const { currentPassword, newPassword } = req.body
-  const { data: users } = await supabase.from('users').select('*').eq('id', req.user.id)
-  const user = users?.[0]
-  if (!user) return res.status(404).json({ error: 'User not found' })
-
-  const validPassword = bcrypt.compareSync(currentPassword.toLowerCase(), user.password)
-  if (!validPassword) return res.status(400).json({ error: 'Current password is incorrect' })
-
-  await supabase.from('users').update({ password: bcrypt.hashSync(newPassword.toLowerCase(), 10) }).eq('id', req.user.id)
-  res.json({ message: 'Password changed successfully' })
-})
-
 module.exports = router

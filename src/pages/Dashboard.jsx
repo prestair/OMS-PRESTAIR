@@ -5,7 +5,6 @@ import * as XLSX from 'xlsx-js-style'
 import { useAuth } from '../context/AuthContext'
 import OrderForm from '../components/OrderForm'
 import PaymentForm from '../components/PaymentForm'
-import ChangePasswordModal from '../components/ChangePasswordModal'
 import ReminderForm from '../components/ReminderForm'
 import ReminderPopup from '../components/ReminderPopup'
 
@@ -68,7 +67,6 @@ function Dashboard() {
   const [showOrderForm, setShowOrderForm] = useState(false)
   const [editingOrder, setEditingOrder] = useState(null)
   const [showPaymentForm, setShowPaymentForm] = useState(null)
-  const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [importDuplicates, setImportDuplicates] = useState(null)
   const [pendingImport, setPendingImport] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
@@ -604,7 +602,6 @@ function Dashboard() {
         </div>
         <div style={styles.headerRight}>
           <button onClick={() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests(); const btn = document.getElementById('refreshBtn'); btn.style.opacity='0.3'; setTimeout(()=>btn.style.opacity='1', 300) }} id="refreshBtn" style={{ ...styles.headerBtn, background: '#27ae60', transition: 'opacity 0.3s' }}>Refresh</button>
-          <button onClick={() => setShowPasswordModal(true)} style={styles.headerBtn}>Change Password</button>
           {isAdmin && <button onClick={() => navigate('/users')} style={styles.headerBtn}>Manage Users</button>}
           <button onClick={logout} style={{ ...styles.headerBtn, background: '#e74c3c' }}>Logout</button>
         </div>
@@ -1350,9 +1347,7 @@ function Dashboard() {
         />
       )}
 
-      {showPasswordModal && (
-        <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />
-      )}
+
 
       {/* Delete Confirmation */}
       {deleteConfirm && (
