@@ -42,7 +42,8 @@ router.post('/login', async (req, res) => {
       canReceipt: isAdminRole ? true : getUserRight('can_receipt'),
       canAssignReminder: isAdminRole ? true : getUserRight('can_assign_reminder'),
       canDelete: isAdminRole ? true : getUserRight('can_delete'),
-      canCreateQuote: isAdminRole ? true : getUserRight('can_create_quote')
+      canCreateQuote: isAdminRole ? true : getUserRight('can_create_quote'),
+      canColor: isAdminRole ? true : getUserRight('can_color')
     }
   })
 })

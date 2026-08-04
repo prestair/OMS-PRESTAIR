@@ -50,7 +50,7 @@ function UserManagement() {
     if (!form.group && form.role !== 'admin') { setError('Group is mandatory'); return }
     try {
       if (editingUser) {
-        await axios.put(`/api/users/${editingUser.id}`, { fullName: form.fullName, role: form.role, group: form.group, columnPermissions: form.columnPermissions, canEdit: form.canEdit, canReceipt: form.canReceipt, canAssignReminder: form.canAssignReminder, canDelete: form.canDelete, canCreateQuote: form.canCreateQuote })
+        await axios.put(`/api/users/${editingUser.id}`, { fullName: form.fullName, role: form.role, group: form.group, columnPermissions: form.columnPermissions, canEdit: form.canEdit, canReceipt: form.canReceipt, canAssignReminder: form.canAssignReminder, canDelete: form.canDelete, canCreateQuote: form.canCreateQuote, canColor: form.canColor })
       } else {
         await axios.post('/api/users', form)
       }
@@ -94,7 +94,7 @@ function UserManagement() {
               <td style={s.td}><span style={u.role==='admin'?s.badgeA:s.badgeU}>{u.role}</span></td>
               <td style={s.td}>{u.group||'-'}</td>
               <td style={s.td}>
-                <button onClick={() => { setEditingUser(u); setForm({ username:u.username, password:'', fullName:u.fullName, role:u.role, group:u.group||'', columnPermissions:u.columnPermissions||{}, canEdit:u.canEdit!==undefined?u.canEdit:false, canReceipt:u.canReceipt!==undefined?u.canReceipt:false, canAssignReminder:u.canAssignReminder||false, canDelete:u.canDelete||false, canCreateQuote:u.canCreateQuote||false }); setShowForm(true) }} style={s.tBtn}>Edit</button>
+                <button onClick={() => { setEditingUser(u); setForm({ username:u.username, password:'', fullName:u.fullName, role:u.role, group:u.group||'', columnPermissions:u.columnPermissions||{}, canEdit:u.canEdit!==undefined?u.canEdit:false, canReceipt:u.canReceipt!==undefined?u.canReceipt:false, canAssignReminder:u.canAssignReminder||false, canDelete:u.canDelete||false, canCreateQuote:u.canCreateQuote||false, canColor:u.canColor||false }); setShowForm(true) }} style={s.tBtn}>Edit</button>
                 <button onClick={() => setResetPassword(u)} style={{...s.tBtn,background:'#f39c12'}}>Pass</button>
                 {u.id!==user.id && <button onClick={async()=>{if(window.confirm('Delete?')){await axios.delete(`/api/users/${u.id}`);fetchUsers()}}} style={{...s.tBtn,background:'#e74c3c'}}>Del</button>}
               </td>
@@ -130,6 +130,7 @@ function UserManagement() {
                 <label style={s.tl}><input type="checkbox" checked={form.canAssignReminder} onChange={e=>setForm({...form,canAssignReminder:e.target.checked})}/><span>Assign Reminder</span></label>
                 <label style={s.tl}><input type="checkbox" checked={form.canDelete} onChange={e=>setForm({...form,canDelete:e.target.checked})}/><span>Delete</span></label>
                 <label style={s.tl}><input type="checkbox" checked={form.canCreateQuote||false} onChange={e=>setForm({...form,canCreateQuote:e.target.checked})}/><span>Create Order</span></label>
+                <label style={s.tl}><input type="checkbox" checked={form.canColor||false} onChange={e=>setForm({...form,canColor:e.target.checked})}/><span>Color</span></label>
               </div>
               <div style={{ maxHeight:'200px', overflow:'auto', border:'1px solid #e0e0e0', borderRadius:'6px', padding:'8px' }}>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', gap:'4px' }}>
@@ -200,6 +201,7 @@ function UserManagement() {
                 <label style={s.tl}><input type="checkbox" checked={groupForm.canAssignReminder} onChange={e=>setGroupForm({...groupForm,canAssignReminder:e.target.checked})}/><span>Reminder</span></label>
                 <label style={s.tl}><input type="checkbox" checked={groupForm.canDelete} onChange={e=>setGroupForm({...groupForm,canDelete:e.target.checked})}/><span>Delete</span></label>
             <label style={s.tl}><input type="checkbox" checked={groupForm.canCreateQuote||false} onChange={e=>setGroupForm({...groupForm,canCreateQuote:e.target.checked})}/><span>Create Order</span></label>
+            <label style={s.tl}><input type="checkbox" checked={groupForm.canColor||false} onChange={e=>setGroupForm({...groupForm,canColor:e.target.checked})}/><span>Color</span></label>
               </div>
               <div style={{ border:'1px solid #e0e0e0', borderRadius:'5px', padding:'6px' }}>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:'3px' }}>

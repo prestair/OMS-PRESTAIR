@@ -118,6 +118,7 @@ function Dashboard() {
 
   // canCreateQuote now controls "Add New Order" button visibility
   const canCreateOrder = canCreateQuote
+  const canColor = isAdmin || user.canColor
 
   const getAllowedColumns = () => {
     if (isAdmin) return ALL_COLUMNS
@@ -746,12 +747,12 @@ function Dashboard() {
                   <td key={col.key} style={styles.td}>{getCellValue(order, col.key)}</td>
                 ))}
                 <td style={{ ...styles.td, whiteSpace: 'nowrap' }}>
-                  <span style={{ display:'inline-flex', gap:'2px', marginRight:'4px' }}>
+                  {canColor && <span style={{ display:'inline-flex', gap:'2px', marginRight:'4px' }}>
                     <button onClick={async()=>{await axios.put('/api/orders/'+order.id,{rowColor:'red'});fetchOrders()}} style={{width:'14px',height:'14px',background:'#e74c3c',border:order.rowColor==='red'?'2px solid #000':'1px solid #ccc',borderRadius:'50%',cursor:'pointer',padding:0}} title="Red"/>
                     <button onClick={async()=>{await axios.put('/api/orders/'+order.id,{rowColor:'orange'});fetchOrders()}} style={{width:'14px',height:'14px',background:'#f39c12',border:order.rowColor==='orange'?'2px solid #000':'1px solid #ccc',borderRadius:'50%',cursor:'pointer',padding:0}} title="Orange"/>
                     <button onClick={async()=>{await axios.put('/api/orders/'+order.id,{rowColor:'yellow'});fetchOrders()}} style={{width:'14px',height:'14px',background:'#f1c40f',border:order.rowColor==='yellow'?'2px solid #000':'1px solid #ccc',borderRadius:'50%',cursor:'pointer',padding:0}} title="Yellow"/>
                     <button onClick={async()=>{await axios.put('/api/orders/'+order.id,{rowColor:''});fetchOrders()}} style={{width:'14px',height:'14px',background:'#fff',border:order.rowColor===''||!order.rowColor?'2px solid #000':'1px solid #ccc',borderRadius:'50%',cursor:'pointer',padding:0,fontSize:'8px'}} title="Clear">x</button>
-                  </span>
+                  </span>}
                   {(isAdmin || user.canAssignReminder) && <button onClick={() => setShowReminderForm(order)} style={{ ...styles.tblBtn, background: '#f39c12' }} title="Reminder">Reminder</button>}
                   {canEditOrders && (
                     <button onClick={() => { setEditingOrder(order); setShowOrderForm(true) }} style={styles.tblBtn} title="Edit">Edit</button>
