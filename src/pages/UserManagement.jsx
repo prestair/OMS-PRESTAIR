@@ -12,6 +12,7 @@ function UserManagement() {
   const navigate = useNavigate()
   const [users, setUsers] = useState([])
   const [groups, setGroups] = useState([])
+  const [userSearch, setUserSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const [form, setForm] = useState({ username: '', password: '', fullName: '', role: 'user', group: '', columnPermissions: {}, canEdit: false, canReceipt: false, canAssignReminder: false, canDelete: false })
@@ -80,15 +81,16 @@ function UserManagement() {
       </header>
 
       <div style={{ padding:'20px', maxWidth:'1100px', margin:'0 auto', overflowX:'auto' }}>
-        <div style={{ marginBottom:'12px', display:'flex', gap:'10px' }}>
+        <div style={{ marginBottom:'12px', display:'flex', gap:'10px', alignItems:'center' }}>
           <button onClick={() => { setEditingUser(null); setForm({ username:'', password:'', fullName:'', role:'user', group:'', columnPermissions:{}, canEdit:false, canReceipt:false, canAssignReminder:false, canDelete:false }); setShowForm(true) }} style={s.addBtn}>+ Add User</button>
           <button onClick={() => { setEditingGroup(null); setGroupForm({ name:'', columnPermissions:{}, canEdit:false, canReceipt:false, canAssignReminder:false, canDelete:false }); setShowGroupForm(true) }} style={{ ...s.addBtn, background:'#8e44ad' }}>Manage Groups</button>
+          <input value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search by Full Name..." style={{padding:'7px 12px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px',flex:'1',maxWidth:'250px'}}/>
         </div>
 
         <table style={s.table}><thead><tr>
           <th style={s.th}>#</th><th style={s.th}>Username</th><th style={s.th}>Full Name</th><th style={s.th}>Role</th><th style={s.th}>Group</th><th style={s.th}>Actions</th>
         </tr></thead><tbody>
-          {users.map((u, i) => (
+          {users.filter(u => !userSearch || (u.fullName||'').toLowerCase().includes(userSearch.toLowerCase()) || u.username.toLowerCase().includes(userSearch.toLowerCase())).map((u, i) => (
             <tr key={u.id} style={i%2?{background:'#f8f9fa'}:{}}>
               <td style={s.td}>{i+1}</td><td style={s.td}>{u.username}</td><td style={s.td}>{u.fullName}</td>
               <td style={s.td}><span style={u.role==='admin'?s.badgeA:s.badgeU}>{u.role}</span></td>
