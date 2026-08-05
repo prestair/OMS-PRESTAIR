@@ -127,7 +127,6 @@ router.post('/paper-requests/:id/accept', async (req, res) => {
   if (!reqs?.length) return res.status(404).json({ error: 'Not found' })
   const request = reqs[0]
   await supabase.from('paper_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString() }).eq('id', request.id)
-  await supabase.from('orders').update({ or_recvd: `ISSUED TO ${request.requested_by.toUpperCase()}` }).eq('order_no', request.order_no)
   res.json({ message: 'Accepted' })
 })
 
@@ -179,7 +178,6 @@ router.post('/return-requests/:id/accept', async (req, res) => {
   const { data: reqs } = await supabase.from('return_requests').select('*').eq('id', parseInt(req.params.id))
   if (!reqs?.length) return res.status(404).json({ error: 'Not found' })
   await supabase.from('return_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString() }).eq('id', parseInt(req.params.id))
-  await supabase.from('orders').update({ or_recvd: 'Paper Received' }).eq('order_no', reqs[0].order_no)
   res.json({ message: 'Accepted' })
 })
 

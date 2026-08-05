@@ -44,7 +44,7 @@ const FIELDS = [
 function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin }) {
   const { user } = useAuth()
 
-  const generateOrderNo = () => {
+  const generateOrderNo = (salesRepName) => {
     const now = new Date()
     const month = now.getMonth() + 1 // 1-12
     const year = now.getFullYear()
@@ -58,9 +58,9 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin }) {
       fyEnd = year
     }
     const fyStr = `${fyStart}-${String(fyEnd).slice(2)}`
-    // Get user initials from fullName
-    const nameParts = (user.fullName || user.username || '').trim().split(/\s+/)
-    const initials = nameParts.map(p => p.charAt(0).toUpperCase()).join('')
+    // Get initials from sales rep first name (first 2 chars)
+    const repName = (salesRepName || user.fullName || user.username || '').trim().split(/\s+/)[0]
+    const initials = repName.substring(0, 2).toUpperCase()
     return { fyStr, initials }
   }
 
@@ -74,7 +74,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin }) {
     const today = new Date()
     empty.date = `${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`
     // Auto-generate order number for new orders
-    const { fyStr, initials } = generateOrderNo()
+    const { fyStr, initials } = generateOrderNo('')
     empty.orderNo = `OR/${fyStr}/___NEXT___ ${initials}`
     empty._needsOrderNo = true
     return empty
@@ -86,7 +86,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin }) {
   React.useEffect(() => {
     if (!order && form._needsOrderNo) {
       axios.get('/api/orders').then(res => {
-        const { fyStr, initials } = generateOrderNo()
+        const { fyStr, initials } = generateOrderNo(form.salesRep)
         const prefix = `OR/${fyStr}/`
         // Find max number from existing orders in this FY
         let maxNum = 242 // start from 243
@@ -106,6 +106,13 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin }) {
   const handleChange = (key, value) => {
     setForm(prev => {
       const updated = { ...prev, [key]: value }
+      // Update order number initials when sales rep changes
+      if (key === 'salesRep' && !order) {
+        const { fyStr, initials } = generateOrderNo(value)
+        const currentNo = updated.orderNo || ''
+        const numPart = currentNo.replace(/OR\/\d{4}-\d{2}\//, '').split(' ')[0]
+        if (numPart) updated.orderNo = `OR/${fyStr}/${numPart} ${initials}`
+      }
       // Auto-calculate days to order when delivery date changes
       if (key === 'deliveryDate' && value) {
         try {
