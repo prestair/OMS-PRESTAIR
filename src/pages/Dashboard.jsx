@@ -491,6 +491,62 @@ function Dashboard() {
       setShowPrintPreview(true)
       return
     }
+
+    // Handle Payment Update print separately
+    if (dailyFilter === 'paymentUpdate') {
+      let filtered = allPayments
+      const parsePayDate = (d) => {
+        if (!d) return null
+        if (d.includes('-')) return new Date(d)
+        const parts = d.split('/')
+        if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0])
+        return new Date(d)
+      }
+      const formatPayDate = (d) => {
+        if (!d) return '-'
+        if (d.includes('-')) { const p = d.split('-'); return `${p[2]}/${p[1]}/${p[0]}` }
+        return d
+      }
+      if (paymentDateFrom) {
+        const from = new Date(paymentDateFrom)
+        filtered = filtered.filter(p => { const pd = parsePayDate(p.paymentDate); return pd && pd >= from })
+      }
+      if (paymentDateTo) {
+        const to = new Date(paymentDateTo); to.setHours(23,59,59)
+        filtered = filtered.filter(p => { const pd = parsePayDate(p.paymentDate); return pd && pd <= to })
+      }
+      let html = `<html><head><title>Payment Update - OMS Prestair</title><style>
+        @page { size: A4 ${orientation}; margin: 10mm; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 5px; }
+        h2 { color: #1a1a2e; margin: 0 0 4px; font-size: 14px; }
+        .subtitle { color: #555; font-size: 10px; margin: 2px 0 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: ${orientation === 'portrait' ? '8px' : '9px'}; border: 1px solid #333; table-layout: fixed; }
+        th { background: #FFD700; color: #000; padding: 4px 3px; text-align: left; font-weight: bold; border: 1px solid #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        td { padding: 3px 4px; border: 1px solid #999; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis; }
+        tr:nth-child(even) { background: #f5f5f5; }
+        .footer { margin-top: 8px; font-size: 8px; color: #888; text-align: right; }
+        .no-print { margin: 10px 0; text-align: center; }
+        .no-print button { padding: 10px 24px; font-size: 14px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin: 0 8px; }
+        .print-btn { background: #1a1a2e; color: #fff; }
+        .cancel-btn { background: #eee; color: #333; }
+        @media print { .no-print { display: none !important; } body { margin: 0; padding: 3mm; } }
+      </style></head><body>`
+      html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button></div>`
+      html += `<h2>OMS - Prestair Systems LLP</h2>`
+      const dateRange = paymentDateFrom || paymentDateTo ? `${paymentDateFrom || '...'} to ${paymentDateTo || '...'}` : 'All'
+      html += `<p class="subtitle">Payment Update Report | Date Range: <strong>${dateRange}</strong> | Date: ${new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric' })} | Layout: ${orientation.toUpperCase()}</p>`
+      html += `<table><thead><tr><th style="width:20px">#</th><th>Payment Date</th><th>Client</th><th>Order No</th><th>Amount</th><th>Payment Remarks</th><th>Total Amount</th><th>Received</th><th>Balance</th></tr></thead><tbody>`
+      filtered.forEach((p, idx) => {
+        html += `<tr><td>${idx + 1}</td><td>${formatPayDate(p.paymentDate)}</td><td>${p.client || ''}</td><td>${p.orderNo || ''}</td><td>${p.amount ? p.amount.toLocaleString() : '0'}</td><td>${p.remarks || '-'}</td><td>${p.totalAmount ? p.totalAmount.toLocaleString() : '0'}</td><td>${p.receivedAmount ? p.receivedAmount.toLocaleString() : '0'}</td><td>${p.balance ? p.balance.toLocaleString() : '0'}</td></tr>`
+      })
+      html += `</tbody></table><p class="footer">Total: ${filtered.length} payments | Generated: ${new Date().toLocaleString('en-IN')}</p></body></html>`
+      const printWindow = window.open('', '_blank')
+      printWindow.document.write(html)
+      printWindow.document.close()
+      setShowPrintPreview(false)
+      return
+    }
+
     const filtered = getDailyFilteredData()
     const filterLabel = dailyFilter ? ALL_COLUMNS.find(c => c.key === dailyFilter)?.label : ''
     const selectedValues = dailyFilterValue.length > 0 ? dailyFilterValue.map(v => v === '__blank__' ? '(Blank)' : v).join(', ') : 'All'
