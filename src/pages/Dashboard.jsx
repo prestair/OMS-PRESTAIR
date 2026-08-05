@@ -479,6 +479,8 @@ function Dashboard() {
     XLSX.writeFile(wb, `Daily_Report_${filterLabel || 'All'}_${new Date().toISOString().split('T')[0]}.xlsx`, { bookSST: true })
   }
 
+  const [printHtml, setPrintHtml] = useState('')
+
   const handleDailyPrint = (orientation) => {
     if (!orientation) {
       setShowPrintPreview(true)
@@ -488,27 +490,33 @@ function Dashboard() {
     const filterLabel = dailyFilter ? ALL_COLUMNS.find(c => c.key === dailyFilter)?.label : ''
     const selectedValues = dailyFilterValue.length > 0 ? dailyFilterValue.map(v => v === '__blank__' ? '(Blank)' : v).join(', ') : 'All'
     let html = `<html><head><title>Daily Report - OMS Prestair</title><style>
-      @page { size: A4 ${orientation}; margin: 12mm; }
-      body { font-family: Arial, sans-serif; margin: 0; padding: 10px; }
-      h2 { color: #1a1a2e; margin: 0 0 4px; font-size: 16px; }
-      .subtitle { color: #555; font-size: 11px; margin: 2px 0 12px; }
-      table { width: 100%; border-collapse: collapse; font-size: ${orientation === 'portrait' ? '9px' : '10px'}; border: 1px solid #333; }
-      th { background: #FFD700; color: #000; padding: 6px 5px; text-align: left; font-weight: bold; border: 1px solid #333; white-space: nowrap; }
-      td { padding: 5px; border: 1px solid #999; word-wrap: break-word; max-width: ${orientation === 'portrait' ? '120px' : '180px'}; }
+      @page { size: A4 ${orientation}; margin: 10mm; }
+      body { font-family: Arial, sans-serif; margin: 0; padding: 5px; }
+      h2 { color: #1a1a2e; margin: 0 0 4px; font-size: 14px; }
+      .subtitle { color: #555; font-size: 10px; margin: 2px 0 8px; }
+      table { width: 100%; border-collapse: collapse; font-size: ${orientation === 'portrait' ? '8px' : '9px'}; border: 1px solid #333; table-layout: fixed; }
+      th { background: #FFD700; color: #000; padding: 4px 3px; text-align: left; font-weight: bold; border: 1px solid #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      td { padding: 3px 4px; border: 1px solid #999; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis; }
       tr:nth-child(even) { background: #f5f5f5; }
-      .footer { margin-top: 10px; font-size: 9px; color: #888; text-align: right; }
-      @media print { body { margin: 0; padding: 5mm; } }
+      .footer { margin-top: 8px; font-size: 8px; color: #888; text-align: right; }
+      .no-print { margin: 10px 0; text-align: center; }
+      .no-print button { padding: 10px 24px; font-size: 14px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin: 0 8px; }
+      .print-btn { background: #1a1a2e; color: #fff; }
+      .cancel-btn { background: #eee; color: #333; }
+      @media print { .no-print { display: none !important; } body { margin: 0; padding: 3mm; } }
     </style></head><body>`
+    html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button></div>`
     html += `<h2>OMS - Prestair Systems LLP</h2>`
     html += `<p class="subtitle">Daily Report | Filter: <strong>${filterLabel || 'None'}</strong> | Values: <strong>${selectedValues}</strong> | Date: ${new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric' })} | Layout: ${orientation.toUpperCase()}</p>`
-    html += `<table><thead><tr><th>#</th><th>Date</th><th>PO No</th><th>Client</th><th>Order No</th><th>GST</th><th>Follow Up</th>`
+    html += `<table><thead><tr><th style="width:20px">#</th><th style="width:55px">Date</th><th>PO No</th><th>Client</th><th style="width:80px">Order No</th><th>GST</th><th style="width:50px">Follow Up</th>`
     if (dailyFilter) html += `<th>${filterLabel}</th>`
-    if (dailyFilter === 'siteVerification') html += `<th>Site Verification Remarks</th>`
-    if (dailyFilter === 'installationStatus') html += `<th>Installation Remarks</th>`
+    if (dailyFilter === 'siteVerification') html += `<th>SV Remarks</th>`
+    if (dailyFilter === 'installationStatus') html += `<th>Inst. Remarks</th>`
     if (dailyFilter === 'sectionDrawing') html += `<th>LOP</th>`
     if (dailyFilter === 'sectionDrawing') html += `<th>SD Remarks</th>`
-    if (dailyFilter === 'photography') html += `<th>Photography Remarks</th>`
-    if (dailyFilter === 'siteVideo') html += `<th>Site Video Remarks</th>`
+    if (dailyFilter === 'advanceBill') html += `<th>Akhil Sir Audit</th>`
+    if (dailyFilter === 'photography') html += `<th>Photo Remarks</th>`
+    if (dailyFilter === 'siteVideo') html += `<th>Video Remarks</th>`
     if (dailyFilter === 'review') html += `<th>Review Remarks</th>`
     html += `</tr></thead><tbody>`
     filtered.forEach((o, idx) => {
@@ -518,6 +526,7 @@ function Dashboard() {
       if (dailyFilter === 'installationStatus') html += `<td>${o.installationRemarks || ''}</td>`
       if (dailyFilter === 'sectionDrawing') html += `<td>${o.lop || ''}</td>`
       if (dailyFilter === 'sectionDrawing') html += `<td>${o.sectionDrawingRemarks || ''}</td>`
+      if (dailyFilter === 'advanceBill') html += `<td>${o.akhilSirAudit || ''}</td>`
       if (dailyFilter === 'photography') html += `<td>${o.photographyRemarks || ''}</td>`
       if (dailyFilter === 'siteVideo') html += `<td>${o.siteVideoRemarks || ''}</td>`
       if (dailyFilter === 'review') html += `<td>${o.reviewRemarks || ''}</td>`
@@ -528,7 +537,6 @@ function Dashboard() {
     printWindow.document.write(html)
     printWindow.document.close()
     setShowPrintPreview(false)
-    setTimeout(() => printWindow.print(), 500)
   }
 
   const toggleColumn = (key) => {
