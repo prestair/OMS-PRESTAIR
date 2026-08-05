@@ -1281,11 +1281,11 @@ function Dashboard() {
                     if (rt && rt.status === 'ACCEPTED') return 'RECEIVED'
                     if (rt && rt.status === 'PENDING') return 'RETURN PENDING'
                     if (latestIssue) {
-                      if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${(latestIssue.issueTo || latestIssue.issue_to || '').toUpperCase()}`
+                      if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${getFullName(latestIssue.requestedBy || latestIssue.requested_by)}`
                       if (latestIssue.status === 'PENDING') return 'PENDING'
                       if (latestIssue.status === 'REJECTED') return 'REJECTED'
                       if (latestIssue.status === 'ISSUE') return 'ISSUE'
-                      if ((latestIssue.status || '').startsWith('REROUTED')) return latestIssue.status
+                      if ((latestIssue.status || '').startsWith('REROUTED')) return `REROUTED TO ${getFullName((latestIssue.status || '').replace('REROUTED TO ','').trim())}`
                       return latestIssue.status || '-'
                     }
                     return '-'
@@ -1318,9 +1318,9 @@ function Dashboard() {
                       <td style={styles.td}>{formatDate(o.date)}</td>
                       <td style={styles.td}>{o.orderNo}</td>
                       <td style={styles.td}>{o.client}</td>
-                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.issueTo || pr.issue_to) : '-' })()}</td>
+                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.requestedBy || pr.requested_by) : '-' })()}</td>
                       <td style={{ ...styles.td, fontWeight: '600', color: statusColor }}>{status}</td>
-                      <td style={styles.td}>{(() => { const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt ? getFullName(rt.acceptedBy || rt.returnTo) : '-' })()}</td>
+                      <td style={styles.td}>{(() => { const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-' })()}</td>
                       <td style={styles.td}>{(() => { const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' })()}</td>
                     </tr>
                     )
