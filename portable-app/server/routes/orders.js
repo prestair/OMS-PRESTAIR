@@ -9,25 +9,28 @@ router.use(authenticate)
 router.get('/', async (req, res) => {
   const { data } = await supabase.from('orders').select('*')
   const mapped = (data || []).map(o => mapOrder(o))
-  // Sort by date descending (DD/MM/YYYY format) then by order number descending
+  // Sort by financial year descending, then by order number descending within each FY
+  // Format: OR/2026-27/240 NI -> FY start year = 2026, order num = 240
+  const getOrderParts = (orderNo) => {
+    if (!orderNo) return { fy: 0, num: 0 }
+    const parts = orderNo.split('/')
+    let fy = 0
+    let num = 0
+    if (parts.length >= 3) {
+      const fyPart = parts[1]
+      const fyDigits = fyPart.match(/^(\d{4})/)
+      if (fyDigits) fy = parseInt(fyDigits[1])
+      const numPart = parts[2]
+      const numDigits = numPart.match(/^(\d+)/)
+      if (numDigits) num = parseInt(numDigits[1])
+    }
+    return { fy, num }
+  }
   mapped.sort((a, b) => {
-    // Parse DD/MM/YYYY to comparable date
-    const parseDate = (d) => {
-      if (!d) return 0
-      const parts = d.split('/')
-      if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]).getTime()
-      return 0
-    }
-    const dateA = parseDate(a.date)
-    const dateB = parseDate(b.date)
-    if (dateB !== dateA) return dateB - dateA
-    // Same date - sort by order number descending (extract number from OR/2026-27/240 NI format)
-    const getNum = (orderNo) => {
-      if (!orderNo) return 0
-      const match = orderNo.match(/\/(\d+)/)
-      return match ? parseInt(match[1]) : 0
-    }
-    return getNum(b.orderNo) - getNum(a.orderNo)
+    const pa = getOrderParts(a.orderNo)
+    const pb = getOrderParts(b.orderNo)
+    if (pb.fy !== pa.fy) return pb.fy - pa.fy
+    return pb.num - pa.num
   })
   res.json(mapped)
 })
@@ -45,10 +48,32 @@ router.get('/export/all', adminOnly, async (req, res) => {
   res.json((data || []).map(o => mapOrder(o)))
 })
 
-// Get deleted orders
+// Get deleted orders - sorted by FY descending, then order number descending
 router.get('/deleted/all', async (req, res) => {
-  const { data } = await supabase.from('deleted_orders').select('*').order('deleted_at', { ascending: false })
-  res.json((data || []).map(d => ({ ...d.data, id: d.original_id, deletedBy: d.deleted_by, deletedAt: d.deleted_at })))
+  const { data } = await supabase.from('deleted_orders').select('*')
+  const getOrderParts = (orderNo) => {
+    if (!orderNo) return { fy: 0, num: 0 }
+    const parts = orderNo.split('/')
+    let fy = 0
+    let num = 0
+    if (parts.length >= 3) {
+      const fyPart = parts[1]
+      const fyDigits = fyPart.match(/^(\d{4})/)
+      if (fyDigits) fy = parseInt(fyDigits[1])
+      const numPart = parts[2]
+      const numDigits = numPart.match(/^(\d+)/)
+      if (numDigits) num = parseInt(numDigits[1])
+    }
+    return { fy, num }
+  }
+  const mapped = (data || []).map(d => ({ ...d.data, id: d.original_id, deletedBy: d.deleted_by, deletedAt: d.deleted_at }))
+  mapped.sort((a, b) => {
+    const pa = getOrderParts(a.orderNo)
+    const pb = getOrderParts(b.orderNo)
+    if (pb.fy !== pa.fy) return pb.fy - pa.fy
+    return pb.num - pa.num
+  })
+  res.json(mapped)
 })
 
 // Permanently delete from deleted
@@ -88,6 +113,7 @@ router.delete('/reminders/:id', async (req, res) => {
   res.json({ message: 'Dismissed' })
 })
 
+// Paper requests
 // Paper requests
 router.get('/paper-requests/all', async (req, res) => {
   const { data } = await supabase.from('paper_requests').select('*').order('id', { ascending: false })
