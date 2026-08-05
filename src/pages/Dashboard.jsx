@@ -1273,36 +1273,58 @@ function Dashboard() {
               <tbody>
                 {(() => {
                   let filtered = getDailyFilteredData()
-                  // Sort: ISSUE first, then PENDING, then ISSUED TO (alphabetically by user), then RECEIVED
+                  // Build status from paper requests
+                  const getRequestStatus = (orderNo) => {
+                    const pr = (paperRequests || []).filter(r => r.orderNo === orderNo)
+                    const rt = (returnRequests || []).find(r => r.orderNo === orderNo)
+                    const latestIssue = pr.length > 0 ? pr[0] : null
+                    if (rt && rt.status === 'ACCEPTED') return 'RECEIVED'
+                    if (rt && rt.status === 'PENDING') return 'RETURN PENDING'
+                    if (latestIssue) {
+                      if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${(latestIssue.issueTo || latestIssue.issue_to || '').toUpperCase()}`
+                      if (latestIssue.status === 'PENDING') return 'PENDING'
+                      if (latestIssue.status === 'REJECTED') return 'REJECTED'
+                      if (latestIssue.status === 'ISSUE') return 'ISSUE'
+                      if ((latestIssue.status || '').startsWith('REROUTED')) return latestIssue.status
+                      return latestIssue.status || '-'
+                    }
+                    return '-'
+                  }
+                  // Sort: ISSUE first, then PENDING, then ISSUED TO (alphabetically), then RECEIVED
                   filtered = filtered.sort((a, b) => {
-                    const getOrder = (val) => {
-                      const v = (val || '').toUpperCase()
-                      if (v === '' || v === '-') return 4
+                    const getOrder = (orderNo) => {
+                      const v = getRequestStatus(orderNo).toUpperCase()
+                      if (v === '-' || v === '') return 5
                       if (v === 'ISSUE') return 0
-                      if (v === 'PENDING') return 1
+                      if (v === 'PENDING' || v === 'RETURN PENDING') return 1
                       if (v.startsWith('ISSUED TO')) return 2
-                      if (v === 'PAPER RECEIVED') return 3
+                      if (v.startsWith('REROUTED')) return 1
+                      if (v === 'RECEIVED') return 3
+                      if (v === 'REJECTED') return 4
                       return 2
                     }
-                    const aOrder = getOrder(a.orRecvd)
-                    const bOrder = getOrder(b.orRecvd)
+                    const aOrder = getOrder(a.orderNo)
+                    const bOrder = getOrder(b.orderNo)
                     if (aOrder !== bOrder) return aOrder - bOrder
-                    // Within ISSUED TO, sort alphabetically by user name
-                    if (aOrder === 2) return (a.orRecvd || '').localeCompare(b.orRecvd || '')
-                    return (b.date || '').localeCompare(a.date || '')
+                    if (aOrder === 2) return getRequestStatus(a.orderNo).localeCompare(getRequestStatus(b.orderNo))
+                    return 0
                   })
-                  return filtered.map((o, idx) => (
+                  return filtered.map((o, idx) => {
+                    const status = getRequestStatus(o.orderNo)
+                    const statusColor = status === 'RECEIVED' ? '#27ae60' : status.startsWith('ISSUED TO') ? '#8e44ad' : status === 'PENDING' || status === 'RETURN PENDING' ? '#f39c12' : status === 'ISSUE' ? '#e74c3c' : status === 'REJECTED' ? '#e74c3c' : '#888'
+                    return (
                     <tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
                       <td style={styles.td}>{idx + 1}</td>
                       <td style={styles.td}>{formatDate(o.date)}</td>
                       <td style={styles.td}>{o.orderNo}</td>
                       <td style={styles.td}>{o.client}</td>
-                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.requestedBy) : '-' })()}</td>
-                      <td style={{ ...styles.td, fontWeight: '600', color: (o.orRecvd || '').toLowerCase().includes('received') ? '#27ae60' : (o.orRecvd || '').toLowerCase().includes('issued') ? '#8e44ad' : (o.orRecvd || '').toLowerCase().includes('issue') ? '#e74c3c' : '#888' }}>{o.orRecvd || '-'}</td>
-                      <td style={styles.td}>{(() => { const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt ? rt.acceptedBy || rt.returnTo : '-' })()}</td>
+                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.issueTo || pr.issue_to) : '-' })()}</td>
+                      <td style={{ ...styles.td, fontWeight: '600', color: statusColor }}>{status}</td>
+                      <td style={styles.td}>{(() => { const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt ? getFullName(rt.acceptedBy || rt.returnTo) : '-' })()}</td>
                       <td style={styles.td}>{(() => { const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' })()}</td>
                     </tr>
-                  ))
+                    )
+                  })
                 })()}
               </tbody>
             </table>
