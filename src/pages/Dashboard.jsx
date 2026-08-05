@@ -521,8 +521,8 @@ function Dashboard() {
         h2 { color: #1a1a2e; margin: 0 0 4px; font-size: 14px; }
         .subtitle { color: #555; font-size: 10px; margin: 2px 0 8px; }
         table { width: 100%; border-collapse: collapse; font-size: ${orientation === 'portrait' ? '8px' : '9px'}; border: 1px solid #333; table-layout: fixed; }
-        th { background: #FFD700; color: #000; padding: 4px 3px; text-align: left; font-weight: bold; border: 1px solid #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        td { padding: 3px 4px; border: 1px solid #999; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis; }
+        th { background: #FFD700; color: #000; padding: 4px 3px; text-align: center; font-weight: bold; border: 1px solid #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        td { padding: 3px 4px; border: 1px solid #999; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis; text-align: center; }
         tr:nth-child(even) { background: #f5f5f5; }
         .footer { margin-top: 8px; font-size: 8px; color: #888; text-align: right; }
         .no-print { margin: 10px 0; text-align: center; }
