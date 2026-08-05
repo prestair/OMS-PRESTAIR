@@ -136,6 +136,28 @@ router.post('/paper-requests/:id/reject', async (req, res) => {
   res.json({ message: 'Rejected' })
 })
 
+router.put('/paper-requests/:id/change-user', async (req, res) => {
+  const { issueTo } = req.body
+  if (!issueTo) return res.status(400).json({ error: 'User required' })
+  const { data: reqs } = await supabase.from('paper_requests').select('*').eq('id', parseInt(req.params.id))
+  if (!reqs?.length) return res.status(404).json({ error: 'Not found' })
+  if (reqs[0].requested_by !== req.user.username && req.user.role !== 'admin') return res.status(403).json({ error: 'Only requester can change' })
+  if (reqs[0].status !== 'PENDING') return res.status(400).json({ error: 'Can only change before acceptance' })
+  await supabase.from('paper_requests').update({ issue_to: issueTo }).eq('id', parseInt(req.params.id))
+  res.json({ message: 'Updated' })
+})
+
+router.put('/return-requests/:id/change-user', async (req, res) => {
+  const { returnTo } = req.body
+  if (!returnTo) return res.status(400).json({ error: 'User required' })
+  const { data: reqs } = await supabase.from('return_requests').select('*').eq('id', parseInt(req.params.id))
+  if (!reqs?.length) return res.status(404).json({ error: 'Not found' })
+  if (reqs[0].requested_by !== req.user.username && req.user.role !== 'admin') return res.status(403).json({ error: 'Only requester can change' })
+  if (reqs[0].status !== 'PENDING') return res.status(400).json({ error: 'Can only change before acceptance' })
+  await supabase.from('return_requests').update({ return_to: returnTo }).eq('id', parseInt(req.params.id))
+  res.json({ message: 'Updated' })
+})
+
 router.post('/paper-requests/:id/reroute', async (req, res) => {
   const { rerouteTo } = req.body
   if (!rerouteTo) return res.status(400).json({ error: 'Reroute user required' })
