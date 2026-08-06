@@ -207,7 +207,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
             {visibleFields.map(field => {
               const isOrderNoLocked = field.key === 'orderNo' && !isAdmin
               const isDateLocked = field.key === 'date' && !isAdmin && !order
-              const editable = !order ? (!isOrderNoLocked && !isDateLocked) : (canEditColumn(field.key) && !isOrderNoLocked && !isDateLocked)
+              const editable = !order ? (!isOrderNoLocked && !isDateLocked) : (isDeleted ? (isAdmin && !isOrderNoLocked) : (canEditColumn(field.key) && !isOrderNoLocked && !isDateLocked))
               return (
                 <div key={field.key} style={styles.field}>
                   <label style={styles.label}>{field.label}</label>
