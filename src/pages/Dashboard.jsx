@@ -457,13 +457,23 @@ function Dashboard() {
       return row
     })
     const ws = XLSX.utils.json_to_sheet(exportData)
-    // Calculate auto column widths based on data
+    // A4 Landscape optimized column widths - Client gets more space
     const headers = Object.keys(exportData[0] || {})
     ws['!cols'] = headers.map(key => {
+      if (key === '#') return { wch: 4 }
+      if (key === 'Date') return { wch: 10 }
+      if (key === 'Client') return { wch: 40 }
+      if (key === 'Order No') return { wch: 16 }
+      if (key === 'GST') return { wch: 18 }
+      if (key === 'PO No') return { wch: 12 }
+      if (key === 'Follow Up') return { wch: 10 }
+      // Dynamic columns - fit content
       let maxLen = key.length
       exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length })
-      return { wch: Math.min(Math.max(maxLen + 2, 8), 45) }
+      return { wch: Math.min(Math.max(maxLen + 2, 10), 35) }
     })
+    // Row heights for better readability
+    ws['!rows'] = [{ hpt: 22 }] // header row height
     // Bold + yellow header styling with center alignment and borders
     const range = XLSX.utils.decode_range(ws['!ref'])
     for (let r = range.s.r; r <= range.e.r; r++) {
@@ -476,6 +486,12 @@ function Dashboard() {
         if (r === 0) {
           ws[addr].s.font = { bold: true, sz: 11 }
           ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } }
+        } else {
+          ws[addr].s.font = { sz: 10 }
+        }
+        // Client column left-aligned for readability
+        if (headers[c] === 'Client' && r > 0) {
+          ws[addr].s.alignment = { horizontal: 'left', vertical: 'center', wrapText: true }
         }
       }
     }
@@ -1197,6 +1213,7 @@ function Dashboard() {
             <button onClick={() => { setDailyFilter('paymentUpdate'); setDailyFilterValue([]); fetchAllPayments() }} style={dailyFilter === 'paymentUpdate' ? styles.dailyBtnActive : styles.dailyBtn}>Payment Update</button>
             <span style={{ borderLeft: '2px solid #ddd', height: '36px' }}></span>
             <button onClick={() => handleDailyPrint()} style={{ ...styles.dailyBtn, background: '#2980b9', color: '#fff', borderColor: '#2980b9' }}>Print</button>
+            <button onClick={() => handleDailyExport()} style={{ ...styles.dailyBtn, background: '#27ae60', color: '#fff', borderColor: '#27ae60' }}>Excel Download</button>
           </div>
 
           {/* Filter Value Selection */}
