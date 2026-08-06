@@ -1485,7 +1485,7 @@ function Dashboard() {
                   const deletedIds = new Set(deletedOrders.map(d => d.id))
                   return filtered.map((o, idx) => {
                     const isFromDeleted = deletedIds.has(o.id) || (o.deletedBy !== undefined)
-                    const rowStyle = isFromDeleted ? { background: '#ffe0e0', color: '#c0392b' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd)
+                    const rowStyle = isFromDeleted ? { background: '#ffcccc', color: '#000000' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd)
                     return (
                     <tr key={`${o.id}-${idx}`} style={rowStyle}>
                       <td style={styles.td}>{idx + 1}</td>
