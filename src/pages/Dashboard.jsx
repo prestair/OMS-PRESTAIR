@@ -409,7 +409,7 @@ function Dashboard() {
   const handlePaymentSaved = () => { setShowPaymentForm(null); fetchOrders() }
 
   const getDailyFilteredData = () => {
-    let filtered = (dailyFilter === 'advanceBill' || dailyFilter === 'siteVideo' || dailyFilter === 'review' || dailyFilter === 'photography') ? [...orders, ...deletedOrders] : orders
+    let filtered = (dailyFilter === 'siteVideo' || dailyFilter === 'review' || dailyFilter === 'photography') ? [...orders, ...deletedOrders] : orders
     if (dailyFilter === 'percentReceived') {
       if (dailyPercentMax !== '') {
         const max = parseFloat(dailyPercentMax)
@@ -1207,7 +1207,8 @@ function Dashboard() {
                 <button onClick={() => setDailyFilterValue([])} style={dailyFilterValue.length === 0 ? styles.dailyValActive : styles.dailyVal}>All</button>
                 <button onClick={() => dailyFilterValue.includes('__blank__') ? setDailyFilterValue(dailyFilterValue.filter(v => v !== '__blank__')) : setDailyFilterValue([...dailyFilterValue, '__blank__'])} style={dailyFilterValue.includes('__blank__') ? styles.dailyValActive : styles.dailyVal}>(Blank)</button>
                 {(() => {
-                  const values = [...new Set(orders.map(o => String(o[dailyFilter] || '').trim()).filter(v => v))]
+                  const sourceData = (dailyFilter === 'siteVideo' || dailyFilter === 'review' || dailyFilter === 'photography') ? [...orders, ...deletedOrders] : orders
+                  const values = [...new Set(sourceData.map(o => String(o[dailyFilter] || '').trim()).filter(v => v))]
                   return values.sort().map(v => (
                     <button key={v} onClick={() => dailyFilterValue.includes(v) ? setDailyFilterValue(dailyFilterValue.filter(x => x !== v)) : setDailyFilterValue([...dailyFilterValue, v])} style={dailyFilterValue.includes(v) ? styles.dailyValActive : styles.dailyVal}>{v}</button>
                   ))
