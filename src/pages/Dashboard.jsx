@@ -409,7 +409,7 @@ function Dashboard() {
   const handlePaymentSaved = () => { setShowPaymentForm(null); fetchOrders() }
 
   const getDailyFilteredData = () => {
-    let filtered = (dailyFilter === 'advanceBill' || dailyFilter === 'siteVideo' || dailyFilter === 'review') ? [...orders, ...deletedOrders] : orders
+    let filtered = (dailyFilter === 'advanceBill' || dailyFilter === 'siteVideo' || dailyFilter === 'review' || dailyFilter === 'photography') ? [...orders, ...deletedOrders] : orders
     if (dailyFilter === 'percentReceived') {
       if (dailyPercentMax !== '') {
         const max = parseFloat(dailyPercentMax)
