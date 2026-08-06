@@ -208,9 +208,25 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
               const isOrderNoLocked = field.key === 'orderNo' && !isAdmin
               const isDateLocked = field.key === 'date' && !isAdmin && !order
               const editable = !order ? (!isOrderNoLocked && !isDateLocked) : (isDeleted ? (isAdmin && !isOrderNoLocked) : (canEditColumn(field.key) && !isOrderNoLocked && !isDateLocked))
+              const isDropdown = field.key === 'photography' || field.key === 'siteVideo' || field.key === 'review'
               return (
                 <div key={field.key} style={styles.field}>
                   <label style={styles.label}>{field.label}</label>
+                  {isDropdown ? (
+                    <select
+                      value={form[field.key] || ''}
+                      onChange={(e) => handleChange(field.key, e.target.value)}
+                      style={{ ...styles.input, ...(editable ? {} : styles.inputDisabled) }}
+                      disabled={!editable}
+                    >
+                      <option value="">-- Select --</option>
+                      <option value="NOT REQUIRED">NOT REQUIRED</option>
+                      <option value="REQUIRED">REQUIRED</option>
+                      <option value="IN PROCESS">IN PROCESS</option>
+                      <option value="DONE">DONE</option>
+                      <option value="ISSUE">ISSUE</option>
+                    </select>
+                  ) : (
                   <input
                     type={field.type || 'text'}
                     value={form[field.key] || ''}
@@ -219,6 +235,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
                     style={{ ...styles.input, ...(editable ? {} : styles.inputDisabled) }}
                     disabled={!editable}
                   />
+                  )}
                 </div>
               )
             })}
