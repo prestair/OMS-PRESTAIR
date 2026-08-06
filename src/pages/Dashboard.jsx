@@ -408,7 +408,7 @@ function Dashboard() {
   const handlePaymentSaved = () => { setShowPaymentForm(null); fetchOrders() }
 
   const getDailyFilteredData = () => {
-    let filtered = orders
+    let filtered = (dailyFilter === 'advanceBill' || dailyFilter === 'siteVideo' || dailyFilter === 'review') ? [...orders, ...deletedOrders] : orders
     if (dailyFilter === 'percentReceived') {
       if (dailyPercentMax !== '') {
         const max = parseFloat(dailyPercentMax)
@@ -931,6 +931,7 @@ function Dashboard() {
                     <td style={styles.td}>{order.deletedAt ? (() => { const d = new Date(order.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''}</td>
                     {isAdmin && (
                       <td style={{ ...styles.td, whiteSpace: 'nowrap' }}>
+                        <button onClick={() => { setEditingOrder(order); setShowOrderForm(true) }} style={{ ...styles.tblBtn, background: '#2980b9' }}>Edit</button>
                         <button onClick={() => handleRestore(order.id)} style={{ ...styles.tblBtn, background: '#27ae60' }}>Restore</button>
                         <button onClick={() => handlePermanentDelete(order.id)} style={{ ...styles.tblBtn, background: '#e74c3c' }}>Permanent Delete</button>
                       </td>
