@@ -1363,6 +1363,7 @@ function Dashboard() {
                   <th style={styles.th}>Date</th>
                   <th style={styles.th}>Order No</th>
                   <th style={styles.th}>Client</th>
+                  <th style={styles.th}>Issue Date</th>
                   <th style={styles.th}>Issue To</th>
                   <th style={styles.th}>Status</th>
                   <th style={styles.th}>Collected By</th>
@@ -1417,6 +1418,7 @@ function Dashboard() {
                       <td style={styles.td}>{formatDate(o.date)}</td>
                       <td style={styles.td}>{o.orderNo}</td>
                       <td style={styles.td}>{o.client}</td>
+                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-' })()}</td>
                       <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.requestedBy || pr.requested_by) : '-' })()}</td>
                       <td style={{ ...styles.td, fontWeight: '600', color: statusColor }}>{status}</td>
                       <td style={styles.td}>{(() => { const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-' })()}</td>
