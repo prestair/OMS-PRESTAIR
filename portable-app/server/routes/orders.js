@@ -93,7 +93,15 @@ router.post('/deleted/:id/restore', adminOnly, async (req, res) => {
   res.json({ message: 'Restored' })
 })
 
-// Reminders
+// Update deleted order data
+router.put('/deleted/:id/update', adminOnly, async (req, res) => {
+  const { data: dels } = await supabase.from('deleted_orders').select('*').eq('original_id', parseInt(req.params.id))
+  if (!dels?.length) return res.status(404).json({ error: 'Not found' })
+  const updatedData = { ...dels[0].data, ...req.body }
+  const { error } = await supabase.from('deleted_orders').update({ data: updatedData }).eq('original_id', parseInt(req.params.id))
+  if (error) return res.status(400).json({ error: error.message })
+  res.json({ message: 'Updated' })
+})
 router.get('/reminders/due', async (req, res) => {
   const today = new Date().toISOString().split('T')[0]
   const { data } = await supabase.from('reminders').select('*').lte('date', today)

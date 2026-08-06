@@ -41,7 +41,7 @@ const FIELDS = [
   { key: 'reviewRemarks', label: 'Review Remarks' }
 ]
 
-function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin }) {
+function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted }) {
   const { user } = useAuth()
 
   const generateOrderNo = (salesRepName) => {
@@ -149,7 +149,11 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin }) {
     })
     try {
       if (order) {
-        await axios.put(`/api/orders/${order.id}`, upperForm)
+        if (isDeleted) {
+          await axios.put(`/api/orders/deleted/${order.id}/update`, upperForm)
+        } else {
+          await axios.put(`/api/orders/${order.id}`, upperForm)
+        }
       } else {
         await axios.post('/api/orders', upperForm)
       }

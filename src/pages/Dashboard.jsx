@@ -66,6 +66,7 @@ function Dashboard() {
   const [showColumnPicker, setShowColumnPicker] = useState(false)
   const [showOrderForm, setShowOrderForm] = useState(false)
   const [editingOrder, setEditingOrder] = useState(null)
+  const [editingDeleted, setEditingDeleted] = useState(false)
   const [showPaymentForm, setShowPaymentForm] = useState(null)
   const [importDuplicates, setImportDuplicates] = useState(null)
   const [pendingImport, setPendingImport] = useState(null)
@@ -404,7 +405,7 @@ function Dashboard() {
     }
   }
 
-  const handleOrderSaved = () => { setShowOrderForm(false); setEditingOrder(null); fetchOrders() }
+  const handleOrderSaved = () => { setShowOrderForm(false); setEditingOrder(null); setEditingDeleted(false); fetchOrders(); fetchDeletedOrders() }
   const handlePaymentSaved = () => { setShowPaymentForm(null); fetchOrders() }
 
   const getDailyFilteredData = () => {
@@ -931,7 +932,7 @@ function Dashboard() {
                     <td style={styles.td}>{order.deletedAt ? (() => { const d = new Date(order.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''}</td>
                     {isAdmin && (
                       <td style={{ ...styles.td, whiteSpace: 'nowrap' }}>
-                        <button onClick={() => { setEditingOrder(order); setShowOrderForm(true) }} style={{ ...styles.tblBtn, background: '#2980b9' }}>Edit</button>
+                        <button onClick={() => { setEditingOrder(order); setEditingDeleted(true); setShowOrderForm(true) }} style={{ ...styles.tblBtn, background: '#2980b9' }}>Edit</button>
                         <button onClick={() => handleRestore(order.id)} style={{ ...styles.tblBtn, background: '#27ae60' }}>Restore</button>
                         <button onClick={() => handlePermanentDelete(order.id)} style={{ ...styles.tblBtn, background: '#e74c3c' }}>Permanent Delete</button>
                       </td>
@@ -1620,10 +1621,11 @@ function Dashboard() {
       {showOrderForm && (
         <OrderForm
           order={editingOrder}
-          onClose={() => { setShowOrderForm(false); setEditingOrder(null) }}
+          onClose={() => { setShowOrderForm(false); setEditingOrder(null); setEditingDeleted(false) }}
           onSaved={handleOrderSaved}
           canEditColumn={canEditColumn}
           isAdmin={isAdmin}
+          isDeleted={editingDeleted}
         />
       )}
 
