@@ -894,6 +894,9 @@ function Dashboard() {
                   <th style={styles.th}>Client</th>
                   <th style={styles.th}>Customer</th>
                   <th style={styles.th}>GST</th>
+                  <th style={styles.th}>Photography</th>
+                  <th style={styles.th}>Site Video</th>
+                  <th style={styles.th}>Review</th>
                   <th style={styles.th}>Sales Rep</th>
                   <th style={styles.th}>Delivery Address</th>
                   <th style={styles.th}>Phone No</th>
@@ -915,6 +918,9 @@ function Dashboard() {
                     <td style={styles.td}>{order.client}</td>
                     <td style={styles.td}>{order.customerName}</td>
                     <td style={styles.td}>{order.gst}</td>
+                    <td style={styles.td}>{order.photography}</td>
+                    <td style={styles.td}>{order.siteVideo}</td>
+                    <td style={styles.td}>{order.review}</td>
                     <td style={styles.td}>{order.salesRep}</td>
                     <td style={styles.td}>{order.deliveryAddress}</td>
                     <td style={styles.td}>{order.phoneNo}</td>
