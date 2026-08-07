@@ -116,7 +116,7 @@ function Dashboard() {
   const [paymentDateFrom, setPaymentDateFrom] = useState('')
   const [paymentDateTo, setPaymentDateTo] = useState('')
   const [receiptDrillDown, setReceiptDrillDown] = useState(null)
-  const [editLogs, setEditLogs] = useState([])
+  const [editHistoryPopup, setEditHistoryPopup] = useState(null)
   const fileInputRef = useRef(null)
 
   // Determine columns user is allowed to see
@@ -252,10 +252,10 @@ function Dashboard() {
     } catch (err) { console.error(err) }
   }
 
-  const fetchEditLogs = async () => {
+  const fetchEditLogs = async (order) => {
     try {
-      const res = await axios.get('/api/orders/edit-logs/all')
-      setEditLogs(res.data)
+      const res = await axios.get(`/api/orders/${order.id}/edit-logs`)
+      setEditHistoryPopup({ order, logs: res.data })
     } catch (err) { console.error(err) }
   }
 
@@ -652,6 +652,7 @@ function Dashboard() {
 
   const getCellValue = (order, key) => {
     const val = order[key]
+    if (key === 'orderNo') return <span onClick={(e)=>{e.stopPropagation();fetchEditLogs(order)}} style={{cursor:'pointer',color:'#1a1a2e',fontWeight:'600',textDecoration:'underline'}}>{val}</span>
     if (key === 'receivedAmount') return <span onClick={async(e)=>{e.stopPropagation();try{const res=await axios.get(`/api/orders/${order.id}/payments`);setReceiptDrillDown({order,payments:res.data})}catch{}}} style={{cursor:'pointer',color:'#2980b9',textDecoration:'underline',fontWeight:'600'}}>{formatCurrency(val)}</span>
     if (['totalAmount'].includes(key)) return formatCurrency(val)
     if (key === 'balance') return formatCurrency((order.totalAmount || 0) - (order.receivedAmount || 0))
@@ -743,7 +744,6 @@ function Dashboard() {
         <button onClick={() => setActiveTab('reports')} style={activeTab === 'reports' ? styles.tabActive : styles.tab}>Reports</button>
         <button onClick={() => setActiveTab('daily')} style={activeTab === 'daily' ? styles.tabActive : styles.tab}>Daily Reports</button>
         <button onClick={() => setActiveTab('paperIssue')} style={activeTab === 'paperIssue' ? styles.tabActive : styles.tab}>Paper Issue Request</button>
-        {isAdmin && <button onClick={() => { setActiveTab('editHistory'); fetchEditLogs() }} style={activeTab === 'editHistory' ? styles.tabActive : styles.tab}>Edit History</button>}
       </div>
 
       {activeTab === 'active' && <>
@@ -1606,44 +1606,35 @@ function Dashboard() {
       )}
 
 
-      {/* Edit History Tab */}
-      {activeTab === 'editHistory' && (
-        <div style={{ padding: '16px 24px' }}>
-          <div style={{ ...styles.reportSection, padding: '12px' }}>
-            <h4 style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: '700' }}>Edit History Log</h4>
-            <div style={styles.tableWrap}>
-              <table style={{ ...styles.table, fontSize: '11px' }}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>#</th>
-                    <th style={styles.th}>Date & Time</th>
-                    <th style={styles.th}>Order No</th>
-                    <th style={styles.th}>Type</th>
-                    <th style={styles.th}>Edited By</th>
-                    <th style={styles.th}>Changes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {editLogs.map((log, idx) => (
-                    <tr key={log.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
-                      <td style={styles.td}>{idx + 1}</td>
-                      <td style={styles.td}>{log.created_at ? new Date(log.created_at).toLocaleString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : ''}</td>
-                      <td style={styles.td}>{log.order_no}</td>
-                      <td style={{ ...styles.td, fontWeight: '600', color: log.edit_type === 'RECEIPT_EDIT' ? '#8e44ad' : '#2980b9' }}>{log.edit_type === 'RECEIPT_EDIT' ? 'Receipt Edit' : 'Order Edit'}</td>
-                      <td style={styles.td}>{getFullName(log.edited_by)}</td>
-                      <td style={{ ...styles.td, textAlign: 'left', fontSize: '10px' }}>
-                        {(log.changes || []).map((c, i) => (
-                          <div key={i} style={{ marginBottom: '2px' }}>
-                            <strong>{c.field}:</strong> <span style={{ color: '#e74c3c', textDecoration: 'line-through' }}>{c.oldValue || '(empty)'}</span> → <span style={{ color: '#27ae60' }}>{c.newValue || '(empty)'}</span>
-                          </div>
-                        ))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {editLogs.length === 0 && <p style={{ textAlign: 'center', padding: '20px', color: '#888', fontSize: '12px' }}>No edit history found</p>}
+      {/* Edit History Popup */}
+      {editHistoryPopup && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:1000}} onClick={()=>setEditHistoryPopup(null)}>
+          <div style={{background:'#fff',borderRadius:'10px',padding:'20px',maxWidth:'650px',width:'90%',maxHeight:'80vh',overflow:'auto'}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+              <h3 style={{margin:0,fontSize:'14px'}}>Edit History: {editHistoryPopup.order.orderNo}</h3>
+              <button onClick={()=>setEditHistoryPopup(null)} style={{background:'none',border:'none',fontSize:'18px',cursor:'pointer',fontWeight:'700'}}>X</button>
             </div>
+            <p style={{fontSize:'11px',color:'#555',margin:'0 0 10px'}}>{editHistoryPopup.order.client}</p>
+            {editHistoryPopup.logs.length > 0 ? (
+              <div style={{fontSize:'11px'}}>
+                {editHistoryPopup.logs.map((log, idx) => (
+                  <div key={log.id} style={{padding:'8px 10px',marginBottom:'6px',background:idx%2===0?'#f8f9fa':'#fff',borderRadius:'6px',border:'1px solid #eee'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
+                      <span style={{fontWeight:'600',color:log.edit_type==='RECEIPT_EDIT'?'#8e44ad':'#2980b9'}}>{log.edit_type==='RECEIPT_EDIT'?'Receipt Edit':'Order Edit'}</span>
+                      <span style={{color:'#888',fontSize:'10px'}}>{log.created_at?new Date(log.created_at).toLocaleString('en-IN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):''}</span>
+                    </div>
+                    <div style={{fontSize:'10px',color:'#555',marginBottom:'3px'}}>By: <strong>{getFullName(log.edited_by)}</strong></div>
+                    {(log.changes||[]).map((c,i)=>(
+                      <div key={i} style={{fontSize:'10px',marginLeft:'8px'}}>
+                        <strong>{c.field}:</strong> <span style={{color:'#e74c3c',textDecoration:'line-through'}}>{c.oldValue||'(empty)'}</span> → <span style={{color:'#27ae60'}}>{c.newValue||'(empty)'}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{textAlign:'center',color:'#888',padding:'20px',fontSize:'12px'}}>No edit history for this order</p>
+            )}
           </div>
         </div>
       )}
