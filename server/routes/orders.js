@@ -292,8 +292,21 @@ router.post('/import', adminOnly, async (req, res) => {
 
 // Update order
 router.put('/:id', async (req, res) => {
+  const AUTO_FIELDS = ['receivedAmount', 'balance', 'percentReceived', 'received_amount', 'percent_received']
+  const { data: existing } = await supabase.from('orders').select('*').eq('id', parseInt(req.params.id))
+  const oldOrder = existing?.[0] ? mapOrder(existing[0]) : {}
   const { error } = await supabase.from('orders').update(snakeOrder(req.body)).eq('id', parseInt(req.params.id))
   if (error) return res.status(400).json({ error: error.message })
+  const changes = []
+  Object.keys(req.body).forEach(key => {
+    if (AUTO_FIELDS.includes(key)) return
+    const oldVal = String(oldOrder[key] || '')
+    const newVal = String(req.body[key] || '')
+    if (oldVal !== newVal) changes.push({ field: key, oldValue: oldVal, newValue: newVal })
+  })
+  if (changes.length > 0) {
+    await supabase.from('edit_logs').insert({ order_id: parseInt(req.params.id), order_no: oldOrder.orderNo || '', edit_type: 'ORDER_EDIT', edited_by: req.user.username, changes })
+  }
   res.json({ message: 'Updated' })
 })
 
@@ -363,6 +376,17 @@ router.post('/:id/reminders', async (req, res) => {
 
 router.get('/:id/reminders', async (req, res) => {
   const { data } = await supabase.from('reminders').select('*').eq('order_id', parseInt(req.params.id))
+  res.json(data || [])
+})
+
+// Edit logs
+router.get('/edit-logs/all', async (req, res) => {
+  const { data } = await supabase.from('edit_logs').select('*').order('created_at', { ascending: false }).limit(500)
+  res.json(data || [])
+})
+
+router.get('/:id/edit-logs', async (req, res) => {
+  const { data } = await supabase.from('edit_logs').select('*').eq('order_id', parseInt(req.params.id)).order('created_at', { ascending: false })
   res.json(data || [])
 })
 

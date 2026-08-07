@@ -116,6 +116,7 @@ function Dashboard() {
   const [paymentDateFrom, setPaymentDateFrom] = useState('')
   const [paymentDateTo, setPaymentDateTo] = useState('')
   const [receiptDrillDown, setReceiptDrillDown] = useState(null)
+  const [editLogs, setEditLogs] = useState([])
   const fileInputRef = useRef(null)
 
   // Determine columns user is allowed to see
@@ -248,6 +249,13 @@ function Dashboard() {
       setAllUsers(users.data)
       setReturnRequests(retAll.data)
       setMyReturnRequests(retMy.data)
+    } catch (err) { console.error(err) }
+  }
+
+  const fetchEditLogs = async () => {
+    try {
+      const res = await axios.get('/api/orders/edit-logs/all')
+      setEditLogs(res.data)
     } catch (err) { console.error(err) }
   }
 
@@ -735,6 +743,7 @@ function Dashboard() {
         <button onClick={() => setActiveTab('reports')} style={activeTab === 'reports' ? styles.tabActive : styles.tab}>Reports</button>
         <button onClick={() => setActiveTab('daily')} style={activeTab === 'daily' ? styles.tabActive : styles.tab}>Daily Reports</button>
         <button onClick={() => setActiveTab('paperIssue')} style={activeTab === 'paperIssue' ? styles.tabActive : styles.tab}>Paper Issue Request</button>
+        {isAdmin && <button onClick={() => { setActiveTab('editHistory'); fetchEditLogs() }} style={activeTab === 'editHistory' ? styles.tabActive : styles.tab}>Edit History</button>}
       </div>
 
       {activeTab === 'active' && <>
@@ -1593,6 +1602,49 @@ function Dashboard() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+
+      {/* Edit History Tab */}
+      {activeTab === 'editHistory' && (
+        <div style={{ padding: '16px 24px' }}>
+          <div style={{ ...styles.reportSection, padding: '12px' }}>
+            <h4 style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: '700' }}>Edit History Log</h4>
+            <div style={styles.tableWrap}>
+              <table style={{ ...styles.table, fontSize: '11px' }}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>#</th>
+                    <th style={styles.th}>Date & Time</th>
+                    <th style={styles.th}>Order No</th>
+                    <th style={styles.th}>Type</th>
+                    <th style={styles.th}>Edited By</th>
+                    <th style={styles.th}>Changes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {editLogs.map((log, idx) => (
+                    <tr key={log.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                      <td style={styles.td}>{idx + 1}</td>
+                      <td style={styles.td}>{log.created_at ? new Date(log.created_at).toLocaleString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : ''}</td>
+                      <td style={styles.td}>{log.order_no}</td>
+                      <td style={{ ...styles.td, fontWeight: '600', color: log.edit_type === 'RECEIPT_EDIT' ? '#8e44ad' : '#2980b9' }}>{log.edit_type === 'RECEIPT_EDIT' ? 'Receipt Edit' : 'Order Edit'}</td>
+                      <td style={styles.td}>{getFullName(log.edited_by)}</td>
+                      <td style={{ ...styles.td, textAlign: 'left', fontSize: '10px' }}>
+                        {(log.changes || []).map((c, i) => (
+                          <div key={i} style={{ marginBottom: '2px' }}>
+                            <strong>{c.field}:</strong> <span style={{ color: '#e74c3c', textDecoration: 'line-through' }}>{c.oldValue || '(empty)'}</span> → <span style={{ color: '#27ae60' }}>{c.newValue || '(empty)'}</span>
+                          </div>
+                        ))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {editLogs.length === 0 && <p style={{ textAlign: 'center', padding: '20px', color: '#888', fontSize: '12px' }}>No edit history found</p>}
+            </div>
+          </div>
         </div>
       )}
 
