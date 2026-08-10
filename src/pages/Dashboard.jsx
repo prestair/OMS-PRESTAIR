@@ -37,7 +37,6 @@ const ALL_COLUMNS = [
   { key: 'sectionDrawing', label: 'Section Drawing' },
   { key: 'sectionDrawingRemarks', label: 'SD Remarks' },
   { key: 'inProduction', label: 'In Production' },
-  { key: 'billing', label: 'Billing' },
   { key: 'installation', label: 'Installation' },
   { key: 'totalAmount', label: 'Total Amount' },
   { key: 'receivedAmount', label: 'Received' },
