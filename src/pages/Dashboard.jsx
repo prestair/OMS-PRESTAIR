@@ -119,6 +119,7 @@ function Dashboard() {
   const [editHistoryPopup, setEditHistoryPopup] = useState(null)
   const [showPrintDialog, setShowPrintDialog] = useState(false)
   const fileInputRef = useRef(null)
+  const deletedFileInputRef = useRef(null)
 
   // Determine columns user is allowed to see
   const isAdmin = user.role === 'admin'
@@ -369,6 +370,87 @@ function Dashboard() {
     const printWin = window.open('', '_blank')
     printWin.document.write(html)
     printWin.document.close()
+  }
+
+  const handleDeletedExport = () => {
+    const exportData = deletedOrders.map((o, idx) => ({
+      '#': idx + 1,
+      'Date': formatDate(o.date),
+      'PO No': o.poNo || '',
+      'Client': o.client || '',
+      'Order No': o.orderNo || '',
+      'Customer Name': o.customerName || '',
+      'GST': o.gst || '',
+      'DOD Status': o.status || '',
+      'Sales Rep': o.salesRep || '',
+      'Total Amount': o.totalAmount || 0,
+      'Received': o.receivedAmount || 0,
+      'Balance': (o.totalAmount || 0) - (o.receivedAmount || 0),
+      '% Rcv': o.percentReceived || 0,
+      'Payment Remarks': o.paymentRemarks || '',
+      'Audit Remarks': o.remarks || '',
+      'Akhil Sir Audit': o.akhilSirAudit || '',
+      'Advance Bill': o.advanceBill || '',
+      'OR Recvd': o.orRecvd || '',
+      'Deleted By': o.deletedBy || '',
+      'Deleted On': o.deletedAt ? formatDate(o.deletedAt.split('T')[0]) : ''
+    }))
+    const ws = XLSX.utils.json_to_sheet(exportData)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Completed Orders')
+    XLSX.writeFile(wb, `OMS_Completed_Orders_${new Date().toISOString().split('T')[0]}.xlsx`)
+  }
+
+  const handleDeletedImport = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = async (evt) => {
+      const wb = XLSX.read(evt.target.result, { type: 'binary' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const data = XLSX.utils.sheet_to_json(ws)
+      const convertDate = (val) => {
+        if (!val) return ''
+        if (typeof val === 'number') {
+          const d = new Date((val - 25569) * 86400 * 1000)
+          return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+        }
+        return String(val)
+      }
+      const orders = data.map(row => ({
+        date: convertDate(row['Date'] || row['DATE']),
+        poNo: row['PO No'] || row['PO NO'] || '',
+        client: row['Client'] || row['CLIENT'] || '',
+        orderNo: row['Order No'] || row['ORDER NO'] || '',
+        customerName: row['Customer Name'] || row['CUSTOMER NAME'] || '',
+        gst: row['GST'] || '',
+        status: row['DOD Status'] || row['Status'] || '',
+        salesRep: row['Sales Rep'] || row['SALES REP'] || '',
+        totalAmount: parseFloat(row['Total Amount'] || 0) || 0,
+        receivedAmount: parseFloat(row['Received'] || 0) || 0,
+        balance: parseFloat(row['Balance'] || 0) || 0,
+        percentReceived: parseFloat(row['% Rcv'] || 0) || 0,
+        paymentRemarks: row['Payment Remarks'] || '',
+        remarks: row['Audit Remarks'] || row['Remarks'] || '',
+        akhilSirAudit: row['Akhil Sir Audit'] || '',
+        advanceBill: row['Advance Bill'] || '',
+        orRecvd: row['OR Recvd'] || ''
+      }))
+      try {
+        const res = await axios.post('/api/orders/import', { orders, overwrite: false })
+        if (res.data.duplicates?.length) {
+          alert(`Imported ${res.data.added} orders. ${res.data.duplicates.length} duplicates skipped.`)
+        } else {
+          alert(`Successfully imported ${res.data.added} orders`)
+        }
+        fetchOrders()
+        fetchDeletedOrders()
+      } catch (err) {
+        alert('Import failed: ' + (err.response?.data?.error || err.message))
+      }
+    }
+    reader.readAsBinary(file)
+    e.target.value = ''
   }
 
   const handleImport = (e) => {
@@ -994,6 +1076,13 @@ function Dashboard() {
       {/* Deleted Orders Tab */}
       {activeTab === 'deleted' && (
         <div style={{ padding: '0 24px' }}>
+          {isAdmin && (
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', justifyContent: 'flex-end' }}>
+              <button onClick={handleDeletedExport} style={{ ...styles.actionBtn, background: '#27ae60' }}>Download Excel</button>
+              <button onClick={() => deletedFileInputRef.current.click()} style={{ ...styles.actionBtn, background: '#f39c12' }}>Import Excel</button>
+              <input ref={deletedFileInputRef} type="file" accept=".xlsx,.xls" onChange={handleDeletedImport} style={{ display: 'none' }} />
+            </div>
+          )}
           <div style={styles.tableWrap}>
             <table style={styles.table}>
               <thead>
