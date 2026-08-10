@@ -634,6 +634,61 @@ function Dashboard() {
   }
 
   const handleDailyExport = () => {
+    // Handle Payment Update export separately
+    if (dailyFilter === 'paymentUpdate') {
+      let filtered = allPayments
+      const parsePayDate = (d) => { if (!d) return null; if (d.includes('-')) return new Date(d); const parts = d.split('/'); if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]); return new Date(d) }
+      const formatPayDate = (d) => { if (!d) return '-'; if (d.includes('-')) { const p = d.split('-'); return `${p[2]}/${p[1]}/${p[0]}` } return d }
+      if (paymentDateFrom) { const from = new Date(paymentDateFrom); filtered = filtered.filter(p => { const pd = parsePayDate(p.paymentDate); return pd && pd >= from }) }
+      if (paymentDateTo) { const to = new Date(paymentDateTo); to.setHours(23,59,59); filtered = filtered.filter(p => { const pd = parsePayDate(p.paymentDate); return pd && pd <= to }) }
+      const exportData = filtered.map((p, idx) => ({
+        '#': idx + 1,
+        'Payment Date': formatPayDate(p.paymentDate),
+        'Client': p.client || '',
+        'Order No': p.orderNo || '',
+        'Amount': p.amount || 0,
+        'Payment Remarks': p.remarks || '-',
+        'Total Amount': p.totalAmount || 0,
+        'Received': p.receivedAmount || 0,
+        'Balance': p.balance || 0
+      }))
+      const headers = Object.keys(exportData[0] || {})
+      let html = `<html><head><title>Excel Preview - Payment Update</title><style>
+        body { font-family: Arial, sans-serif; margin: 10px; font-size: 9px; }
+        h2 { text-align: center; font-size: 14px; margin-bottom: 4px; }
+        .subtitle { text-align: center; font-size: 11px; color: #555; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #333; padding: 3px 5px; text-align: center; font-size: 8px; word-wrap: break-word; }
+        th { background: #FFD700; font-weight: bold; font-size: 9px; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .no-print { text-align: center; margin: 12px 0; }
+        .no-print button { padding: 10px 24px; font-size: 14px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin: 0 8px; }
+        .dl-btn { background: #27ae60; color: #fff; }
+        .cancel-btn { background: #eee; color: #333; }
+      </style></head><body>`
+      const dateRange = paymentDateFrom || paymentDateTo ? `${paymentDateFrom || '...'} to ${paymentDateTo || '...'}` : 'All'
+      html += `<div class="no-print"><button class="dl-btn" id="dlBtn">Download Excel</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span style="margin-left:16px;font-size:13px;font-weight:600;color:#555">Total Rows: ${exportData.length}</span></div>`
+      html += `<h2>OMS - Prestair Systems LLP</h2>`
+      html += `<p class="subtitle">Payment Update | Date Range: ${dateRange} | ${exportData.length} records | ${new Date().toLocaleDateString('en-IN')}</p>`
+      html += `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
+      exportData.forEach(row => { html += `<tr>${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>` })
+      html += `</tbody></table></body></html>`
+      const previewWin = window.open('', '_blank')
+      previewWin.document.write(html)
+      previewWin.document.close()
+      previewWin.document.getElementById('dlBtn').onclick = () => {
+        const ws = XLSX.utils.json_to_sheet(exportData)
+        ws['!cols'] = headers.map(key => { let maxLen = key.length; exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length }); return { wch: Math.min(Math.max(maxLen + 2, 10), 35) } })
+        const range = XLSX.utils.decode_range(ws['!ref'])
+        for (let r = range.s.r; r <= range.e.r; r++) { for (let c = range.s.c; c <= range.e.c; c++) { const addr = XLSX.utils.encode_cell({ r, c }); if (!ws[addr]) ws[addr] = { v: '', t: 's' }; if (!ws[addr].s) ws[addr].s = {}; ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }; ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }; if (r === 0) { ws[addr].s.font = { bold: true, sz: 11 }; ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } } } else { ws[addr].s.font = { sz: 10 } } } }
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, ws, 'Payment Update')
+        XLSX.writeFile(wb, `Payment_Update_${new Date().toISOString().split('T')[0]}.xlsx`)
+        previewWin.close()
+      }
+      return
+    }
+
     const filtered = getDailyFilteredData()
     const filterLabel = dailyFilter ? ALL_COLUMNS.find(c => c.key === dailyFilter)?.label : ''
     const exportData = filtered.map((o, idx) => {
