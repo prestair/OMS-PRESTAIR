@@ -32,7 +32,7 @@ function UserManagement() {
   const applyGroupRights = (groupName) => {
     const g = groups.find(x => x.name === groupName)
     if (g) {
-      setForm(prev => ({ ...prev, group: groupName, canEdit: g.canEdit, canReceipt: g.canReceipt, canAssignReminder: g.canAssignReminder, canDelete: g.canDelete, canCreateQuote: g.canCreateQuote || false, columnPermissions: { ...g.columnPermissions } }))
+      setForm(prev => ({ ...prev, group: groupName, canEdit: g.canEdit || g.can_edit || false, canReceipt: g.canReceipt || g.can_receipt || false, canAssignReminder: g.canAssignReminder || g.can_assign_reminder || false, canDelete: g.canDelete || g.can_delete || false, canCreateQuote: g.canCreateQuote || g.can_create_quote || false, canColor: g.canColor || g.can_color || false, columnPermissions: { ...(g.columnPermissions || g.column_permissions || {}) } }))
     } else {
       setForm(prev => ({ ...prev, group: groupName }))
     }
@@ -41,7 +41,9 @@ function UserManagement() {
   const resetToGroupRights = () => {
     const g = groups.find(x => x.name === form.group)
     if (g) {
-      setForm(prev => ({ ...prev, canEdit: g.canEdit, canReceipt: g.canReceipt, canAssignReminder: g.canAssignReminder, canDelete: g.canDelete, canCreateQuote: g.canCreateQuote || false, columnPermissions: { ...g.columnPermissions } }))
+      setForm(prev => ({ ...prev, canEdit: g.canEdit || g.can_edit || false, canReceipt: g.canReceipt || g.can_receipt || false, canAssignReminder: g.canAssignReminder || g.can_assign_reminder || false, canDelete: g.canDelete || g.can_delete || false, canCreateQuote: g.canCreateQuote || g.can_create_quote || false, canColor: g.canColor || g.can_color || false, columnPermissions: { ...(g.columnPermissions || g.column_permissions || {}) } }))
+    } else {
+      alert('No group selected or group not found')
     }
   }
 
@@ -185,7 +187,7 @@ function UserManagement() {
             {groups.map(g => (
               <div key={g.id} style={{ display:'flex', alignItems:'center', gap:'4px', padding:'4px 8px', background:'#f0f0f0', borderRadius:'4px', fontSize:'11px' }}>
                 <strong>{g.name}</strong>
-                <button onClick={()=>{setEditingGroup(g);setGroupForm({name:g.name,columnPermissions:g.columnPermissions||{},canEdit:g.canEdit,canReceipt:g.canReceipt,canAssignReminder:g.canAssignReminder,canDelete:g.canDelete})}} style={{ background:'#2980b9', color:'#fff', border:'none', borderRadius:'2px', fontSize:'9px', padding:'2px 5px', cursor:'pointer' }}>Edit</button>
+                <button onClick={()=>{setEditingGroup(g);setGroupForm({name:g.name,columnPermissions:g.columnPermissions||g.column_permissions||{},canEdit:g.canEdit||g.can_edit||false,canReceipt:g.canReceipt||g.can_receipt||false,canAssignReminder:g.canAssignReminder||g.can_assign_reminder||false,canDelete:g.canDelete||g.can_delete||false,canCreateQuote:g.canCreateQuote||g.can_create_quote||false,canColor:g.canColor||g.can_color||false})}} style={{ background:'#2980b9', color:'#fff', border:'none', borderRadius:'2px', fontSize:'9px', padding:'2px 5px', cursor:'pointer' }}>Edit</button>
                 <button onClick={async()=>{if(window.confirm(`Delete ${g.name}?`)){await axios.delete(`/api/users/groups/${g.id}`);fetchGroups()}}} style={{ background:'#e74c3c', color:'#fff', border:'none', borderRadius:'2px', fontSize:'9px', padding:'2px 5px', cursor:'pointer' }}>Del</button>
               </div>
             ))}
