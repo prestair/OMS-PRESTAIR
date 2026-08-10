@@ -1179,17 +1179,20 @@ function Dashboard() {
           <thead>
             <tr>
               <th style={styles.th}>#</th>
-              {displayedColumns.map(col => (
+              {displayedColumns.map(col => {
+                const noFilterCols = ['orderNo','photographyRemarks','siteVideoRemarks','reviewRemarks','deliveryRemarks','customerName','gst','billingAddress','phoneNo','siteVerificationRemarks','installationRemarks','sectionDrawingRemarks','totalAmount','receivedAmount','balance','percentReceived','paymentRemarks','daysToOrder','remarks']
+                const hasFilter = !noFilterCols.includes(col.key)
+                return (
                 <th key={col.key} style={styles.th}>
                   <div style={styles.thContent}>
                     <span>{col.label}</span>
-                    <button
+                    {hasFilter && <button
                       onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === col.key ? null : col.key) }}
                       style={{ ...styles.filterBtn, background: columnFilters[col.key] ? '#f39c12' : 'rgba(255,255,255,0.2)' }}
                       title="Filter"
-                    >▼</button>
+                    >▼</button>}
                   </div>
-                  {openFilter === col.key && (
+                  {hasFilter && openFilter === col.key && (
                     <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
                       <div style={styles.filterDropdownHeader}>
                         <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: {col.label}</span>
@@ -1211,7 +1214,7 @@ function Dashboard() {
                     </div>
                   )}
                 </th>
-              ))}
+              )})}
               <th style={styles.th}>Actions</th>
             </tr>
           </thead>
