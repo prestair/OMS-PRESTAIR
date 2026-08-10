@@ -459,6 +459,7 @@ function Dashboard() {
       if (dailyFilter === 'installationStatus') row['Installation Remarks'] = o.installationRemarks || ''
       if (dailyFilter === 'sectionDrawing') row['LOP'] = o.lop || ''
       if (dailyFilter === 'sectionDrawing') row['SD Remarks'] = o.sectionDrawingRemarks || ''
+      if (dailyFilter === 'akhilSirAudit') row['Audit Remarks'] = o.remarks || ''
       if (dailyFilter === 'photography') row['Photography Remarks'] = o.photographyRemarks || ''
       if (dailyFilter === 'siteVideo') row['Site Video Remarks'] = o.siteVideoRemarks || ''
       if (dailyFilter === 'review') row['Review Remarks'] = o.reviewRemarks || ''
@@ -601,6 +602,7 @@ function Dashboard() {
     if (dailyFilter === 'sectionDrawing') html += `<th>LOP</th>`
     if (dailyFilter === 'sectionDrawing') html += `<th>SD Remarks</th>`
     if (dailyFilter === 'advanceBill') html += `<th>Akhil Sir Audit</th>`
+    if (dailyFilter === 'akhilSirAudit') html += `<th>Audit Remarks</th>`
     if (dailyFilter === 'photography') html += `<th>Photo Remarks</th>`
     if (dailyFilter === 'siteVideo') html += `<th>Video Remarks</th>`
     if (dailyFilter === 'review') html += `<th>Review Remarks</th>`
@@ -613,6 +615,7 @@ function Dashboard() {
       if (dailyFilter === 'sectionDrawing') html += `<td>${o.lop || ''}</td>`
       if (dailyFilter === 'sectionDrawing') html += `<td>${o.sectionDrawingRemarks || ''}</td>`
       if (dailyFilter === 'advanceBill') html += `<td>${o.akhilSirAudit || ''}</td>`
+      if (dailyFilter === 'akhilSirAudit') html += `<td>${o.remarks || ''}</td>`
       if (dailyFilter === 'photography') html += `<td>${o.photographyRemarks || ''}</td>`
       if (dailyFilter === 'siteVideo') html += `<td>${o.siteVideoRemarks || ''}</td>`
       if (dailyFilter === 'review') html += `<td>${o.reviewRemarks || ''}</td>`
@@ -1485,6 +1488,7 @@ function Dashboard() {
                   {dailyFilter === 'sectionDrawing' && <th style={styles.th}>LOP</th>}
                   {dailyFilter === 'sectionDrawing' && <th style={styles.th}>SD Remarks</th>}
                   {dailyFilter === 'advanceBill' && <th style={styles.th}>Akhil Sir Audit</th>}
+                  {dailyFilter === 'akhilSirAudit' && <th style={styles.th}>Audit Remarks</th>}
                   {dailyFilter === 'photography' && <th style={styles.th}>Photography Remarks</th>}
                   {dailyFilter === 'siteVideo' && <th style={styles.th}>Site Video Remarks</th>}
                   {dailyFilter === 'review' && <th style={styles.th}>Review Remarks</th>}
@@ -1512,6 +1516,7 @@ function Dashboard() {
                       {dailyFilter === 'sectionDrawing' && <td style={styles.td}>{o.lop}</td>}
                       {dailyFilter === 'sectionDrawing' && <td style={styles.td}>{o.sectionDrawingRemarks}</td>}
                       {dailyFilter === 'advanceBill' && <td style={styles.td}>{o.akhilSirAudit}</td>}
+                      {dailyFilter === 'akhilSirAudit' && <td style={styles.td}>{o.remarks}</td>}
                       {dailyFilter === 'photography' && <td style={styles.td}>{o.photographyRemarks}</td>}
                       {dailyFilter === 'siteVideo' && <td style={styles.td}>{o.siteVideoRemarks}</td>}
                       {dailyFilter === 'review' && <td style={styles.td}>{o.reviewRemarks}</td>}
