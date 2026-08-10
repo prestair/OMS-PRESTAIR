@@ -1179,42 +1179,9 @@ function Dashboard() {
           <thead>
             <tr>
               <th style={styles.th}>#</th>
-              {displayedColumns.map(col => {
-                const noFilterCols = ['orderNo','photographyRemarks','siteVideoRemarks','reviewRemarks','deliveryRemarks','customerName','gst','billingAddress','phoneNo','siteVerificationRemarks','installationRemarks','sectionDrawingRemarks','totalAmount','receivedAmount','balance','percentReceived','paymentRemarks','daysToOrder','remarks']
-                const hasFilter = !noFilterCols.includes(col.key)
-                return (
-                <th key={col.key} style={styles.th}>
-                  <div style={styles.thContent}>
-                    <span>{col.label}</span>
-                    {hasFilter && <button
-                      onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === col.key ? null : col.key) }}
-                      style={{ ...styles.filterBtn, background: columnFilters[col.key] ? '#f39c12' : 'rgba(255,255,255,0.2)' }}
-                      title="Filter"
-                    >▼</button>}
-                  </div>
-                  {hasFilter && openFilter === col.key && (
-                    <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
-                      <div style={styles.filterDropdownHeader}>
-                        <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: {col.label}</span>
-                        <button onClick={() => clearFilter(col.key)} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
-                      </div>
-                      <div style={styles.filterOptions}>
-                        {getUniqueValues(col.key).map(val => (
-                          <label key={val} style={styles.filterOption}>
-                            <input
-                              type="checkbox"
-                              checked={(columnFilters[col.key] || []).includes(val)}
-                              onChange={() => toggleFilterValue(col.key, val)}
-                            />
-                            <span style={{ fontSize: '11px' }}>{val.length > 30 ? val.substring(0, 30) + '...' : val}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <button onClick={() => setOpenFilter(null)} style={styles.filterDoneBtn}>Done</button>
-                    </div>
-                  )}
-                </th>
-              )})}
+              {displayedColumns.map(col => (
+                <th key={col.key} style={styles.th}>{col.label}</th>
+              ))}
               <th style={styles.th}>Actions</th>
             </tr>
           </thead>
