@@ -1478,44 +1478,6 @@ function Dashboard() {
               <span style={{fontSize:'12px',fontWeight:'600'}}>To:</span>
               <input type="date" value={paymentDateTo} onChange={e=>setPaymentDateTo(e.target.value)} style={{padding:'6px 10px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px'}}/>
               {(paymentDateFrom || paymentDateTo) && <button onClick={()=>{setPaymentDateFrom('');setPaymentDateTo('')}} style={{fontSize:'10px',background:'#eee',border:'none',borderRadius:'3px',padding:'4px 8px',cursor:'pointer'}}>Clear</button>}
-              <button onClick={() => {
-                let filtered = allPayments
-                const parsePayDate = (d) => { if (!d) return null; if (d.includes('-')) return new Date(d); const parts = d.split('/'); if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]); return new Date(d) }
-                const formatPayDate = (d) => { if (!d) return '-'; if (d.includes('-')) { const p = d.split('-'); return `${p[2]}/${p[1]}/${p[0]}` } return d }
-                if (paymentDateFrom) { const from = new Date(paymentDateFrom); filtered = filtered.filter(p => { const pd = parsePayDate(p.paymentDate); return pd && pd >= from }) }
-                if (paymentDateTo) { const to = new Date(paymentDateTo); to.setHours(23,59,59); filtered = filtered.filter(p => { const pd = parsePayDate(p.paymentDate); return pd && pd <= to }) }
-                const exportData = filtered.map((p, idx) => ({
-                  '#': idx + 1,
-                  'Payment Date': formatPayDate(p.paymentDate),
-                  'Client': p.client || '',
-                  'Order No': p.orderNo || '',
-                  'Amount': p.amount || 0,
-                  'Payment Remarks': p.remarks || '-',
-                  'Total Amount': p.totalAmount || 0,
-                  'Received': p.receivedAmount || 0,
-                  'Balance': p.balance || 0
-                }))
-                const ws = XLSX.utils.json_to_sheet(exportData)
-                const headers = Object.keys(exportData[0] || {})
-                ws['!cols'] = headers.map(key => ({ wch: Math.max(key.length, 12) }))
-                // Style header row
-                headers.forEach((_, i) => {
-                  const cell = ws[XLSX.utils.encode_cell({ r: 0, c: i })]
-                  if (cell) cell.s = { font: { bold: true, color: { rgb: '000000' } }, fill: { fgColor: { rgb: 'FFD700' } }, alignment: { horizontal: 'center' } }
-                })
-                // Center align all data cells
-                const range = XLSX.utils.decode_range(ws['!ref'])
-                for (let r = 1; r <= range.e.r; r++) {
-                  for (let c = 0; c <= range.e.c; c++) {
-                    const cell = ws[XLSX.utils.encode_cell({ r, c })]
-                    if (cell) cell.s = { alignment: { horizontal: 'center' } }
-                  }
-                }
-                const wb = XLSX.utils.book_new()
-                XLSX.utils.book_append_sheet(wb, ws, 'Payment Update')
-                const dateRange = paymentDateFrom || paymentDateTo ? `_${paymentDateFrom || ''}_to_${paymentDateTo || ''}` : ''
-                XLSX.writeFile(wb, `Payment_Update${dateRange}.xlsx`)
-              }} style={{padding:'6px 12px',background:'#27ae60',color:'#fff',border:'none',borderRadius:'5px',fontSize:'11px',fontWeight:'600',cursor:'pointer',marginLeft:'auto'}}>Excel Download</button>
             </div>
             <table style={styles.table}>
               <thead>
