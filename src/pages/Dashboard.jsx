@@ -117,6 +117,7 @@ function Dashboard() {
   const [paymentDateTo, setPaymentDateTo] = useState('')
   const [receiptDrillDown, setReceiptDrillDown] = useState(null)
   const [editHistoryPopup, setEditHistoryPopup] = useState(null)
+  const [showPrintDialog, setShowPrintDialog] = useState(false)
   const fileInputRef = useRef(null)
 
   // Determine columns user is allowed to see
@@ -308,6 +309,66 @@ function Dashboard() {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Orders')
     XLSX.writeFile(wb, `OMS_Orders_${new Date().toISOString().split('T')[0]}.xlsx`)
+  }
+
+  const handlePrint = (orientation) => {
+    setShowPrintDialog(false)
+    const cols = allowedColumns.filter(c => visibleColumns.includes(c.key))
+    const colCount = cols.length + 1 // +1 for serial number
+    const pageWidth = orientation === 'landscape' ? 297 : 210
+    const pageMargin = 8
+    const usableWidth = pageWidth - (pageMargin * 2)
+    const colWidth = Math.floor(usableWidth / colCount)
+
+    let html = `<html><head><title>OMS Orders - Print</title>
+    <style>
+      @page { size: A4 ${orientation}; margin: ${pageMargin}mm; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; font-size: 8px; }
+      h2 { text-align: center; font-size: 12px; margin-bottom: 4px; }
+      .subtitle { text-align: center; font-size: 9px; color: #555; margin-bottom: 6px; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th, td { border: 1px solid #333; padding: 2px 3px; text-align: center; word-wrap: break-word; overflow: hidden; font-size: 7px; }
+      th { background: #1a1a2e; color: #fff; font-weight: 700; font-size: 7px; }
+      tr:nth-child(even) { background: #f5f5f5; }
+      .no-print { margin: 10px 0; text-align: center; }
+      .no-print button { padding: 10px 24px; font-size: 14px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin: 0 8px; }
+      .print-btn { background: #1a1a2e; color: #fff; }
+      .cancel-btn { background: #eee; color: #333; }
+      @media print { .no-print { display: none !important; } }
+    </style></head><body>`
+    html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Confirm & Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button></div>`
+    html += `<h2>OMS - Prestair Systems LLP</h2>`
+    html += `<p class="subtitle">Orders Report | ${orientation.toUpperCase()} | Date: ${new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric' })} | Total: ${filteredOrders.length} orders</p>`
+    html += `<table><thead><tr><th style="width:${colWidth}mm">#</th>`
+    cols.forEach(col => { html += `<th style="width:${colWidth}mm">${col.label}</th>` })
+    html += `</tr></thead><tbody>`
+    filteredOrders.forEach((o, idx) => {
+      html += `<tr><td>${idx + 1}</td>`
+      cols.forEach(col => {
+        let val = o[col.key]
+        if (col.key === 'date' || col.key === 'deliveryDate') val = formatDate(val)
+        else if (['totalAmount', 'receivedAmount', 'balance'].includes(col.key)) val = (val || 0).toLocaleString('en-IN')
+        else if (col.key === 'percentReceived') val = `${val || 0}%`
+        else if (col.key === 'daysToOrder') {
+          if (o.date) {
+            try {
+              let d = null
+              if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(o.date)) { const p = o.date.split('/'); d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0])) }
+              else d = new Date(o.date)
+              if (d && !isNaN(d)) { const today = new Date(); today.setHours(0,0,0,0); d.setHours(0,0,0,0); val = Math.ceil((today - d) / (1000*60*60*24)) }
+            } catch {}
+          }
+        }
+        else val = val || ''
+        html += `<td>${val}</td>`
+      })
+      html += `</tr>`
+    })
+    html += `</tbody></table></body></html>`
+    const printWin = window.open('', '_blank')
+    printWin.document.write(html)
+    printWin.document.close()
   }
 
   const handleImport = (e) => {
@@ -796,6 +857,7 @@ function Dashboard() {
           {canCreateOrder && <button onClick={() => { setEditingOrder(null); setShowOrderForm(true) }} style={styles.actionBtn}>+ Add New Order</button>}
           <button onClick={() => setShowColumnPicker(!showColumnPicker)} style={{ ...styles.actionBtn, background: '#2980b9' }}>Select Columns</button>
           <button onClick={handleExport} style={{ ...styles.actionBtn, background: '#27ae60' }}>Download Excel</button>
+          <button onClick={() => setShowPrintDialog(true)} style={{ ...styles.actionBtn, background: '#8e44ad' }}>Print</button>
           {isAdmin && (
             <>
               <button onClick={() => fileInputRef.current.click()} style={{ ...styles.actionBtn, background: '#f39c12' }}>Import Excel</button>
@@ -1720,6 +1782,21 @@ function Dashboard() {
       {/* Reminder Popup on load */}
       {showReminderPopup && (
         <ReminderPopup onClose={() => setShowReminderPopup(false)} />
+      )}
+
+      {/* Print Orientation Dialog */}
+      {showPrintDialog && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:1000}} onClick={()=>setShowPrintDialog(false)}>
+          <div style={{background:'#fff',borderRadius:'12px',padding:'28px',width:'320px',textAlign:'center'}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{margin:'0 0 16px',fontSize:'16px'}}>Print Orders</h3>
+            <p style={{margin:'0 0 20px',fontSize:'12px',color:'#555'}}>Select page orientation:</p>
+            <div style={{display:'flex',gap:'12px',justifyContent:'center'}}>
+              <button onClick={()=>handlePrint('portrait')} style={{padding:'12px 24px',background:'#1a1a2e',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'700',fontSize:'13px'}}>Portrait</button>
+              <button onClick={()=>handlePrint('landscape')} style={{padding:'12px 24px',background:'#2980b9',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'700',fontSize:'13px'}}>Landscape</button>
+            </div>
+            <button onClick={()=>setShowPrintDialog(false)} style={{marginTop:'16px',padding:'8px 18px',background:'#eee',border:'none',borderRadius:'6px',cursor:'pointer',fontSize:'12px',fontWeight:'600'}}>Cancel</button>
+          </div>
+        </div>
       )}
 
       {/* Modals */}
