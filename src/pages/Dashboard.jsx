@@ -63,6 +63,8 @@ function Dashboard() {
   const [deletedSearchTerm, setDeletedSearchTerm] = useState('')
   const [selectedDeletedOrders, setSelectedDeletedOrders] = useState([])
   const [showDeletedSearchDrop, setShowDeletedSearchDrop] = useState(false)
+  const [statusCheckSearch, setStatusCheckSearch] = useState('')
+  const [statusCheckResults, setStatusCheckResults] = useState([])
   const [activePage, setActivePage] = useState(1)
   const [deletedPage, setDeletedPage] = useState(1)
   const ORDERS_PER_PAGE = 10
@@ -1097,6 +1099,42 @@ function Dashboard() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Order Status Checker */}
+      <div style={{ margin: '0 24px 12px', padding: '10px 16px', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '12px', fontWeight: '700', color: '#1a1a2e' }}>Order Status:</span>
+        <input
+          type="text"
+          placeholder="Enter Order No to check status..."
+          value={statusCheckSearch}
+          onChange={(e) => {
+            const val = e.target.value
+            setStatusCheckSearch(val)
+            if (val.trim()) {
+              const term = val.toLowerCase()
+              const results = []
+              orders.forEach(o => { if ((o.orderNo || '').toLowerCase().includes(term)) results.push({ ...o, status_type: 'ACTIVE' }) })
+              deletedOrders.forEach(o => { if ((o.orderNo || '').toLowerCase().includes(term)) results.push({ ...o, status_type: 'COMPLETED' }) })
+              setStatusCheckResults(results.slice(0, 5))
+            } else {
+              setStatusCheckResults([])
+            }
+          }}
+          style={{ padding: '7px 12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '12px', width: '250px' }}
+        />
+        {statusCheckResults.length > 0 && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {statusCheckResults.map(o => (
+              <span key={o.id + o.status_type} style={{ padding: '5px 12px', borderRadius: '16px', fontSize: '11px', fontWeight: '700', background: o.status_type === 'ACTIVE' ? '#d4edda' : '#f8d7da', color: o.status_type === 'ACTIVE' ? '#155724' : '#721c24', border: `1px solid ${o.status_type === 'ACTIVE' ? '#c3e6cb' : '#f5c6cb'}` }}>
+                {o.orderNo} — <strong>{o.status_type}</strong>
+              </span>
+            ))}
+          </div>
+        )}
+        {statusCheckSearch.trim() && statusCheckResults.length === 0 && (
+          <span style={{ fontSize: '11px', color: '#888' }}>No order found</span>
+        )}
       </div>
 
       {/* Column Picker */}
