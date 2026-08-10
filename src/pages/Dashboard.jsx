@@ -58,6 +58,11 @@ function Dashboard() {
   const [orders, setOrders] = useState([])
   const [filteredOrders, setFilteredOrders] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedOrders, setSelectedOrders] = useState([])
+  const [showSearchDrop, setShowSearchDrop] = useState(false)
+  const [deletedSearchTerm, setDeletedSearchTerm] = useState('')
+  const [selectedDeletedOrders, setSelectedDeletedOrders] = useState([])
+  const [showDeletedSearchDrop, setShowDeletedSearchDrop] = useState(false)
   const [activePage, setActivePage] = useState(1)
   const [deletedPage, setDeletedPage] = useState(1)
   const ORDERS_PER_PAGE = 10
@@ -180,7 +185,9 @@ function Dashboard() {
     let result = orders
 
     // Apply search
-    if (searchTerm.trim()) {
+    if (selectedOrders.length > 0) {
+      result = result.filter(o => selectedOrders.includes(o.orderNo))
+    } else if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase()
       result = result.filter(o =>
         (o.orderNo || '').toLowerCase().includes(term) ||
@@ -208,7 +215,7 @@ function Dashboard() {
 
     setFilteredOrders(result)
     setActivePage(1)
-  }, [searchTerm, orders, columnFilters, colorFilter])
+  }, [searchTerm, selectedOrders, orders, columnFilters, colorFilter])
 
   useEffect(() => {
     localStorage.setItem(`oms_columns_${user.username}`, JSON.stringify(visibleColumns))
@@ -1023,13 +1030,49 @@ function Dashboard() {
       {/* Toolbar */}
       <div style={styles.toolbar}>
         <div style={styles.searchWrap}>
-          <input
-            type="text"
-            placeholder="Search by Order No, Client, GST, PO No..."
-            value={searchTerm}
-            onChange={handleSearch}
-            style={styles.searchInput}
-          />
+          <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+            {selectedOrders.length > 0 && (
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                {selectedOrders.map(oNo => (
+                  <span key={oNo} style={{ background: '#1a1a2e', color: '#fff', padding: '3px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    {oNo}
+                    <button onClick={() => setSelectedOrders(selectedOrders.filter(x => x !== oNo))} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '12px', fontWeight: '700', padding: 0, lineHeight: 1 }}>x</button>
+                  </span>
+                ))}
+                <button onClick={() => { setSelectedOrders([]); setSearchTerm('') }} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '10px', padding: '3px 8px', cursor: 'pointer', fontWeight: '600' }}>Clear All</button>
+              </div>
+            )}
+            <input
+              type="text"
+              placeholder={selectedOrders.length >= 5 ? 'Max 5 selected' : 'Search by Order No, Client, GST, PO No...'}
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setShowSearchDrop(true) }}
+              onFocus={() => { if (searchTerm.trim()) setShowSearchDrop(true) }}
+              disabled={selectedOrders.length >= 5}
+              style={styles.searchInput}
+            />
+            {showSearchDrop && searchTerm.trim() && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                {orders.filter(o => {
+                  const term = searchTerm.toLowerCase()
+                  return !selectedOrders.includes(o.orderNo) && (
+                    (o.orderNo || '').toLowerCase().includes(term) ||
+                    (o.client || '').toLowerCase().includes(term) ||
+                    (o.gst || '').toLowerCase().includes(term) ||
+                    (o.poNo || '').toLowerCase().includes(term) ||
+                    (o.customerName || '').toLowerCase().includes(term)
+                  )
+                }).slice(0, 10).map(o => (
+                  <div key={o.id} onClick={() => { setSelectedOrders([...selectedOrders, o.orderNo]); setSearchTerm(''); setShowSearchDrop(false) }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '11px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.target.style.background = '#f0f8ff'} onMouseLeave={e => e.target.style.background = '#fff'}>
+                    <strong>{o.orderNo}</strong> — {o.client} {o.customerName ? `(${o.customerName})` : ''}
+                  </div>
+                ))}
+                {orders.filter(o => { const term = searchTerm.toLowerCase(); return !selectedOrders.includes(o.orderNo) && ((o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term) || (o.gst || '').toLowerCase().includes(term) || (o.poNo || '').toLowerCase().includes(term) || (o.customerName || '').toLowerCase().includes(term)) }).length === 0 && (
+                  <div style={{ padding: '10px', textAlign: 'center', color: '#888', fontSize: '11px' }}>No results</div>
+                )}
+              </div>
+            )}
+          </div>
           <div style={{display:'inline-flex',alignItems:'center',gap:'6px',marginLeft:'10px'}}>
             <span style={{fontSize:'11px',fontWeight:'600',color:'#555'}}>Filter:</span>
             {[{c:'red',bg:'#e74c3c',label:'Red'},{c:'orange',bg:'#f39c12',label:'Orange'},{c:'yellow',bg:'#f1c40f',label:'Yellow'}].map(({c,bg,label})=>(
@@ -1202,6 +1245,44 @@ function Dashboard() {
               <input ref={deletedFileInputRef} type="file" accept=".xlsx,.xls" onChange={handleDeletedImport} style={{ display: 'none' }} />
             </div>
           )}
+          <div style={{ marginBottom: '12px', position: 'relative', maxWidth: '400px' }}>
+            {selectedDeletedOrders.length > 0 && (
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                {selectedDeletedOrders.map(oNo => (
+                  <span key={oNo} style={{ background: '#1a1a2e', color: '#fff', padding: '3px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    {oNo}
+                    <button onClick={() => setSelectedDeletedOrders(selectedDeletedOrders.filter(x => x !== oNo))} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '12px', fontWeight: '700', padding: 0, lineHeight: 1 }}>x</button>
+                  </span>
+                ))}
+                <button onClick={() => { setSelectedDeletedOrders([]); setDeletedSearchTerm('') }} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '10px', padding: '3px 8px', cursor: 'pointer', fontWeight: '600' }}>Clear All</button>
+              </div>
+            )}
+            <input
+              type="text"
+              placeholder={selectedDeletedOrders.length >= 5 ? 'Max 5 selected' : 'Search by Order No, Client, Customer...'}
+              value={deletedSearchTerm}
+              onChange={(e) => { setDeletedSearchTerm(e.target.value); setShowDeletedSearchDrop(true) }}
+              onFocus={() => { if (deletedSearchTerm.trim()) setShowDeletedSearchDrop(true) }}
+              disabled={selectedDeletedOrders.length >= 5}
+              style={{ ...styles.searchInput, width: '100%' }}
+            />
+            {showDeletedSearchDrop && deletedSearchTerm.trim() && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                {deletedOrders.filter(o => {
+                  const term = deletedSearchTerm.toLowerCase()
+                  return !selectedDeletedOrders.includes(o.orderNo) && (
+                    (o.orderNo || '').toLowerCase().includes(term) ||
+                    (o.client || '').toLowerCase().includes(term) ||
+                    (o.customerName || '').toLowerCase().includes(term)
+                  )
+                }).slice(0, 10).map(o => (
+                  <div key={o.id} onClick={() => { setSelectedDeletedOrders([...selectedDeletedOrders, o.orderNo]); setDeletedSearchTerm(''); setShowDeletedSearchDrop(false); setDeletedPage(1) }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '11px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.target.style.background = '#f0f8ff'} onMouseLeave={e => e.target.style.background = '#fff'}>
+                    <strong>{o.orderNo}</strong> — {o.client} {o.customerName ? `(${o.customerName})` : ''}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <div style={styles.tableWrap}>
             <table style={styles.table}>
               <thead>
@@ -1228,7 +1309,15 @@ function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {deletedOrders.slice((deletedPage - 1) * ORDERS_PER_PAGE, deletedPage * ORDERS_PER_PAGE).map((order, idx) => {
+                {(() => {
+                  let filtered = deletedOrders
+                  if (selectedDeletedOrders.length > 0) {
+                    filtered = filtered.filter(o => selectedDeletedOrders.includes(o.orderNo))
+                  } else if (deletedSearchTerm.trim()) {
+                    const term = deletedSearchTerm.toLowerCase()
+                    filtered = filtered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term) || (o.customerName || '').toLowerCase().includes(term))
+                  }
+                  return filtered.slice((deletedPage - 1) * ORDERS_PER_PAGE, deletedPage * ORDERS_PER_PAGE).map((order, idx) => {
                   const actualIdx = (deletedPage - 1) * ORDERS_PER_PAGE + idx
                   return (
                   <tr key={order.id} style={actualIdx % 2 === 0 ? styles.trEven : styles.trOdd}>
@@ -1258,7 +1347,8 @@ function Dashboard() {
                       </td>
                     )}
                   </tr>
-                )})}
+                )})
+                })()}
               </tbody>
             </table>
             {deletedOrders.length === 0 && (
