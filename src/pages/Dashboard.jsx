@@ -277,39 +277,64 @@ function Dashboard() {
       })
       return row
     })
-    const ws = XLSX.utils.json_to_sheet(exportData)
-    // Auto column widths based on content
+
+    // Show preview first
     const headers = Object.keys(exportData[0] || {})
-    ws['!cols'] = headers.map(key => {
-      let maxLen = key.length
-      exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length })
-      return { wch: Math.min(Math.max(maxLen + 2, 10), 40) }
+    let html = `<html><head><title>Excel Preview - OMS Prestair</title><style>
+      body { font-family: Arial, sans-serif; margin: 10px; font-size: 9px; }
+      h2 { text-align: center; font-size: 14px; margin-bottom: 4px; }
+      .subtitle { text-align: center; font-size: 11px; color: #555; margin-bottom: 10px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #333; padding: 3px 5px; text-align: center; font-size: 8px; word-wrap: break-word; }
+      th { background: #FFD700; font-weight: bold; font-size: 9px; }
+      tr:nth-child(even) { background: #f9f9f9; }
+      .no-print { text-align: center; margin: 12px 0; }
+      .no-print button { padding: 10px 24px; font-size: 14px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin: 0 8px; }
+      .dl-btn { background: #27ae60; color: #fff; }
+      .cancel-btn { background: #eee; color: #333; }
+    </style></head><body>`
+    html += `<div class="no-print"><button class="dl-btn" id="dlBtn">Download Excel</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span style="margin-left:16px;font-size:13px;font-weight:600;color:#555">Total Rows: ${exportData.length}</span></div>`
+    html += `<h2>OMS - Prestair Systems LLP</h2>`
+    html += `<p class="subtitle">Orders Export Preview | ${exportData.length} records | ${new Date().toLocaleDateString('en-IN')}</p>`
+    html += `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
+    exportData.forEach(row => {
+      html += `<tr>${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>`
     })
-    // Apply header styling and borders
-    const range = XLSX.utils.decode_range(ws['!ref'])
-    const centerKeys = ['date','orderNo','photography','siteVideo','review','status','deliveryDate','customerName','gst','followUp','salesRep','deliveryAddress','phoneNo','siteVerification','installationStatus','installationRemarks','lop','sectionDrawing','inProduction','billing','installation','totalAmount','receivedAmount','balance','percentReceived','daysToOrder','akhilSirAudit','advanceBill','orRecvd']
-    const centerCols = cols.map((col, idx) => centerKeys.includes(col.key) ? idx : -1).filter(i => i >= 0)
-    for (let r = range.s.r; r <= range.e.r; r++) {
-      for (let c = range.s.c; c <= range.e.c; c++) {
-        const addr = XLSX.utils.encode_cell({ r, c })
-        if (!ws[addr]) ws[addr] = { v: '', t: 's' }
-        if (!ws[addr].s) ws[addr].s = {}
-        ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
-        if (r === 0) {
-          ws[addr].s.font = { bold: true, sz: 11 }
-          ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } }
-          ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }
-        } else {
-          ws[addr].s.alignment = { vertical: 'center', wrapText: true }
-          if (centerCols.includes(c)) {
+    html += `</tbody></table></body></html>`
+    const previewWin = window.open('', '_blank')
+    previewWin.document.write(html)
+    previewWin.document.close()
+    previewWin.document.getElementById('dlBtn').onclick = () => {
+      const ws = XLSX.utils.json_to_sheet(exportData)
+      ws['!cols'] = headers.map(key => {
+        let maxLen = key.length
+        exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length })
+        return { wch: Math.min(Math.max(maxLen + 2, 10), 40) }
+      })
+      const range = XLSX.utils.decode_range(ws['!ref'])
+      const centerKeys = ['date','orderNo','photography','siteVideo','review','status','deliveryDate','customerName','gst','followUp','salesRep','deliveryAddress','phoneNo','siteVerification','installationStatus','installationRemarks','lop','sectionDrawing','inProduction','installation','totalAmount','receivedAmount','balance','percentReceived','daysToOrder','akhilSirAudit','advanceBill','orRecvd']
+      const centerCols = cols.map((col, idx) => centerKeys.includes(col.key) ? idx : -1).filter(i => i >= 0)
+      for (let r = range.s.r; r <= range.e.r; r++) {
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const addr = XLSX.utils.encode_cell({ r, c })
+          if (!ws[addr]) ws[addr] = { v: '', t: 's' }
+          if (!ws[addr].s) ws[addr].s = {}
+          ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
+          if (r === 0) {
+            ws[addr].s.font = { bold: true, sz: 11 }
+            ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } }
             ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }
+          } else {
+            ws[addr].s.alignment = { vertical: 'center', wrapText: true }
+            if (centerCols.includes(c)) ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }
           }
         }
       }
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Orders')
+      XLSX.writeFile(wb, `OMS_Orders_${new Date().toISOString().split('T')[0]}.xlsx`)
+      previewWin.close()
     }
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Orders')
-    XLSX.writeFile(wb, `OMS_Orders_${new Date().toISOString().split('T')[0]}.xlsx`)
   }
 
   const handlePrint = (orientation) => {
@@ -625,49 +650,71 @@ function Dashboard() {
       if (dailyFilter === 'review') row['Review Remarks'] = o.reviewRemarks || ''
       return row
     })
-    const ws = XLSX.utils.json_to_sheet(exportData)
-    // A4 Landscape optimized column widths - Client gets more space
+
+    // Show preview first
     const headers = Object.keys(exportData[0] || {})
-    ws['!cols'] = headers.map(key => {
-      if (key === '#') return { wch: 4 }
-      if (key === 'Date') return { wch: 10 }
-      if (key === 'Client') return { wch: 40 }
-      if (key === 'Order No') return { wch: 16 }
-      if (key === 'GST') return { wch: 18 }
-      if (key === 'PO No') return { wch: 12 }
-      if (key === 'Follow Up') return { wch: 10 }
-      // Dynamic columns - fit content
-      let maxLen = key.length
-      exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length })
-      return { wch: Math.min(Math.max(maxLen + 2, 10), 35) }
+    let html = `<html><head><title>Excel Preview - Daily Report</title><style>
+      body { font-family: Arial, sans-serif; margin: 10px; font-size: 9px; }
+      h2 { text-align: center; font-size: 14px; margin-bottom: 4px; }
+      .subtitle { text-align: center; font-size: 11px; color: #555; margin-bottom: 10px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #333; padding: 3px 5px; text-align: center; font-size: 8px; word-wrap: break-word; }
+      th { background: #FFD700; font-weight: bold; font-size: 9px; }
+      tr:nth-child(even) { background: #f9f9f9; }
+      .no-print { text-align: center; margin: 12px 0; }
+      .no-print button { padding: 10px 24px; font-size: 14px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin: 0 8px; }
+      .dl-btn { background: #27ae60; color: #fff; }
+      .cancel-btn { background: #eee; color: #333; }
+    </style></head><body>`
+    html += `<div class="no-print"><button class="dl-btn" id="dlBtn">Download Excel</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span style="margin-left:16px;font-size:13px;font-weight:600;color:#555">Total Rows: ${exportData.length}</span></div>`
+    html += `<h2>OMS - Prestair Systems LLP</h2>`
+    html += `<p class="subtitle">Daily Report - ${filterLabel || 'All'} | ${exportData.length} records | ${new Date().toLocaleDateString('en-IN')}</p>`
+    html += `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
+    exportData.forEach(row => {
+      html += `<tr>${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>`
     })
-    // Row heights for better readability
-    ws['!rows'] = [{ hpt: 22 }] // header row height
-    // Bold + yellow header styling with center alignment and borders
-    const range = XLSX.utils.decode_range(ws['!ref'])
-    for (let r = range.s.r; r <= range.e.r; r++) {
-      for (let c = range.s.c; c <= range.e.c; c++) {
-        const addr = XLSX.utils.encode_cell({ r, c })
-        if (!ws[addr]) ws[addr] = { v: '', t: 's' }
-        if (!ws[addr].s) ws[addr].s = {}
-        ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
-        ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }
-        if (r === 0) {
-          ws[addr].s.font = { bold: true, sz: 11 }
-          ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } }
-        } else {
-          ws[addr].s.font = { sz: 10 }
-        }
-        // Client column left-aligned for readability
-        if (headers[c] === 'Client' && r > 0) {
-          ws[addr].s.alignment = { horizontal: 'left', vertical: 'center', wrapText: true }
+    html += `</tbody></table></body></html>`
+    const previewWin = window.open('', '_blank')
+    previewWin.document.write(html)
+    previewWin.document.close()
+    previewWin.document.getElementById('dlBtn').onclick = () => {
+      const ws = XLSX.utils.json_to_sheet(exportData)
+      ws['!cols'] = headers.map(key => {
+        if (key === '#') return { wch: 4 }
+        if (key === 'Date') return { wch: 10 }
+        if (key === 'Client') return { wch: 40 }
+        if (key === 'Order No') return { wch: 16 }
+        if (key === 'GST') return { wch: 18 }
+        if (key === 'PO No') return { wch: 12 }
+        if (key === 'Follow Up') return { wch: 10 }
+        let maxLen = key.length
+        exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length })
+        return { wch: Math.min(Math.max(maxLen + 2, 10), 35) }
+      })
+      ws['!rows'] = [{ hpt: 22 }]
+      const range = XLSX.utils.decode_range(ws['!ref'])
+      for (let r = range.s.r; r <= range.e.r; r++) {
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const addr = XLSX.utils.encode_cell({ r, c })
+          if (!ws[addr]) ws[addr] = { v: '', t: 's' }
+          if (!ws[addr].s) ws[addr].s = {}
+          ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
+          ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }
+          if (r === 0) {
+            ws[addr].s.font = { bold: true, sz: 11 }
+            ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } }
+          } else {
+            ws[addr].s.font = { sz: 10 }
+            if (headers[c] === 'Client') ws[addr].s.alignment = { horizontal: 'left', vertical: 'center', wrapText: true }
+          }
         }
       }
+      const wb = XLSX.utils.book_new()
+      const sheetName = filterLabel ? `Daily Report - ${filterLabel}` : 'Daily Report'
+      XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31))
+      XLSX.writeFile(wb, `Daily_Report_${filterLabel || 'All'}_${new Date().toISOString().split('T')[0]}.xlsx`, { bookSST: true })
+      previewWin.close()
     }
-    const wb = XLSX.utils.book_new()
-    const sheetName = filterLabel ? `Daily Report - ${filterLabel}` : 'Daily Report'
-    XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31))
-    XLSX.writeFile(wb, `Daily_Report_${filterLabel || 'All'}_${new Date().toISOString().split('T')[0]}.xlsx`, { bookSST: true })
   }
 
   const [printHtml, setPrintHtml] = useState('')
