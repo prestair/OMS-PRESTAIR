@@ -1609,22 +1609,22 @@ function Dashboard() {
       {activeTab === 'daily' && (
         <div style={{ padding: '24px' }}>
           {/* Filter Buttons */}
-          <div style={{ background: '#fff', borderRadius: '8px', padding: '8px 14px', marginBottom: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap', overflowX: 'auto' }}>
-            <button onClick={() => { setDailyFilter('siteVerification'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVerification' ? styles.dailyBtnActive : styles.dailyBtn}>Site Verification</button>
-            <button onClick={() => { setDailyFilter('installationStatus'); setDailyFilterValue([]) }} style={dailyFilter === 'installationStatus' ? styles.dailyBtnActive : styles.dailyBtn}>Installation Status</button>
-            <button onClick={() => { setDailyFilter('sectionDrawing'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'sectionDrawing' ? styles.dailyBtnActive : styles.dailyBtn}>Section Drawing</button>
-            <button onClick={() => { setDailyFilter('inProduction'); setDailyFilterValue([]) }} style={dailyFilter === 'inProduction' ? styles.dailyBtnActive : styles.dailyBtn}>In Production</button>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '6px 10px', marginBottom: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+            <button onClick={() => { setDailyFilter('siteVerification'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVerification' ? styles.dailyBtnActive : styles.dailyBtn}>Site Verif.</button>
+            <button onClick={() => { setDailyFilter('installationStatus'); setDailyFilterValue([]) }} style={dailyFilter === 'installationStatus' ? styles.dailyBtnActive : styles.dailyBtn}>Installation</button>
+            <button onClick={() => { setDailyFilter('sectionDrawing'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'sectionDrawing' ? styles.dailyBtnActive : styles.dailyBtn}>Sec. Drawing</button>
+            <button onClick={() => { setDailyFilter('inProduction'); setDailyFilterValue([]) }} style={dailyFilter === 'inProduction' ? styles.dailyBtnActive : styles.dailyBtn}>Production</button>
             <button onClick={() => { setDailyFilter('percentReceived'); setDailyFilterValue([]); setDailyPercentMax(''); setDailyPercentDateFrom('') }} style={dailyFilter === 'percentReceived' ? styles.dailyBtnActive : styles.dailyBtn}>% Rec</button>
-            <button onClick={() => { setDailyFilter('akhilSirAudit'); setDailyFilterValue([]) }} style={dailyFilter === 'akhilSirAudit' ? styles.dailyBtnActive : styles.dailyBtn}>Akhil Sir Audit</button>
-            <button onClick={() => { setDailyFilter('advanceBill'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'advanceBill' ? styles.dailyBtnActive : styles.dailyBtn}>Advance Bill</button>
-            <button onClick={() => { setDailyFilter('photography'); setDailyFilterValue([]) }} style={dailyFilter === 'photography' ? styles.dailyBtnActive : styles.dailyBtn}>Photography</button>
-            <button onClick={() => { setDailyFilter('siteVideo'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVideo' ? styles.dailyBtnActive : styles.dailyBtn}>Site Video</button>
+            <button onClick={() => { setDailyFilter('akhilSirAudit'); setDailyFilterValue([]) }} style={dailyFilter === 'akhilSirAudit' ? styles.dailyBtnActive : styles.dailyBtn}>Audit</button>
+            <button onClick={() => { setDailyFilter('advanceBill'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'advanceBill' ? styles.dailyBtnActive : styles.dailyBtn}>Adv Bill</button>
+            <button onClick={() => { setDailyFilter('photography'); setDailyFilterValue([]) }} style={dailyFilter === 'photography' ? styles.dailyBtnActive : styles.dailyBtn}>Photo</button>
+            <button onClick={() => { setDailyFilter('siteVideo'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVideo' ? styles.dailyBtnActive : styles.dailyBtn}>Video</button>
             <button onClick={() => { setDailyFilter('review'); setDailyFilterValue([]) }} style={dailyFilter === 'review' ? styles.dailyBtnActive : styles.dailyBtn}>Review</button>
-            <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]) }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR Pending</button>
-            <button onClick={() => { setDailyFilter('paymentUpdate'); setDailyFilterValue([]); fetchAllPayments() }} style={dailyFilter === 'paymentUpdate' ? styles.dailyBtnActive : styles.dailyBtn}>Payment Update</button>
-            <span style={{ borderLeft: '2px solid #ddd', height: '24px', margin: '0 2px' }}></span>
-            <button onClick={() => handleDailyPrint()} style={{ padding: '6px 12px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>Print</button>
-            <button onClick={() => handleDailyExport()} style={{ padding: '6px 12px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>Excel</button>
+            <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]) }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR</button>
+            <button onClick={() => { setDailyFilter('paymentUpdate'); setDailyFilterValue([]); fetchAllPayments() }} style={dailyFilter === 'paymentUpdate' ? styles.dailyBtnActive : styles.dailyBtn}>Payment</button>
+            <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 2px' }}></span>
+            <button onClick={() => handleDailyPrint()} style={{ padding: '5px 10px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>Print</button>
+            <button onClick={() => handleDailyExport()} style={{ padding: '5px 10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>Excel</button>
           </div>
 
           {/* Filter Value Selection */}
@@ -2236,8 +2236,8 @@ const styles = {
   reportSection: { background: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginBottom: '20px' },
   reportSectionTitle: { fontSize: '15px', fontWeight: '700', color: '#1a1a2e', margin: '0 0 12px' },
   dailyBtnRow: { display: 'flex', gap: '8px', flexWrap: 'nowrap', marginBottom: '16px', overflowX: 'auto', alignItems: 'center' },
-  dailyBtn: { padding: '8px 14px', background: '#fff', color: '#1a1a2e', border: '2px solid #ddd', borderRadius: '8px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' },
-  dailyBtnActive: { padding: '8px 14px', background: '#1a1a2e', color: '#fff', border: '2px solid #1a1a2e', borderRadius: '8px', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' },
+  dailyBtn: { padding: '5px 10px', background: '#fff', color: '#1a1a2e', border: '1.5px solid #ddd', borderRadius: '6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' },
+  dailyBtnActive: { padding: '5px 10px', background: '#1a1a2e', color: '#fff', border: '1.5px solid #1a1a2e', borderRadius: '6px', fontSize: '10px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' },
   dailyFilterBar: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', padding: '12px', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)', flexWrap: 'wrap' },
   dailyVal: { padding: '5px 12px', background: '#f0f0f0', border: '1px solid #ddd', borderRadius: '20px', fontSize: '11px', cursor: 'pointer', fontWeight: '500' },
   dailyValActive: { padding: '5px 12px', background: '#2980b9', color: '#fff', border: '1px solid #2980b9', borderRadius: '20px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' },
