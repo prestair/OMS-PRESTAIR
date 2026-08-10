@@ -24,6 +24,7 @@ const ALL_COLUMNS = [
   { key: 'deliveryRemarks', label: 'Delivery Remarks' },
   { key: 'customerName', label: 'Customer Name' },
   { key: 'gst', label: 'GST' },
+  { key: 'remarks', label: 'GST Remarks' },
   { key: 'billingAddress', label: 'Billing Address' },
   { key: 'followUp', label: 'Follow Up' },
   { key: 'salesRep', label: 'Sales Rep' },
@@ -45,7 +46,6 @@ const ALL_COLUMNS = [
   { key: 'percentReceived', label: '% Rcv' },
   { key: 'paymentRemarks', label: 'Payment Remarks' },
   { key: 'daysToOrder', label: 'Days to Order' },
-  { key: 'remarks', label: 'Remarks' },
   { key: 'akhilSirAudit', label: 'Akhil Sir Audit' },
   { key: 'advanceBill', label: 'Advance Bill' },
   { key: 'orRecvd', label: 'OR Recvd' }
@@ -349,7 +349,7 @@ function Dashboard() {
         percentReceived: parseFloat(row['% Rcv'] || row['% Rec'] || 0) || 0,
         paymentRemarks: row['Payment REMARKS'] || row['Payment Remarks'] || '',
         daysToOrder: parseInt(row['Days to Order'] || 0) || 0,
-        remarks: row['Remarks : Nikhil Audit Pending = 35 Nikhil Audit Issue = 4 Adv Bill Check Pending = -36 Actual Adv Bill Pending = 0 Photograpgy Pending = 33'] || row['Remarks'] || '',
+        remarks: row['GST Remarks'] || row['Remarks : Nikhil Audit Pending = 35 Nikhil Audit Issue = 4 Adv Bill Check Pending = -36 Actual Adv Bill Pending = 0 Photograpgy Pending = 33'] || row['Remarks'] || '',
         akhilSirAudit: row['AKHIL SIR\nAUDIT'] || row['AKHIL SIR AUDIT'] || row['Akhil Sir Audit'] || '',
         advanceBill: row['ADVANCE BILL'] || row['Advance Bill'] || '',
         orRecvd: row['OR RECVD /NOT RECVD'] || row['OR Recvd'] || ''
