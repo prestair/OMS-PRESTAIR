@@ -257,6 +257,19 @@ router.post('/import', adminOnly, async (req, res) => {
 router.put('/:id', async (req, res) => {
   const { error } = await supabase.from('orders').update(snakeOrder(req.body)).eq('id', parseInt(req.params.id))
   if (error) return res.status(400).json({ error: error.message })
+
+  // Recalculate %REC whenever totalAmount or receivedAmount changes
+  if (req.body.totalAmount !== undefined || req.body.receivedAmount !== undefined) {
+    const { data: updated } = await supabase.from('orders').select('total_amount, received_amount').eq('id', parseInt(req.params.id))
+    if (updated?.[0]) {
+      const totalAmt = parseFloat(updated[0].total_amount) || 0
+      const receivedAmt = parseFloat(updated[0].received_amount) || 0
+      const balance = totalAmt - receivedAmt
+      const percent = totalAmt ? parseFloat(((receivedAmt / totalAmt) * 100).toFixed(2)) : 0
+      await supabase.from('orders').update({ balance, percent_received: percent }).eq('id', parseInt(req.params.id))
+    }
+  }
+
   res.json({ message: 'Updated' })
 })
 
@@ -323,7 +336,11 @@ router.get('/:id/reminders', async (req, res) => {
 // Helper: map snake_case DB row to camelCase for frontend
 function mapOrder(o) {
   if (!o) return o
-  return { id: o.id, date: o.date, poNo: o.po_no, client: o.client, orderNo: o.order_no, status: o.status, deliveryDate: o.delivery_date, deliveryRemarks: o.delivery_remarks, customerName: o.customer_name, gst: o.gst, billingAddress: o.billing_address, followUp: o.follow_up, salesRep: o.sales_rep, deliveryAddress: o.delivery_address, phoneNo: o.phone_no, siteVerification: o.site_verification, siteVerificationRemarks: o.site_verification_remarks, installationStatus: o.installation_status, installationRemarks: o.installation_remarks, lop: o.lop, sectionDrawing: o.section_drawing, sectionDrawingRemarks: o.section_drawing_remarks, inProduction: o.in_production, billing: o.billing, installation: o.installation, totalAmount: o.total_amount, receivedAmount: o.received_amount, balance: o.balance, percentReceived: o.percent_received, paymentRemarks: o.payment_remarks, daysToOrder: o.days_to_order, remarks: o.remarks, akhilSirAudit: o.akhil_sir_audit, advanceBill: o.advance_bill, orRecvd: o.or_recvd, photography: o.photography, photographyRemarks: o.photography_remarks, siteVideo: o.site_video, siteVideoRemarks: o.site_video_remarks, review: o.review, reviewRemarks: o.review_remarks, createdAt: o.created_at }
+  const totalAmt = parseFloat(o.total_amount) || 0
+  const receivedAmt = parseFloat(o.received_amount) || 0
+  const balance = totalAmt - receivedAmt
+  const percentReceived = totalAmt ? parseFloat(((receivedAmt / totalAmt) * 100).toFixed(2)) : 0
+  return { id: o.id, date: o.date, poNo: o.po_no, client: o.client, orderNo: o.order_no, status: o.status, deliveryDate: o.delivery_date, deliveryRemarks: o.delivery_remarks, customerName: o.customer_name, gst: o.gst, billingAddress: o.billing_address, followUp: o.follow_up, salesRep: o.sales_rep, deliveryAddress: o.delivery_address, phoneNo: o.phone_no, siteVerification: o.site_verification, siteVerificationRemarks: o.site_verification_remarks, installationStatus: o.installation_status, installationRemarks: o.installation_remarks, lop: o.lop, sectionDrawing: o.section_drawing, sectionDrawingRemarks: o.section_drawing_remarks, inProduction: o.in_production, billing: o.billing, installation: o.installation, totalAmount: totalAmt, receivedAmount: receivedAmt, balance: balance, percentReceived: percentReceived, paymentRemarks: o.payment_remarks, daysToOrder: o.days_to_order, remarks: o.remarks, akhilSirAudit: o.akhil_sir_audit, advanceBill: o.advance_bill, orRecvd: o.or_recvd, photography: o.photography, photographyRemarks: o.photography_remarks, siteVideo: o.site_video, siteVideoRemarks: o.site_video_remarks, review: o.review, reviewRemarks: o.review_remarks, createdAt: o.created_at }
 }
 
 // Helper: map camelCase frontend data to snake_case for DB

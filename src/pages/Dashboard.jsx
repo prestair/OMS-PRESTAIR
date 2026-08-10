@@ -19,7 +19,7 @@ const ALL_COLUMNS = [
   { key: 'siteVideoRemarks', label: 'Site Video Remarks' },
   { key: 'review', label: 'Review' },
   { key: 'reviewRemarks', label: 'Review Remarks' },
-  { key: 'status', label: 'Status' },
+  { key: 'status', label: 'DOD Status' },
   { key: 'deliveryDate', label: 'Delivery Date' },
   { key: 'deliveryRemarks', label: 'Delivery Remarks' },
   { key: 'customerName', label: 'Customer Name' },
@@ -117,6 +117,8 @@ function Dashboard() {
   const [paymentDateTo, setPaymentDateTo] = useState('')
   const [receiptDrillDown, setReceiptDrillDown] = useState(null)
   const [editHistoryPopup, setEditHistoryPopup] = useState(null)
+  const [inlineEditCell, setInlineEditCell] = useState(null)
+  const [inlineEditValue, setInlineEditValue] = useState('')
   const fileInputRef = useRef(null)
 
   // Determine columns user is allowed to see
@@ -269,7 +271,7 @@ function Dashboard() {
         let val = o[col.key]
         if (col.key === 'date' || col.key === 'deliveryDate') val = formatDate(val)
         else if (['totalAmount', 'receivedAmount', 'balance'].includes(col.key)) val = val || 0
-        else if (col.key === 'percentReceived') val = val ? `${val}%` : ''
+        else if (col.key === 'percentReceived') val = `${val || 0}%`
         else val = val || ''
         row[col.label] = val
       })
@@ -330,7 +332,7 @@ function Dashboard() {
         }
         return {
         date: convertDate(row['DATE'] || row['Date']), poNo: row['PO NO'] || row['PO No'] || '', client: row['CLIENT'] || row['Client'] || '',
-        orderNo: row['ORDER NO.'] || row['Order No'] || row['ORDER NO'] || '', status: row['Status'] || row['BL+REQ'] || '',
+        orderNo: row['ORDER NO.'] || row['Order No'] || row['ORDER NO'] || '', status: row['DOD Status'] || row['Status'] || row['BL+REQ'] || '',
         deliveryDate: convertDate(row['Delivery Date'] || row['Delivery Date Remarks']), deliveryRemarks: row['Delivery Date Remarks'] || row['Remarks'] || '',
         customerName: row['CUSTOMER NAME'] || row['Customer Name'] || '',
         gst: row['GST'] || '', billingAddress: row['BILLING ADDRESS'] || row['Billing Address'] || '',
@@ -650,13 +652,46 @@ function Dashboard() {
     } catch { return val }
   }
 
+  const saveInlineEdit = async (orderId) => {
+    if (inlineEditCell) {
+      try {
+        await axios.put(`/api/orders/${orderId}`, { paymentRemarks: inlineEditValue.toUpperCase() })
+        fetchOrders()
+      } catch {}
+      setInlineEditCell(null)
+      setInlineEditValue('')
+    }
+  }
+
   const getCellValue = (order, key) => {
     const val = order[key]
+    if (key === 'paymentRemarks') {
+      const canEdit = canEditColumn('paymentRemarks')
+      if (canEdit && inlineEditCell === `${order.id}_paymentRemarks`) {
+        return <input
+          autoFocus
+          value={inlineEditValue}
+          onChange={(e) => setInlineEditValue(e.target.value)}
+          onBlur={() => saveInlineEdit(order.id)}
+          onKeyDown={(e) => { if (e.key === 'Enter') saveInlineEdit(order.id); if (e.key === 'Escape') { setInlineEditCell(null); setInlineEditValue('') } }}
+          style={{ width: '100%', minWidth: '120px', padding: '3px 5px', fontSize: '11px', border: '1px solid #2980b9', borderRadius: '3px', outline: 'none', textTransform: 'uppercase' }}
+          onClick={(e) => e.stopPropagation()}
+        />
+      }
+      if (canEdit) {
+        return <span
+          onClick={(e) => { e.stopPropagation(); setInlineEditCell(`${order.id}_paymentRemarks`); setInlineEditValue(val || '') }}
+          style={{ cursor: 'pointer', minWidth: '60px', display: 'inline-block', borderBottom: '1px dashed #aaa', minHeight: '14px' }}
+          title="Click to edit"
+        >{val || ''}</span>
+      }
+      return val || ''
+    }
     if (key === 'orderNo') return <span onClick={(e)=>{e.stopPropagation();fetchEditLogs(order)}} style={{cursor:'pointer',color:'#1a1a2e',fontWeight:'600',textDecoration:'underline'}}>{val}</span>
     if (key === 'receivedAmount') return <span onClick={async(e)=>{e.stopPropagation();try{const res=await axios.get(`/api/orders/${order.id}/payments`);setReceiptDrillDown({order,payments:res.data})}catch{}}} style={{cursor:'pointer',color:'#2980b9',textDecoration:'underline',fontWeight:'600'}}>{formatCurrency(val)}</span>
     if (['totalAmount'].includes(key)) return formatCurrency(val)
     if (key === 'balance') return formatCurrency((order.totalAmount || 0) - (order.receivedAmount || 0))
-    if (key === 'percentReceived') return val ? `${val}%` : ''
+    if (key === 'percentReceived') return `${val || 0}%`
     if (key === 'date' || key === 'deliveryDate') return formatDate(val)
     if (key === 'daysToOrder') {
       // Live calculate from delivery date
@@ -1089,7 +1124,7 @@ function Dashboard() {
                         <td style={styles.td}>{formatCurrency(o.totalAmount)}</td>
                         <td style={styles.td}>{formatCurrency(o.receivedAmount)}</td>
                         <td style={styles.td}>{formatCurrency(o.balance)}</td>
-                        <td style={styles.td}>{o.percentReceived ? o.percentReceived + '%' : ''}</td>
+                        <td style={styles.td}>{(o.percentReceived || 0) + '%'}</td>
                         <td style={styles.td}>{o.status}</td>
                       </tr>
                     ))}
