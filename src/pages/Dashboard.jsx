@@ -1600,23 +1600,35 @@ function Dashboard() {
       {/* Daily Reports Tab */}
       {activeTab === 'daily' && (
         <div style={{ padding: '24px' }}>
-          {/* Filter Buttons */}
-          <div style={styles.dailyBtnRow}>
-            <button onClick={() => { setDailyFilter('siteVerification'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVerification' ? styles.dailyBtnActive : styles.dailyBtn}>Site Verification</button>
-            <button onClick={() => { setDailyFilter('installationStatus'); setDailyFilterValue([]) }} style={dailyFilter === 'installationStatus' ? styles.dailyBtnActive : styles.dailyBtn}>Installation Status</button>
-            <button onClick={() => { setDailyFilter('sectionDrawing'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'sectionDrawing' ? styles.dailyBtnActive : styles.dailyBtn}>Section Drawing</button>
-            <button onClick={() => { setDailyFilter('inProduction'); setDailyFilterValue([]) }} style={dailyFilter === 'inProduction' ? styles.dailyBtnActive : styles.dailyBtn}>In Production</button>
-            <button onClick={() => { setDailyFilter('percentReceived'); setDailyFilterValue([]); setDailyPercentMax(''); setDailyPercentDateFrom('') }} style={dailyFilter === 'percentReceived' ? styles.dailyBtnActive : styles.dailyBtn}>% Rec</button>
-            <button onClick={() => { setDailyFilter('akhilSirAudit'); setDailyFilterValue([]) }} style={dailyFilter === 'akhilSirAudit' ? styles.dailyBtnActive : styles.dailyBtn}>Akhil Sir Audit</button>
-            <button onClick={() => { setDailyFilter('advanceBill'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'advanceBill' ? styles.dailyBtnActive : styles.dailyBtn}>Advance Bill</button>
-            <button onClick={() => { setDailyFilter('photography'); setDailyFilterValue([]) }} style={dailyFilter === 'photography' ? styles.dailyBtnActive : styles.dailyBtn}>Photography</button>
-            <button onClick={() => { setDailyFilter('siteVideo'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVideo' ? styles.dailyBtnActive : styles.dailyBtn}>Site Video</button>
-            <button onClick={() => { setDailyFilter('review'); setDailyFilterValue([]) }} style={dailyFilter === 'review' ? styles.dailyBtnActive : styles.dailyBtn}>Review</button>
-            <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]) }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR Pending</button>
-            <button onClick={() => { setDailyFilter('paymentUpdate'); setDailyFilterValue([]); fetchAllPayments() }} style={dailyFilter === 'paymentUpdate' ? styles.dailyBtnActive : styles.dailyBtn}>Payment Update</button>
-            <span style={{ borderLeft: '2px solid #ddd', height: '36px' }}></span>
-            <button onClick={() => handleDailyPrint()} style={{ ...styles.dailyBtn, background: '#2980b9', color: '#fff', borderColor: '#2980b9' }}>Print</button>
-            <button onClick={() => handleDailyExport()} style={{ ...styles.dailyBtn, background: '#27ae60', color: '#fff', borderColor: '#27ae60' }}>Excel Download</button>
+          {/* Filter Buttons - Row 1: Reports */}
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '14px 18px', marginBottom: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <div style={{ fontSize: '10px', fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Order Reports</div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button onClick={() => { setDailyFilter('siteVerification'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVerification' ? styles.dailyBtnActive : styles.dailyBtn}>Site Verification</button>
+              <button onClick={() => { setDailyFilter('installationStatus'); setDailyFilterValue([]) }} style={dailyFilter === 'installationStatus' ? styles.dailyBtnActive : styles.dailyBtn}>Installation Status</button>
+              <button onClick={() => { setDailyFilter('sectionDrawing'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'sectionDrawing' ? styles.dailyBtnActive : styles.dailyBtn}>Section Drawing</button>
+              <button onClick={() => { setDailyFilter('inProduction'); setDailyFilterValue([]) }} style={dailyFilter === 'inProduction' ? styles.dailyBtnActive : styles.dailyBtn}>In Production</button>
+              <button onClick={() => { setDailyFilter('photography'); setDailyFilterValue([]) }} style={dailyFilter === 'photography' ? styles.dailyBtnActive : styles.dailyBtn}>Photography</button>
+              <button onClick={() => { setDailyFilter('siteVideo'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVideo' ? styles.dailyBtnActive : styles.dailyBtn}>Site Video</button>
+              <button onClick={() => { setDailyFilter('review'); setDailyFilterValue([]) }} style={dailyFilter === 'review' ? styles.dailyBtnActive : styles.dailyBtn}>Review</button>
+            </div>
+          </div>
+          {/* Filter Buttons - Row 2: Finance & Actions */}
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '14px 18px', marginBottom: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Finance & Audit</div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button onClick={() => { setDailyFilter('percentReceived'); setDailyFilterValue([]); setDailyPercentMax(''); setDailyPercentDateFrom('') }} style={dailyFilter === 'percentReceived' ? styles.dailyBtnActive : styles.dailyBtn}>% Rec</button>
+                <button onClick={() => { setDailyFilter('akhilSirAudit'); setDailyFilterValue([]) }} style={dailyFilter === 'akhilSirAudit' ? styles.dailyBtnActive : styles.dailyBtn}>Akhil Sir Audit</button>
+                <button onClick={() => { setDailyFilter('advanceBill'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'advanceBill' ? styles.dailyBtnActive : styles.dailyBtn}>Advance Bill</button>
+                <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]) }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR Pending</button>
+                <button onClick={() => { setDailyFilter('paymentUpdate'); setDailyFilterValue([]); fetchAllPayments() }} style={dailyFilter === 'paymentUpdate' ? styles.dailyBtnActive : styles.dailyBtn}>Payment Update</button>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+              <button onClick={() => handleDailyPrint()} style={{ padding: '9px 16px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>Print</button>
+              <button onClick={() => handleDailyExport()} style={{ padding: '9px 16px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>Excel Download</button>
+            </div>
           </div>
 
           {/* Filter Value Selection */}
