@@ -323,7 +323,7 @@ function Dashboard() {
 
     let html = `<html><head><title>OMS Orders - Print</title>
     <style>
-      @page { size: A4 ${orientation}; margin: ${pageMargin}mm; }
+      @page { size: A4 ${orientation}; margin: ${pageMargin}mm; @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 8px; color: #555; } }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: Arial, sans-serif; font-size: 8px; }
       h2 { text-align: center; font-size: 12px; margin-bottom: 4px; }
@@ -332,11 +332,12 @@ function Dashboard() {
       th, td { border: 1px solid #333; padding: 2px 3px; text-align: center; word-wrap: break-word; overflow: hidden; font-size: 7px; }
       th { background: #1a1a2e; color: #fff; font-weight: 700; font-size: 7px; }
       tr:nth-child(even) { background: #f5f5f5; }
+      .page-footer { display: none; }
       .no-print { margin: 10px 0; text-align: center; }
       .no-print button { padding: 10px 24px; font-size: 14px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin: 0 8px; }
       .print-btn { background: #1a1a2e; color: #fff; }
       .cancel-btn { background: #eee; color: #333; }
-      @media print { .no-print { display: none !important; } }
+      @media print { .no-print { display: none !important; } .page-footer { display: block; position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 8px; color: #555; } }
     </style></head><body>`
     html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Confirm & Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button></div>`
     html += `<h2>OMS - Prestair Systems LLP</h2>`
@@ -701,7 +702,7 @@ function Dashboard() {
         filtered = filtered.filter(p => { const pd = parsePayDate(p.paymentDate); return pd && pd <= to })
       }
       let html = `<html><head><title>Payment Update - OMS Prestair</title><style>
-        @page { size: A4 ${orientation}; margin: 10mm; }
+        @page { size: A4 ${orientation}; margin: 10mm; @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 8px; color: #555; } }
         body { font-family: Arial, sans-serif; margin: 0; padding: 5px; }
         h2 { color: #1a1a2e; margin: 0 0 4px; font-size: 14px; }
         .subtitle { color: #555; font-size: 10px; margin: 2px 0 8px; }
@@ -736,7 +737,7 @@ function Dashboard() {
     const filterLabel = dailyFilter ? ALL_COLUMNS.find(c => c.key === dailyFilter)?.label : ''
     const selectedValues = dailyFilterValue.length > 0 ? dailyFilterValue.map(v => v === '__blank__' ? '(Blank)' : v).join(', ') : 'All'
     let html = `<html><head><title>Daily Report - OMS Prestair</title><style>
-      @page { size: A4 ${orientation}; margin: 10mm; }
+      @page { size: A4 ${orientation}; margin: 10mm; @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 8px; color: #555; } }
       body { font-family: Arial, sans-serif; margin: 0; padding: 5px; }
       h2 { color: #1a1a2e; margin: 0 0 4px; font-size: 14px; }
       .subtitle { color: #555; font-size: 10px; margin: 2px 0 8px; }
