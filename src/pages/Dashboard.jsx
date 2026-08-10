@@ -82,6 +82,7 @@ function Dashboard() {
   const [dailyFilterValue, setDailyFilterValue] = useState([])
   const [dailyLopFilter, setDailyLopFilter] = useState([])
   const [dailyPercentMax, setDailyPercentMax] = useState('')
+  const [dailyPercentDateFrom, setDailyPercentDateFrom] = useState('')
   const [showPrintPreview, setShowPrintPreview] = useState(false)
   const [selectedRep, setSelectedRep] = useState(null)
   const [selectedPayStatus, setSelectedPayStatus] = useState(null)
@@ -423,6 +424,21 @@ function Dashboard() {
         const max = parseFloat(dailyPercentMax)
         filtered = filtered.filter(o => (o.percentReceived || 0) < max)
       }
+      if (dailyPercentDateFrom) {
+        filtered = filtered.filter(o => {
+          if (!o.date) return false
+          let orderDate = null
+          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(o.date)) {
+            const p = o.date.split('/')
+            orderDate = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]))
+          } else {
+            orderDate = new Date(o.date)
+          }
+          if (!orderDate || isNaN(orderDate)) return false
+          const fromDate = new Date(dailyPercentDateFrom)
+          return orderDate >= fromDate
+        })
+      }
       return filtered
     }
     if (dailyFilter && dailyFilterValue.length > 0) {
@@ -460,6 +476,7 @@ function Dashboard() {
       if (dailyFilter === 'sectionDrawing') row['LOP'] = o.lop || ''
       if (dailyFilter === 'sectionDrawing') row['SD Remarks'] = o.sectionDrawingRemarks || ''
       if (dailyFilter === 'akhilSirAudit') row['Audit Remarks'] = o.remarks || ''
+      if (dailyFilter === 'percentReceived') { row['Total Amount'] = o.totalAmount || 0; row['Received'] = o.receivedAmount || 0; row['Balance'] = (o.totalAmount || 0) - (o.receivedAmount || 0) }
       if (dailyFilter === 'photography') row['Photography Remarks'] = o.photographyRemarks || ''
       if (dailyFilter === 'siteVideo') row['Site Video Remarks'] = o.siteVideoRemarks || ''
       if (dailyFilter === 'review') row['Review Remarks'] = o.reviewRemarks || ''
@@ -603,6 +620,7 @@ function Dashboard() {
     if (dailyFilter === 'sectionDrawing') html += `<th>SD Remarks</th>`
     if (dailyFilter === 'advanceBill') html += `<th>Akhil Sir Audit</th>`
     if (dailyFilter === 'akhilSirAudit') html += `<th>Audit Remarks</th>`
+    if (dailyFilter === 'percentReceived') html += `<th>Total Amount</th><th>Received</th><th>Balance</th>`
     if (dailyFilter === 'photography') html += `<th>Photo Remarks</th>`
     if (dailyFilter === 'siteVideo') html += `<th>Video Remarks</th>`
     if (dailyFilter === 'review') html += `<th>Review Remarks</th>`
@@ -616,6 +634,7 @@ function Dashboard() {
       if (dailyFilter === 'sectionDrawing') html += `<td>${o.sectionDrawingRemarks || ''}</td>`
       if (dailyFilter === 'advanceBill') html += `<td>${o.akhilSirAudit || ''}</td>`
       if (dailyFilter === 'akhilSirAudit') html += `<td>${o.remarks || ''}</td>`
+      if (dailyFilter === 'percentReceived') html += `<td>${(o.totalAmount || 0).toLocaleString('en-IN')}</td><td>${(o.receivedAmount || 0).toLocaleString('en-IN')}</td><td>${((o.totalAmount || 0) - (o.receivedAmount || 0)).toLocaleString('en-IN')}</td>`
       if (dailyFilter === 'photography') html += `<td>${o.photographyRemarks || ''}</td>`
       if (dailyFilter === 'siteVideo') html += `<td>${o.siteVideoRemarks || ''}</td>`
       if (dailyFilter === 'review') html += `<td>${o.reviewRemarks || ''}</td>`
@@ -1217,7 +1236,7 @@ function Dashboard() {
             <button onClick={() => { setDailyFilter('installationStatus'); setDailyFilterValue([]) }} style={dailyFilter === 'installationStatus' ? styles.dailyBtnActive : styles.dailyBtn}>Installation Status</button>
             <button onClick={() => { setDailyFilter('sectionDrawing'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'sectionDrawing' ? styles.dailyBtnActive : styles.dailyBtn}>Section Drawing</button>
             <button onClick={() => { setDailyFilter('inProduction'); setDailyFilterValue([]) }} style={dailyFilter === 'inProduction' ? styles.dailyBtnActive : styles.dailyBtn}>In Production</button>
-            <button onClick={() => { setDailyFilter('percentReceived'); setDailyFilterValue([]); setDailyPercentMax('') }} style={dailyFilter === 'percentReceived' ? styles.dailyBtnActive : styles.dailyBtn}>% Rec</button>
+            <button onClick={() => { setDailyFilter('percentReceived'); setDailyFilterValue([]); setDailyPercentMax(''); setDailyPercentDateFrom('') }} style={dailyFilter === 'percentReceived' ? styles.dailyBtnActive : styles.dailyBtn}>% Rec</button>
             <button onClick={() => { setDailyFilter('akhilSirAudit'); setDailyFilterValue([]) }} style={dailyFilter === 'akhilSirAudit' ? styles.dailyBtnActive : styles.dailyBtn}>Akhil Sir Audit</button>
             <button onClick={() => { setDailyFilter('advanceBill'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'advanceBill' ? styles.dailyBtnActive : styles.dailyBtn}>Advance Bill</button>
             <button onClick={() => { setDailyFilter('photography'); setDailyFilterValue([]) }} style={dailyFilter === 'photography' ? styles.dailyBtnActive : styles.dailyBtn}>Photography</button>
@@ -1287,6 +1306,14 @@ function Dashboard() {
                 placeholder="Enter value (e.g. 50)"
                 style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '13px', width: '180px' }}
               />
+              <span style={{ fontSize: '12px', fontWeight: '600', marginLeft: '16px' }}>Order date from:</span>
+              <input
+                type="date"
+                value={dailyPercentDateFrom}
+                onChange={e => setDailyPercentDateFrom(e.target.value)}
+                style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '13px', width: '160px' }}
+              />
+              {dailyPercentDateFrom && <button onClick={() => setDailyPercentDateFrom('')} style={{ padding: '6px 10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>Show All</button>}
               <span style={{ fontSize: '11px', color: '#888' }}>{dailyPercentMax ? `Showing orders < ${dailyPercentMax}%` : 'Enter a value to filter'}</span>
             </div>
           )}
@@ -1489,6 +1516,9 @@ function Dashboard() {
                   {dailyFilter === 'sectionDrawing' && <th style={styles.th}>SD Remarks</th>}
                   {dailyFilter === 'advanceBill' && <th style={styles.th}>Akhil Sir Audit</th>}
                   {dailyFilter === 'akhilSirAudit' && <th style={styles.th}>Audit Remarks</th>}
+                  {dailyFilter === 'percentReceived' && <th style={styles.th}>Total Amount</th>}
+                  {dailyFilter === 'percentReceived' && <th style={styles.th}>Received</th>}
+                  {dailyFilter === 'percentReceived' && <th style={styles.th}>Balance</th>}
                   {dailyFilter === 'photography' && <th style={styles.th}>Photography Remarks</th>}
                   {dailyFilter === 'siteVideo' && <th style={styles.th}>Site Video Remarks</th>}
                   {dailyFilter === 'review' && <th style={styles.th}>Review Remarks</th>}
@@ -1517,6 +1547,9 @@ function Dashboard() {
                       {dailyFilter === 'sectionDrawing' && <td style={styles.td}>{o.sectionDrawingRemarks}</td>}
                       {dailyFilter === 'advanceBill' && <td style={styles.td}>{o.akhilSirAudit}</td>}
                       {dailyFilter === 'akhilSirAudit' && <td style={styles.td}>{o.remarks}</td>}
+                      {dailyFilter === 'percentReceived' && <td style={styles.td}>{formatCurrency(o.totalAmount)}</td>}
+                      {dailyFilter === 'percentReceived' && <td style={styles.td}>{formatCurrency(o.receivedAmount)}</td>}
+                      {dailyFilter === 'percentReceived' && <td style={styles.td}>{formatCurrency((o.totalAmount || 0) - (o.receivedAmount || 0))}</td>}
                       {dailyFilter === 'photography' && <td style={styles.td}>{o.photographyRemarks}</td>}
                       {dailyFilter === 'siteVideo' && <td style={styles.td}>{o.siteVideoRemarks}</td>}
                       {dailyFilter === 'review' && <td style={styles.td}>{o.reviewRemarks}</td>}
