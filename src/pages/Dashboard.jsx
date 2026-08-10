@@ -339,7 +339,7 @@ function Dashboard() {
       .cancel-btn { background: #eee; color: #333; }
       @media print { .no-print { display: none !important; } .page-footer { display: block; position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 8px; color: #555; } }
     </style></head><body>`
-    html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Confirm & Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button></div>`
+    html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Confirm & Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span id="pageInfo" style="margin-left:16px;font-size:13px;font-weight:600;color:#555"></span></div>`
     html += `<h2>OMS - Prestair Systems LLP</h2>`
     html += `<p class="subtitle">Orders Report | ${orientation.toUpperCase()} | Date: ${new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric' })} | Total: ${filteredOrders.length} orders</p>`
     html += `<table><thead><tr><th style="width:${colWidth}mm">#</th>`
@@ -367,7 +367,7 @@ function Dashboard() {
       })
       html += `</tr>`
     })
-    html += `</tbody></table></body></html>`
+    html += `</tbody></table><script>window.onload=function(){var ph=${orientation === 'landscape' ? 190 : 277};var pages=Math.ceil(document.body.scrollHeight/(ph*3.78));document.getElementById("pageInfo").textContent="Total Pages: "+pages;}</script></body></html>`
     const printWin = window.open('', '_blank')
     printWin.document.write(html)
     printWin.document.close()
@@ -717,7 +717,7 @@ function Dashboard() {
         .cancel-btn { background: #eee; color: #333; }
         @media print { .no-print { display: none !important; } body { margin: 0; padding: 3mm; } }
       </style></head><body>`
-      html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button></div>`
+      html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span id="pageInfo" style="margin-left:16px;font-size:13px;font-weight:600;color:#555"></span></div>`
       html += `<h2>OMS - Prestair Systems LLP</h2>`
       const dateRange = paymentDateFrom || paymentDateTo ? `${paymentDateFrom || '...'} to ${paymentDateTo || '...'}` : 'All'
       html += `<p class="subtitle">Payment Update Report | Date Range: <strong>${dateRange}</strong> | Date: ${new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric' })} | Layout: ${orientation.toUpperCase()}</p>`
@@ -725,7 +725,7 @@ function Dashboard() {
       filtered.forEach((p, idx) => {
         html += `<tr><td>${idx + 1}</td><td>${formatPayDate(p.paymentDate)}</td><td>${p.client || ''}</td><td>${p.orderNo || ''}</td><td>${p.amount ? p.amount.toLocaleString() : '0'}</td><td>${p.remarks || '-'}</td><td>${p.totalAmount ? p.totalAmount.toLocaleString() : '0'}</td><td>${p.receivedAmount ? p.receivedAmount.toLocaleString() : '0'}</td><td>${p.balance ? p.balance.toLocaleString() : '0'}</td></tr>`
       })
-      html += `</tbody></table><p class="footer">Total: ${filtered.length} payments | Generated: ${new Date().toLocaleString('en-IN')}</p></body></html>`
+      html += `</tbody></table><p class="footer">Total: ${filtered.length} payments | Generated: ${new Date().toLocaleString('en-IN')}</p><script>window.onload=function(){var ph=${orientation === 'landscape' ? 190 : 277};var pages=Math.ceil(document.body.scrollHeight/(ph*3.78));document.getElementById("pageInfo").textContent="Total Pages: "+pages;}</script></body></html>`
       const printWindow = window.open('', '_blank')
       printWindow.document.write(html)
       printWindow.document.close()
@@ -752,7 +752,7 @@ function Dashboard() {
       .cancel-btn { background: #eee; color: #333; }
       @media print { .no-print { display: none !important; } body { margin: 0; padding: 3mm; } }
     </style></head><body>`
-    html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button></div>`
+    html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span id="pageInfo" style="margin-left:16px;font-size:13px;font-weight:600;color:#555"></span></div>`
     html += `<h2>OMS - Prestair Systems LLP</h2>`
     html += `<p class="subtitle">Daily Report | Filter: <strong>${filterLabel || 'None'}</strong> | Values: <strong>${selectedValues}</strong> | Date: ${new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric' })} | Layout: ${orientation.toUpperCase()}</p>`
     html += `<table><thead><tr><th style="width:20px">#</th><th style="width:55px">Date</th><th>PO No</th><th>Client</th><th style="width:80px">Order No</th><th>GST</th><th style="width:50px">Follow Up</th>`
@@ -783,7 +783,7 @@ function Dashboard() {
       if (dailyFilter === 'review') html += `<td>${o.reviewRemarks || ''}</td>`
       html += `</tr>`
     })
-    html += `</tbody></table><p class="footer">Total: ${filtered.length} orders | Generated: ${new Date().toLocaleString('en-IN')}</p></body></html>`
+    html += `</tbody></table><p class="footer">Total: ${filtered.length} orders | Generated: ${new Date().toLocaleString('en-IN')}</p><script>window.onload=function(){var ph=${orientation === 'landscape' ? 190 : 277};var pages=Math.ceil(document.body.scrollHeight/(ph*3.78));document.getElementById("pageInfo").textContent="Total Pages: "+pages;}</script></body></html>`
     const printWindow = window.open('', '_blank')
     printWindow.document.write(html)
     printWindow.document.close()
