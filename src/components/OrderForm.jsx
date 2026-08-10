@@ -28,7 +28,6 @@ const FIELDS = [
   { key: 'billing', label: 'Billing' },
   { key: 'installation', label: 'Installation' },
   { key: 'totalAmount', label: 'Total Amount', type: 'number' },
-  { key: 'daysToOrder', label: 'Days to Order', type: 'number' },
   { key: 'remarks', label: 'Remarks' },
   { key: 'paymentRemarks', label: 'Payment Remarks' },
   { key: 'akhilSirAudit', label: 'Akhil Sir Audit' },
@@ -113,25 +112,6 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
         const currentNo = updated.orderNo || ''
         const numPart = currentNo.replace(/OR\/\d{4}-\d{2}\//, '').split(' ')[0]
         if (numPart) updated.orderNo = `OR/${fyStr}/${numPart} ${initials}`
-      }
-      // Auto-calculate days to order when delivery date changes
-      if (key === 'deliveryDate' && value) {
-        try {
-          // Parse DD/MM/YYYY or DD/M or D/M format
-          const parts = value.split('/')
-          let delivery = null
-          if (parts.length === 3) {
-            delivery = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
-          } else if (parts.length === 2) {
-            delivery = new Date(2026, parseInt(parts[1]) - 1, parseInt(parts[0]))
-          }
-          if (delivery && !isNaN(delivery)) {
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
-            const diff = Math.ceil((delivery - today) / (1000 * 60 * 60 * 24))
-            updated.daysToOrder = diff
-          }
-        } catch (e) {}
       }
       return updated
     })

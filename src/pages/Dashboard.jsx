@@ -117,8 +117,6 @@ function Dashboard() {
   const [paymentDateTo, setPaymentDateTo] = useState('')
   const [receiptDrillDown, setReceiptDrillDown] = useState(null)
   const [editHistoryPopup, setEditHistoryPopup] = useState(null)
-  const [inlineEditCell, setInlineEditCell] = useState(null)
-  const [inlineEditValue, setInlineEditValue] = useState('')
   const fileInputRef = useRef(null)
 
   // Determine columns user is allowed to see
@@ -652,39 +650,9 @@ function Dashboard() {
     } catch { return val }
   }
 
-  const saveInlineEdit = async (orderId) => {
-    if (inlineEditCell) {
-      try {
-        await axios.put(`/api/orders/${orderId}`, { paymentRemarks: inlineEditValue.toUpperCase() })
-        fetchOrders()
-      } catch {}
-      setInlineEditCell(null)
-      setInlineEditValue('')
-    }
-  }
-
   const getCellValue = (order, key) => {
     const val = order[key]
     if (key === 'paymentRemarks') {
-      const canEdit = canEditColumn('paymentRemarks')
-      if (canEdit && inlineEditCell === `${order.id}_paymentRemarks`) {
-        return <input
-          autoFocus
-          value={inlineEditValue}
-          onChange={(e) => setInlineEditValue(e.target.value)}
-          onBlur={() => saveInlineEdit(order.id)}
-          onKeyDown={(e) => { if (e.key === 'Enter') saveInlineEdit(order.id); if (e.key === 'Escape') { setInlineEditCell(null); setInlineEditValue('') } }}
-          style={{ width: '100%', minWidth: '120px', padding: '3px 5px', fontSize: '11px', border: '1px solid #2980b9', borderRadius: '3px', outline: 'none', textTransform: 'uppercase' }}
-          onClick={(e) => e.stopPropagation()}
-        />
-      }
-      if (canEdit) {
-        return <span
-          onClick={(e) => { e.stopPropagation(); setInlineEditCell(`${order.id}_paymentRemarks`); setInlineEditValue(val || '') }}
-          style={{ cursor: 'pointer', minWidth: '60px', display: 'inline-block', borderBottom: '1px dashed #aaa', minHeight: '14px' }}
-          title="Click to edit"
-        >{val || ''}</span>
-      }
       return val || ''
     }
     if (key === 'orderNo') return <span onClick={(e)=>{e.stopPropagation();fetchEditLogs(order)}} style={{cursor:'pointer',color:'#1a1a2e',fontWeight:'600',textDecoration:'underline'}}>{val}</span>
@@ -694,26 +662,25 @@ function Dashboard() {
     if (key === 'percentReceived') return `${val || 0}%`
     if (key === 'date' || key === 'deliveryDate') return formatDate(val)
     if (key === 'daysToOrder') {
-      // Live calculate from delivery date
-      if (order.deliveryDate) {
+      // Calculate days since order was placed (current date - order date)
+      if (order.date) {
         try {
           let d = null
-          const val2 = order.deliveryDate
+          const val2 = order.date
           // Try DD/MM/YYYY
           if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(val2)) {
             const p = val2.split('/')
             d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]))
-          } else if (/^\d{1,2}\/\d{1,2}$/.test(val2)) {
-            const p = val2.split('/')
-            d = new Date(2026, parseInt(p[1]) - 1, parseInt(p[0]))
+          } else if (/^\d{4}-\d{2}-\d{2}/.test(val2)) {
+            d = new Date(val2)
           } else {
             d = new Date(val2)
           }
           if (d && !isNaN(d)) {
             const today = new Date()
             today.setHours(0, 0, 0, 0)
-            const diff = Math.ceil((d - today) / (1000 * 60 * 60 * 24))
-            if (diff < 0) return <span style={{ color: '#e74c3c', fontWeight: '700' }}>{Math.abs(diff)} (OverDue)</span>
+            d.setHours(0, 0, 0, 0)
+            const diff = Math.ceil((today - d) / (1000 * 60 * 60 * 24))
             return diff
           }
         } catch {}
