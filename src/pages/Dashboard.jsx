@@ -1114,9 +1114,9 @@ function Dashboard() {
             if (val.trim()) {
               const term = val.toLowerCase()
               const results = []
-              orders.forEach(o => { if ((o.orderNo || '').toLowerCase().includes(term)) results.push({ ...o, status_type: 'ACTIVE' }) })
-              deletedOrders.forEach(o => { if ((o.orderNo || '').toLowerCase().includes(term)) results.push({ ...o, status_type: 'COMPLETED' }) })
-              setStatusCheckResults(results.slice(0, 5))
+              orders.forEach(o => { if ((o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) results.push({ ...o, status_type: 'ACTIVE' }) })
+              deletedOrders.forEach(o => { if ((o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) results.push({ ...o, status_type: 'COMPLETED' }) })
+              setStatusCheckResults(results.slice(0, 10))
             } else {
               setStatusCheckResults([])
             }
