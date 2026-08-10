@@ -1102,7 +1102,7 @@ function Dashboard() {
       </div>
 
       {/* Order Status Checker */}
-      <div style={{ margin: '0 24px 12px', padding: '10px 16px', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+      <div style={{ margin: '0 24px 12px', padding: '10px 16px', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
         <span style={{ fontSize: '12px', fontWeight: '700', color: '#1a1a2e' }}>Order Status:</span>
         <input
           type="text"
