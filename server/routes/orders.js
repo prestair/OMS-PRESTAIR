@@ -292,7 +292,7 @@ router.post('/import', adminOnly, async (req, res) => {
 
 // Update order
 router.put('/:id', async (req, res) => {
-  const AUTO_FIELDS = ['receivedAmount', 'balance', 'percentReceived', 'received_amount', 'percent_received']
+  const AUTO_FIELDS = ['receivedAmount', 'balance', 'percentReceived', 'received_amount', 'percent_received', 'id', 'createdAt', 'created_at', 'payments', '_needsOrderNo', 'daysToOrder', 'rowColor']
   const { data: existing } = await supabase.from('orders').select('*').eq('id', parseInt(req.params.id))
   const oldOrder = existing?.[0] ? mapOrder(existing[0]) : {}
   const { error } = await supabase.from('orders').update(snakeOrder(req.body)).eq('id', parseInt(req.params.id))
@@ -313,9 +313,9 @@ router.put('/:id', async (req, res) => {
   const changes = []
   Object.keys(req.body).forEach(key => {
     if (AUTO_FIELDS.includes(key)) return
-    const oldVal = String(oldOrder[key] || '')
-    const newVal = String(req.body[key] || '')
-    if (oldVal !== newVal) changes.push({ field: key, oldValue: oldVal, newValue: newVal })
+    const oldVal = String(oldOrder[key] || '').trim()
+    const newVal = String(req.body[key] || '').trim()
+    if (oldVal !== newVal && !(oldVal === '0' && newVal === '') && !(oldVal === '' && newVal === '0')) changes.push({ field: key, oldValue: oldVal, newValue: newVal })
   })
   if (changes.length > 0) {
     await supabase.from('edit_logs').insert({ order_id: parseInt(req.params.id), order_no: oldOrder.orderNo || '', edit_type: 'ORDER_EDIT', edited_by: req.user.username, changes })
