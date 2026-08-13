@@ -147,9 +147,15 @@ router.put('/reminders/:id/respond', async (req, res) => {
   res.json({ message: 'Response saved' })
 })
 
-router.get('/reminders/all', adminOnly, async (req, res) => {
+router.get('/reminders/all', async (req, res) => {
   const { data } = await supabase.from('reminders').select('*').order('created_at', { ascending: false })
-  res.json((data || []).map(r => ({ ...r, orderNo: r.order_no, createdBy: r.created_by, orderId: r.order_id, visibleTo: r.visible_to, responseText: r.response_text, responseDate: r.response_date, respondedBy: r.responded_by })))
+  const isAdmin = req.user.role === 'admin'
+  const username = req.user.username
+  const filtered = (data || []).filter(r => {
+    if (isAdmin) return true
+    return r.created_by === username
+  })
+  res.json(filtered.map(r => ({ ...r, orderNo: r.order_no, createdBy: r.created_by, orderId: r.order_id, visibleTo: r.visible_to, responseText: r.response_text, responseDate: r.response_date, respondedBy: r.responded_by })))
 })
 
 // Paper requests

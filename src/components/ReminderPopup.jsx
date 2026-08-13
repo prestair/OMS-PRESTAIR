@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
 
 function ReminderPopup({ onClose }) {
+  const { user } = useAuth()
+  const currentUsername = user.username
+  const isAdmin = user.role === 'admin'
   const [reminders, setReminders] = useState([])
   const [loading, setLoading] = useState(true)
   const [responses, setResponses] = useState({})
@@ -14,8 +18,8 @@ function ReminderPopup({ onClose }) {
   const fetchDueReminders = async () => {
     try {
       const res = await axios.get('/api/orders/reminders/due')
-      // Only show reminders that haven't been responded to yet
-      const pending = res.data.filter(r => !r.response_text)
+      // Only show reminders where this user is a RECEIVER (in visible_to), not the creator or admin
+      const pending = res.data.filter(r => !r.response_text && r.createdBy !== currentUsername && !isAdmin)
       setReminders(pending)
     } catch (err) {
       console.error(err)

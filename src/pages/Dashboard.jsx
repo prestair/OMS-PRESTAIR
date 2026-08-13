@@ -1034,7 +1034,7 @@ function Dashboard() {
         <button onClick={() => setActiveTab('reports')} style={activeTab === 'reports' ? styles.tabActive : styles.tab}>Reports</button>
         <button onClick={() => setActiveTab('daily')} style={activeTab === 'daily' ? styles.tabActive : styles.tab}>Daily Reports</button>
         <button onClick={() => setActiveTab('paperIssue')} style={activeTab === 'paperIssue' ? styles.tabActive : styles.tab}>Paper Issue Request</button>
-        {isAdmin && <button onClick={() => { setActiveTab('reminders'); fetchAllReminders() }} style={activeTab === 'reminders' ? styles.tabActive : styles.tab}>Reminders</button>}
+        <button onClick={() => { setActiveTab('reminders'); fetchAllReminders() }} style={activeTab === 'reminders' ? styles.tabActive : styles.tab}>Reminders</button>
       </div>
 
       {activeTab === 'active' && <>
@@ -2077,8 +2077,8 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Reminders Tab (Admin) */}
-      {activeTab === 'reminders' && isAdmin && (
+      {/* Reminders Tab */}
+      {activeTab === 'reminders' && (
         <div style={{ padding: '16px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <h3 style={{ margin: 0, fontSize: '16px' }}>All Reminders</h3>
