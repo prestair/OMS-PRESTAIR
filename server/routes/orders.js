@@ -140,6 +140,18 @@ router.delete('/reminders/:id', async (req, res) => {
   res.json({ message: 'Dismissed' })
 })
 
+router.put('/reminders/:id/respond', async (req, res) => {
+  const { responseText } = req.body
+  if (!responseText || !responseText.trim()) return res.status(400).json({ error: 'Response text is required' })
+  await supabase.from('reminders').update({ response_text: responseText.toUpperCase(), response_date: new Date().toISOString(), responded_by: req.user.username }).eq('id', parseInt(req.params.id))
+  res.json({ message: 'Response saved' })
+})
+
+router.get('/reminders/all', adminOnly, async (req, res) => {
+  const { data } = await supabase.from('reminders').select('*').order('created_at', { ascending: false })
+  res.json((data || []).map(r => ({ ...r, orderNo: r.order_no, createdBy: r.created_by, orderId: r.order_id, visibleTo: r.visible_to, responseText: r.response_text, responseDate: r.response_date, respondedBy: r.responded_by })))
+})
+
 // Paper requests
 router.get('/paper-requests/all', async (req, res) => {
   const { data } = await supabase.from('paper_requests').select('*').order('id', { ascending: false })

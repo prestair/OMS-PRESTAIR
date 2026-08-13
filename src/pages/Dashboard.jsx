@@ -128,6 +128,7 @@ function Dashboard() {
   const [receiptDrillDown, setReceiptDrillDown] = useState(null)
   const [editHistoryPopup, setEditHistoryPopup] = useState(null)
   const [showPrintDialog, setShowPrintDialog] = useState(false)
+  const [allReminders, setAllReminders] = useState([])
   const fileInputRef = useRef(null)
   const deletedFileInputRef = useRef(null)
 
@@ -248,6 +249,13 @@ function Dashboard() {
     } catch (err) {
       console.error('Failed to fetch payments', err)
     }
+  }
+
+  const fetchAllReminders = async () => {
+    try {
+      const res = await axios.get('/api/orders/reminders/all')
+      setAllReminders(res.data)
+    } catch (err) { console.error(err) }
   }
 
   const fetchPaperRequests = async () => {
@@ -1026,6 +1034,7 @@ function Dashboard() {
         <button onClick={() => setActiveTab('reports')} style={activeTab === 'reports' ? styles.tabActive : styles.tab}>Reports</button>
         <button onClick={() => setActiveTab('daily')} style={activeTab === 'daily' ? styles.tabActive : styles.tab}>Daily Reports</button>
         <button onClick={() => setActiveTab('paperIssue')} style={activeTab === 'paperIssue' ? styles.tabActive : styles.tab}>Paper Issue Request</button>
+        {isAdmin && <button onClick={() => { setActiveTab('reminders'); fetchAllReminders() }} style={activeTab === 'reminders' ? styles.tabActive : styles.tab}>Reminders</button>}
       </div>
 
       {activeTab === 'active' && <>
@@ -2065,6 +2074,56 @@ function Dashboard() {
             </div>
             <button onClick={()=>setShowPrintDialog(false)} style={{marginTop:'16px',padding:'8px 18px',background:'#eee',border:'none',borderRadius:'6px',cursor:'pointer',fontSize:'12px',fontWeight:'600'}}>Cancel</button>
           </div>
+        </div>
+      )}
+
+      {/* Reminders Tab (Admin) */}
+      {activeTab === 'reminders' && isAdmin && (
+        <div style={{ padding: '16px 24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h3 style={{ margin: 0, fontSize: '16px' }}>All Reminders</h3>
+            <button onClick={fetchAllReminders} style={{ padding: '6px 14px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Refresh</button>
+          </div>
+          {allReminders.length === 0 ? (
+            <p style={{ textAlign: 'center', color: '#888', padding: '40px' }}>No reminders found. Click Refresh to load.</p>
+          ) : (
+          <div style={{ ...styles.tableWrap, maxHeight: '70vh' }}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>#</th>
+                  <th style={styles.th}>Date</th>
+                  <th style={styles.th}>Order No</th>
+                  <th style={styles.th}>Client</th>
+                  <th style={styles.th}>Reminder Message</th>
+                  <th style={styles.th}>Set By</th>
+                  <th style={styles.th}>Sent To</th>
+                  <th style={styles.th}>Response</th>
+                  <th style={styles.th}>Responded By</th>
+                  <th style={styles.th}>Response Date</th>
+                  <th style={styles.th}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allReminders.map((r, idx) => (
+                  <tr key={r.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                    <td style={styles.td}>{idx + 1}</td>
+                    <td style={styles.td}>{r.date}</td>
+                    <td style={styles.td}>{r.orderNo}</td>
+                    <td style={styles.td}>{r.client}</td>
+                    <td style={{ ...styles.td, maxWidth: '250px' }}>{r.description}</td>
+                    <td style={styles.td}>{getFullName(r.createdBy)}</td>
+                    <td style={styles.td}>{(r.visibleTo || []).map(u => getFullName(u)).join(', ') || '-'}</td>
+                    <td style={{ ...styles.td, maxWidth: '250px', color: r.responseText ? '#27ae60' : '#e74c3c', fontWeight: '600' }}>{r.responseText || 'PENDING'}</td>
+                    <td style={styles.td}>{r.respondedBy ? getFullName(r.respondedBy) : '-'}</td>
+                    <td style={styles.td}>{r.responseDate ? new Date(r.responseDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}</td>
+                    <td style={{ ...styles.td, fontWeight: '700', color: r.responseText ? '#27ae60' : '#e74c3c' }}>{r.responseText ? 'RESPONDED' : 'PENDING'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          )}
         </div>
       )}
 
