@@ -1178,9 +1178,9 @@ function Dashboard() {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={styles.th}>#</th>
-              {displayedColumns.map(col => (
-                <th key={col.key} style={styles.th}>{col.label}</th>
+              <th style={{...styles.th, position:'sticky', left:0, zIndex:20, minWidth:'35px'}}>#</th>
+              {displayedColumns.map((col, colIdx) => (
+                <th key={col.key} style={colIdx < 3 ? {...styles.th, position:'sticky', left: colIdx === 0 ? '35px' : colIdx === 1 ? '115px' : '195px', zIndex:20, minWidth:'80px'} : styles.th}>{col.label}</th>
               ))}
               <th style={styles.th}>Actions</th>
             </tr>
@@ -1190,9 +1190,9 @@ function Dashboard() {
               const rowBg = order.rowColor === 'red' ? '#ffcccc' : order.rowColor === 'orange' ? '#ffe0b2' : order.rowColor === 'yellow' ? '#fff9c4' : (idx % 2 === 0 ? '#f8f9fa' : '#fff')
               return (
               <tr key={order.id} style={{ ...styles.trEven, background: rowBg }}>
-                <td style={styles.td}>{idx + 1}</td>
-                {displayedColumns.map(col => (
-                  <td key={col.key} style={styles.td}>{getCellValue(order, col.key)}</td>
+                <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: rowBg, minWidth:'35px'}}>{idx + 1}</td>
+                {displayedColumns.map((col, colIdx) => (
+                  <td key={col.key} style={colIdx < 3 ? {...styles.td, position:'sticky', left: colIdx === 0 ? '35px' : colIdx === 1 ? '115px' : '195px', zIndex:5, background: rowBg, minWidth:'80px'} : styles.td}>{getCellValue(order, col.key)}</td>
                 ))}
                 <td style={{ ...styles.td, whiteSpace: 'nowrap' }}>
                   {canColor && <span style={{ display:'inline-flex', gap:'2px', marginRight:'4px' }}>
@@ -1283,10 +1283,10 @@ function Dashboard() {
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th style={styles.th}>#</th>
-                  <th style={styles.th}>Date</th>
-                  <th style={styles.th}>PO No</th>
-                  <th style={styles.th}>Order No</th>
+                  <th style={{...styles.th, position:'sticky', left:0, zIndex:20, minWidth:'35px'}}>#</th>
+                  <th style={{...styles.th, position:'sticky', left:'35px', zIndex:20, minWidth:'80px'}}>Date</th>
+                  <th style={{...styles.th, position:'sticky', left:'115px', zIndex:20, minWidth:'80px'}}>PO No</th>
+                  <th style={{...styles.th, position:'sticky', left:'195px', zIndex:20, minWidth:'100px'}}>Order No</th>
                   <th style={styles.th}>Client</th>
                   <th style={styles.th}>Customer</th>
                   <th style={styles.th}>GST</th>
@@ -1316,10 +1316,10 @@ function Dashboard() {
                   return filtered.map((order, idx) => {
                   return (
                   <tr key={order.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
-                    <td style={styles.td}>{idx + 1}</td>
-                    <td style={styles.td}>{formatDate(order.date)}</td>
-                    <td style={styles.td}>{order.poNo}</td>
-                    <td style={styles.td}>{order.orderNo}</td>
+                    <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'35px'}}>{idx + 1}</td>
+                    <td style={{...styles.td, position:'sticky', left:'35px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'80px'}}>{formatDate(order.date)}</td>
+                    <td style={{...styles.td, position:'sticky', left:'115px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'80px'}}>{order.poNo}</td>
+                    <td style={{...styles.td, position:'sticky', left:'195px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'100px'}}>{order.orderNo}</td>
                     <td style={styles.td}>{order.client}</td>
                     <td style={styles.td}>{order.customerName}</td>
                     <td style={styles.td}>{order.gst}</td>
