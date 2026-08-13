@@ -1178,10 +1178,16 @@ function Dashboard() {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={{...styles.th, position:'sticky', left:0, zIndex:20, minWidth:'35px'}}>#</th>
-              {displayedColumns.map((col, colIdx) => (
-                <th key={col.key} style={colIdx < 3 ? {...styles.th, position:'sticky', left: colIdx === 0 ? '35px' : colIdx === 1 ? '115px' : '195px', zIndex:20, minWidth:'80px'} : styles.th}>{col.label}</th>
-              ))}
+              <th style={{...styles.th, position:'sticky', left:0, zIndex:20, minWidth:'40px', background:'#1a1a2e'}}>#</th>
+              {displayedColumns.map((col, colIdx) => {
+                const freezeCols = 4
+                const leftPositions = ['40px', '125px', '210px', '330px']
+                const colWidths = ['85px', '85px', '120px', '160px']
+                const isFrozen = colIdx < freezeCols
+                return (
+                <th key={col.key} style={isFrozen ? {...styles.th, position:'sticky', left: leftPositions[colIdx], zIndex:20, minWidth: colWidths[colIdx], background:'#1a1a2e'} : styles.th}>{col.label}</th>
+                )
+              })}
               <th style={styles.th}>Actions</th>
             </tr>
           </thead>
@@ -1190,10 +1196,16 @@ function Dashboard() {
               const rowBg = order.rowColor === 'red' ? '#ffcccc' : order.rowColor === 'orange' ? '#ffe0b2' : order.rowColor === 'yellow' ? '#fff9c4' : (idx % 2 === 0 ? '#f8f9fa' : '#fff')
               return (
               <tr key={order.id} style={{ ...styles.trEven, background: rowBg }}>
-                <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: rowBg, minWidth:'35px'}}>{idx + 1}</td>
-                {displayedColumns.map((col, colIdx) => (
-                  <td key={col.key} style={colIdx < 3 ? {...styles.td, position:'sticky', left: colIdx === 0 ? '35px' : colIdx === 1 ? '115px' : '195px', zIndex:5, background: rowBg, minWidth:'80px'} : styles.td}>{getCellValue(order, col.key)}</td>
-                ))}
+                <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: rowBg, minWidth:'40px'}}>{idx + 1}</td>
+                {displayedColumns.map((col, colIdx) => {
+                  const freezeCols = 4
+                  const leftPositions = ['40px', '125px', '210px', '330px']
+                  const colWidths = ['85px', '85px', '120px', '160px']
+                  const isFrozen = colIdx < freezeCols
+                  return (
+                  <td key={col.key} style={isFrozen ? {...styles.td, position:'sticky', left: leftPositions[colIdx], zIndex:5, background: rowBg, minWidth: colWidths[colIdx]} : styles.td}>{getCellValue(order, col.key)}</td>
+                  )
+                })}
                 <td style={{ ...styles.td, whiteSpace: 'nowrap' }}>
                   {canColor && <span style={{ display:'inline-flex', gap:'2px', marginRight:'4px' }}>
                     <button onClick={async()=>{await axios.put('/api/orders/'+order.id,{rowColor:'red'});fetchOrders()}} style={{width:'14px',height:'14px',background:'#e74c3c',border:order.rowColor==='red'?'2px solid #000':'1px solid #ccc',borderRadius:'50%',cursor:'pointer',padding:0}} title="Red"/>
@@ -1283,10 +1295,10 @@ function Dashboard() {
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th style={{...styles.th, position:'sticky', left:0, zIndex:20, minWidth:'35px'}}>#</th>
-                  <th style={{...styles.th, position:'sticky', left:'35px', zIndex:20, minWidth:'80px'}}>Date</th>
-                  <th style={{...styles.th, position:'sticky', left:'115px', zIndex:20, minWidth:'80px'}}>PO No</th>
-                  <th style={{...styles.th, position:'sticky', left:'195px', zIndex:20, minWidth:'100px'}}>Order No</th>
+                  <th style={{...styles.th, position:'sticky', left:0, zIndex:20, minWidth:'40px', background:'#1a1a2e'}}>#</th>
+                  <th style={{...styles.th, position:'sticky', left:'40px', zIndex:20, minWidth:'85px', background:'#1a1a2e'}}>Date</th>
+                  <th style={{...styles.th, position:'sticky', left:'125px', zIndex:20, minWidth:'85px', background:'#1a1a2e'}}>PO No</th>
+                  <th style={{...styles.th, position:'sticky', left:'210px', zIndex:20, minWidth:'160px', background:'#1a1a2e'}}>Order No</th>
                   <th style={styles.th}>Client</th>
                   <th style={styles.th}>Customer</th>
                   <th style={styles.th}>GST</th>
@@ -1316,10 +1328,10 @@ function Dashboard() {
                   return filtered.map((order, idx) => {
                   return (
                   <tr key={order.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
-                    <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'35px'}}>{idx + 1}</td>
-                    <td style={{...styles.td, position:'sticky', left:'35px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'80px'}}>{formatDate(order.date)}</td>
-                    <td style={{...styles.td, position:'sticky', left:'115px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'80px'}}>{order.poNo}</td>
-                    <td style={{...styles.td, position:'sticky', left:'195px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'100px'}}>{order.orderNo}</td>
+                    <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'40px'}}>{idx + 1}</td>
+                    <td style={{...styles.td, position:'sticky', left:'40px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'85px'}}>{formatDate(order.date)}</td>
+                    <td style={{...styles.td, position:'sticky', left:'125px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'85px'}}>{order.poNo}</td>
+                    <td style={{...styles.td, position:'sticky', left:'210px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'160px'}}>{order.orderNo}</td>
                     <td style={styles.td}>{order.client}</td>
                     <td style={styles.td}>{order.customerName}</td>
                     <td style={styles.td}>{order.gst}</td>
@@ -2184,8 +2196,8 @@ const styles = {
   filterTag: { display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', background: '#fff3cd', borderRadius: '4px', fontSize: '11px', fontWeight: '500' },
   filterTagClose: { background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#856404', marginLeft: '2px' },
   clearAllBtn: { padding: '4px 10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' },
-  tableWrap: { margin: '0 24px', overflowX: 'auto', overflowY: 'auto', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', maxHeight: '70vh' },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: '12px' },
+  tableWrap: { margin: '0 24px', overflowX: 'auto', overflowY: 'auto', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', maxHeight: '70vh', position: 'relative' },
+  table: { borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px', minWidth: '1800px' },
   th: { padding: '10px 8px', background: '#1a1a2e', color: '#fff', fontWeight: '600', textAlign: 'left', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 10 },
   thContent: { display: 'flex', alignItems: 'center', gap: '4px' },
   filterBtn: { padding: '2px 5px', border: 'none', borderRadius: '3px', color: '#fff', fontSize: '8px', cursor: 'pointer' },
@@ -2194,7 +2206,7 @@ const styles = {
   filterOptions: { maxHeight: '220px', minHeight: '60px', overflow: 'auto', flex: '1' },
   filterOption: { display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', cursor: 'pointer', color: '#333' },
   filterDoneBtn: { marginTop: '8px', padding: '6px 12px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', width: '100%', flexShrink: 0 },
-  td: { padding: '8px', borderBottom: '1px solid #eee', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' },
+  td: { padding: '8px', borderBottom: '1px solid #eee', borderRight: '1px solid #f0f0f0', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' },
   trEven: { background: '#fff' },
   trOdd: { background: '#f8f9fa' },
   tblBtn: { padding: '3px 6px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '3px', fontSize: '10px', cursor: 'pointer', marginRight: '3px' },
