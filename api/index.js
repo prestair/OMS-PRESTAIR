@@ -17,11 +17,20 @@ const JWT_SECRET = 'oms-prestair-secret-key-2026'
 function generateToken(user) {
   return jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '24h' })
 }
-function authenticate(req, res, next) {
+async function authenticate(req, res, next) {
   const h = req.headers.authorization
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' })
-  try { req.user = jwt.verify(h.split(' ')[1], JWT_SECRET); next() }
-  catch (e) { return res.status(401).json({ error: 'Invalid token' }) }
+  try {
+    const decoded = jwt.verify(h.split(' ')[1], JWT_SECRET)
+    req.user = decoded
+    // Check force logout
+    const { data: userData } = await supabase.from('users').select('force_logout_at').eq('id', decoded.id)
+    if (userData?.[0]?.force_logout_at) {
+      const logoutTime = new Date(userData[0].force_logout_at).getTime() / 1000
+      if (decoded.iat && logoutTime > decoded.iat) return res.status(401).json({ error: 'Session expired. Please login again.' })
+    }
+    next()
+  } catch (e) { return res.status(401).json({ error: 'Invalid token' }) }
 }
 function adminOnly(req, res, next) {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' })
@@ -77,8 +86,11 @@ app.get('/api/users', authenticate, adminOnly, async (req, res) => { try { const
 app.post('/api/users', authenticate, adminOnly, async (req, res) => { try { const {username,password,fullName,role,group,columnPermissions,canEdit,canReceipt,canAssignReminder,canDelete,canCreateQuote}=req.body; const{data,error}=await supabase.from('users').insert({username,password:bcrypt.hashSync(password.toLowerCase(),10),plain_password:password.toLowerCase(),full_name:fullName,role:role||'user',user_group:group||'',column_permissions:columnPermissions||{},can_edit:canEdit||false,can_receipt:canReceipt||false,can_assign_reminder:canAssignReminder||false,can_delete:canDelete||false,can_create_quote:canCreateQuote||false,can_color:req.body.canColor||false}).select(); if(error)return res.status(400).json({error:error.message}); res.json(data[0]) } catch(e){res.status(500).json({error:e.message})} })
 app.put('/api/users/:id', authenticate, adminOnly, async (req, res) => { try { const{fullName,role,group,columnPermissions,canEdit,canReceipt,canAssignReminder,canDelete,canCreateQuote}=req.body; await supabase.from('users').update({full_name:fullName,role,user_group:group||'',column_permissions:columnPermissions||{},can_edit:canEdit||false,can_receipt:canReceipt||false,can_assign_reminder:canAssignReminder||false,can_delete:canDelete||false,can_create_quote:canCreateQuote||false,can_color:req.body.canColor||false}).eq('id',parseInt(req.params.id)); res.json({message:'Updated'}) } catch(e){res.status(500).json({error:e.message})} })
 app.put('/api/users/:id/password', authenticate, adminOnly, async (req, res) => { try { const{newPassword}=req.body; await supabase.from('users').update({password:bcrypt.hashSync(newPassword.toLowerCase(),10),plain_password:newPassword.toLowerCase()}).eq('id',parseInt(req.params.id)); res.json({message:'Password reset'}) } catch(e){res.status(500).json({error:e.message})} })
+app.delete('/api/users/:id', authenticate, adminOnly, async (req, res) => { try { if(parseInt(req.params.id)===req.user.id)return res.status(400).json({error:'Cannot delete yourself'}); await supabase.from('users').delete().eq('id',parseInt(req.params.id)); res.json({message:'User deleted'}) } catch(e){res.status(500).json({error:e.message})} })
+app.put('/api/users/:id/force-logout', authenticate, adminOnly, async (req, res) => { try { await supabase.from('users').update({force_logout_at:new Date().toISOString()}).eq('id',parseInt(req.params.id)); res.json({message:'User forced to logout'}) } catch(e){res.status(500).json({error:e.message})} })
 app.post('/api/users/groups', authenticate, adminOnly, async (req, res) => { try { const{name,column_permissions,can_edit,can_receipt,can_assign_reminder,can_delete,can_create_quote}=req.body; const{data,error}=await supabase.from('groups').insert({name:(name||'').toUpperCase(),column_permissions:column_permissions||{},can_edit:can_edit||false,can_receipt:can_receipt||false,can_assign_reminder:can_assign_reminder||false,can_delete:can_delete||false,can_create_quote:can_create_quote||false}).select(); if(error)return res.status(400).json({error:error.message}); res.json(data[0]) } catch(e){res.status(500).json({error:e.message})} })
 app.put('/api/users/groups/:id', authenticate, adminOnly, async (req, res) => { try { const{name,column_permissions,can_edit,can_receipt,can_assign_reminder,can_delete,can_create_quote}=req.body; await supabase.from('groups').update({name:(name||'').toUpperCase(),column_permissions:column_permissions||{},can_edit:can_edit||false,can_receipt:can_receipt||false,can_assign_reminder:can_assign_reminder||false,can_delete:can_delete||false,can_create_quote:can_create_quote||false}).eq('id',parseInt(req.params.id)); res.json({message:'Updated'}) } catch(e){res.status(500).json({error:e.message})} })
+app.delete('/api/users/groups/:id', authenticate, adminOnly, async (req, res) => { try { await supabase.from('groups').delete().eq('id',parseInt(req.params.id)); res.json({message:'Group deleted'}) } catch(e){res.status(500).json({error:e.message})} })
 
 // ORDERS
 app.get('/api/orders', authenticate, async (req, res) => { try { const{data}=await supabase.from('orders').select('*'); const mapped=(data||[]).map(o=>mapOrder(o)); const getOrderParts=(orderNo)=>{if(!orderNo)return{fy:0,num:0};const parts=orderNo.split('/');let fy=0;let num=0;if(parts.length>=3){const fyDigits=parts[1].match(/^(\d{4})/);if(fyDigits)fy=parseInt(fyDigits[1]);const numDigits=parts[2].match(/^(\d+)/);if(numDigits)num=parseInt(numDigits[1])}return{fy,num}}; mapped.sort((a,b)=>{const pa=getOrderParts(a.orderNo);const pb=getOrderParts(b.orderNo);if(pb.fy!==pa.fy)return pb.fy-pa.fy;return pb.num-pa.num}); res.json(mapped) } catch(e){res.status(500).json({error:e.message})} })
