@@ -2127,7 +2127,7 @@ function Dashboard() {
         <ReminderForm
           order={showReminderForm}
           onClose={() => setShowReminderForm(null)}
-          onSaved={() => { setShowReminderForm(null); alert('Reminder set successfully') }}
+          onSaved={() => { setShowReminderForm(null) }}
         />
       )}
 

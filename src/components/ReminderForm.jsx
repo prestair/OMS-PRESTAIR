@@ -12,6 +12,7 @@ function ReminderForm({ order, onClose, onSaved }) {
   const [users, setUsers] = useState([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
   useEffect(() => {
     if (canAssign) {
@@ -44,7 +45,11 @@ function ReminderForm({ order, onClose, onSaved }) {
     setSaving(true)
     try {
       await axios.post(`/api/orders/${order.id}/reminders`, { description: description.toUpperCase(), date, visibleTo })
-      onSaved()
+      setSuccess(true)
+      setDescription('')
+      setDate('')
+      setVisibleTo([])
+      setTimeout(() => setSuccess(false), 2000)
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save reminder')
     } finally {
@@ -103,8 +108,9 @@ function ReminderForm({ order, onClose, onSaved }) {
             )}
           </div>
           {error && <p style={{ color: '#e74c3c', fontSize: '13px', margin: 0 }}>{error}</p>}
+          {success && <p style={{ color: '#27ae60', fontSize: '13px', margin: 0, fontWeight: '600' }}>Reminder saved successfully! You can add another or close.</p>}
           <div style={styles.actions}>
-            <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
+            <button type="button" onClick={onClose} style={styles.cancelBtn}>Close</button>
             <button type="submit" style={styles.saveBtn} disabled={saving}>{saving ? 'Saving...' : 'Set Reminder'}</button>
           </div>
         </form>
