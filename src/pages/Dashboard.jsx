@@ -2102,6 +2102,7 @@ function Dashboard() {
                   <th style={styles.th}>Responded By</th>
                   <th style={styles.th}>Response Date</th>
                   <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -2114,10 +2115,14 @@ function Dashboard() {
                     <td style={{ ...styles.td, maxWidth: '250px' }}>{r.description}</td>
                     <td style={styles.td}>{getFullName(r.createdBy)}</td>
                     <td style={styles.td}>{(r.visibleTo || []).map(u => getFullName(u)).join(', ') || '-'}</td>
-                    <td style={{ ...styles.td, maxWidth: '250px', color: r.responseText ? '#27ae60' : '#e74c3c', fontWeight: '600' }}>{r.responseText || 'PENDING'}</td>
+                    <td style={{ ...styles.td, maxWidth: '300px', color: r.responseText ? '#27ae60' : '#e74c3c', fontWeight: '600', fontSize: '10px' }}>{r.responseText || 'PENDING'}</td>
                     <td style={styles.td}>{r.respondedBy ? getFullName(r.respondedBy) : '-'}</td>
                     <td style={styles.td}>{r.responseDate ? new Date(r.responseDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}</td>
-                    <td style={{ ...styles.td, fontWeight: '700', color: r.responseText ? '#27ae60' : '#e74c3c' }}>{r.responseText ? 'RESPONDED' : 'PENDING'}</td>
+                    <td style={{ ...styles.td, fontWeight: '700', color: r.responseText && r.respondedBy ? '#27ae60' : '#e74c3c' }}>{r.responseText && r.respondedBy ? 'RESPONDED' : 'PENDING'}</td>
+                    <td style={{ ...styles.td, whiteSpace: 'nowrap' }}>
+                      {r.responseText && r.respondedBy && <button onClick={async () => { if (window.confirm('Reassign this reminder? User will need to respond again.')) { await axios.put(`/api/orders/reminders/${r.id}/reassign`); fetchAllReminders() } }} style={{ padding: '3px 8px', background: '#f39c12', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '9px', cursor: 'pointer', fontWeight: '600', marginRight: '4px' }}>Reassign</button>}
+                      <button onClick={async () => { if (window.confirm('Delete this reminder permanently?')) { await axios.delete(`/api/orders/reminders/${r.id}`); fetchAllReminders() } }} style={{ padding: '3px 8px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '9px', cursor: 'pointer', fontWeight: '600' }}>Delete</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

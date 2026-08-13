@@ -144,8 +144,23 @@ router.put('/reminders/:id/respond', async (req, res) => {
   const { responseText } = req.body
   if (!responseText || responseText.trim().length < 10) return res.status(400).json({ error: 'Response must be at least 10 characters' })
   if (responseText.trim().length > 250) return res.status(400).json({ error: 'Response must not exceed 250 characters' })
-  await supabase.from('reminders').update({ response_text: responseText.toUpperCase(), response_date: new Date().toISOString(), responded_by: req.user.username }).eq('id', parseInt(req.params.id))
+  // Append to existing response text
+  const { data: existing } = await supabase.from('reminders').select('response_text').eq('id', parseInt(req.params.id))
+  const prev = existing?.[0]?.response_text || ''
+  const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' })
+  const newResponse = prev ? `${prev} | ${dateStr}: ${responseText.toUpperCase()}` : `${dateStr}: ${responseText.toUpperCase()}`
+  await supabase.from('reminders').update({ response_text: newResponse, response_date: new Date().toISOString(), responded_by: req.user.username }).eq('id', parseInt(req.params.id))
   res.json({ message: 'Response saved' })
+})
+
+router.put('/reminders/:id/reassign', async (req, res) => {
+  // Reset response fields so reminder shows again to receiver
+  const { data: existing } = await supabase.from('reminders').select('response_text').eq('id', parseInt(req.params.id))
+  const prev = existing?.[0]?.response_text || ''
+  const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' })
+  const appendText = `${prev ? prev + ' | ' : ''}${dateStr}: REASSIGNED BY ${req.user.username.toUpperCase()}`
+  await supabase.from('reminders').update({ response_text: appendText, response_date: null, responded_by: null, date: new Date().toISOString().split('T')[0] }).eq('id', parseInt(req.params.id))
+  res.json({ message: 'Reminder reassigned' })
 })
 
 router.get('/reminders/all', async (req, res) => {
