@@ -2184,7 +2184,7 @@ const styles = {
   filterTag: { display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', background: '#fff3cd', borderRadius: '4px', fontSize: '11px', fontWeight: '500' },
   filterTagClose: { background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#856404', marginLeft: '2px' },
   clearAllBtn: { padding: '4px 10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' },
-  tableWrap: { margin: '0 24px', overflowX: 'auto', overflowY: 'auto', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', maxHeight: '420px' },
+  tableWrap: { margin: '0 24px', overflowX: 'auto', overflowY: 'auto', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', maxHeight: '70vh' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: '12px' },
   th: { padding: '10px 8px', background: '#1a1a2e', color: '#fff', fontWeight: '600', textAlign: 'left', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 10 },
   thContent: { display: 'flex', alignItems: 'center', gap: '4px' },
