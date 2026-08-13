@@ -2097,7 +2097,7 @@ function Dashboard() {
                   <th style={styles.th}>Client</th>
                   <th style={styles.th}>Reminder Message</th>
                   <th style={styles.th}>Set By</th>
-                  <th style={styles.th}>Sent To</th>
+                  <th style={styles.th}>Assigned To</th>
                   <th style={styles.th}>Response</th>
                   <th style={styles.th}>Responded By</th>
                   <th style={styles.th}>Response Date</th>
@@ -2114,7 +2114,7 @@ function Dashboard() {
                     <td style={styles.td}>{r.client}</td>
                     <td style={{ ...styles.td, maxWidth: '250px' }}>{r.description}</td>
                     <td style={styles.td}>{getFullName(r.createdBy)}</td>
-                    <td style={styles.td}>{(r.visibleTo || []).map(u => getFullName(u)).join(', ') || '-'}</td>
+                    <td style={styles.td}>{r.assignedTo ? getFullName(r.assignedTo) : r.assigned_to ? getFullName(r.assigned_to) : (r.visibleTo || []).map(u => getFullName(u)).join(', ') || '-'}</td>
                     <td style={{ ...styles.td, maxWidth: '300px', color: r.responseText ? '#27ae60' : '#e74c3c', fontWeight: '600', fontSize: '10px' }}>{r.responseText || 'PENDING'}</td>
                     <td style={styles.td}>{r.respondedBy ? getFullName(r.respondedBy) : '-'}</td>
                     <td style={styles.td}>{r.responseDate ? new Date(r.responseDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}</td>

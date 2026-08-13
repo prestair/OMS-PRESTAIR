@@ -171,7 +171,7 @@ router.get('/reminders/all', async (req, res) => {
     if (isAdmin) return true
     return r.created_by === username
   })
-  res.json(filtered.map(r => ({ ...r, orderNo: r.order_no, createdBy: r.created_by, orderId: r.order_id, visibleTo: r.visible_to, responseText: r.response_text, responseDate: r.response_date, respondedBy: r.responded_by })))
+  res.json(filtered.map(r => ({ ...r, orderNo: r.order_no, createdBy: r.created_by, orderId: r.order_id, visibleTo: r.visible_to, assignedTo: r.assigned_to, responseText: r.response_text, responseDate: r.response_date, respondedBy: r.responded_by })))
 })
 
 // Paper requests
@@ -417,8 +417,11 @@ router.post('/:id/reminders', async (req, res) => {
   const { description, date, visibleTo } = req.body
   const { data: orders } = await supabase.from('orders').select('order_no, client').eq('id', parseInt(req.params.id))
   const order = orders?.[0]
-  const { data } = await supabase.from('reminders').insert({ order_id: parseInt(req.params.id), order_no: order?.order_no, client: order?.client, description, date, visible_to: visibleTo || [], created_by: req.user.username }).select()
-  res.json(data[0])
+  // Create separate reminder for each assigned user
+  const users = visibleTo && visibleTo.length > 0 ? visibleTo : [req.user.username]
+  const rows = users.map(u => ({ order_id: parseInt(req.params.id), order_no: order?.order_no, client: order?.client, description, date, visible_to: [u], assigned_to: u, created_by: req.user.username }))
+  const { data } = await supabase.from('reminders').insert(rows).select()
+  res.json(data?.[0] || { message: 'Reminders created' })
 })
 
 router.get('/:id/reminders', async (req, res) => {
