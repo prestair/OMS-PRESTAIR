@@ -1186,12 +1186,11 @@ function Dashboard() {
             </tr>
           </thead>
           <tbody>
-            {filteredOrders.slice((activePage - 1) * ORDERS_PER_PAGE, activePage * ORDERS_PER_PAGE).map((order, idx) => {
-              const actualIdx = (activePage - 1) * ORDERS_PER_PAGE + idx
-              const rowBg = order.rowColor === 'red' ? '#ffcccc' : order.rowColor === 'orange' ? '#ffe0b2' : order.rowColor === 'yellow' ? '#fff9c4' : (actualIdx % 2 === 0 ? '#f8f9fa' : '#fff')
+            {filteredOrders.map((order, idx) => {
+              const rowBg = order.rowColor === 'red' ? '#ffcccc' : order.rowColor === 'orange' ? '#ffe0b2' : order.rowColor === 'yellow' ? '#fff9c4' : (idx % 2 === 0 ? '#f8f9fa' : '#fff')
               return (
               <tr key={order.id} style={{ ...styles.trEven, background: rowBg }}>
-                <td style={styles.td}>{actualIdx + 1}</td>
+                <td style={styles.td}>{idx + 1}</td>
                 {displayedColumns.map(col => (
                   <td key={col.key} style={styles.td}>{getCellValue(order, col.key)}</td>
                 ))}
@@ -1222,17 +1221,6 @@ function Dashboard() {
           <p style={{ textAlign: 'center', padding: '40px', color: '#888' }}>No orders found</p>
         )}
       </div>
-
-      {/* Pagination */}
-      {filteredOrders.length > ORDERS_PER_PAGE && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '12px 24px' }}>
-          <button onClick={() => setActivePage(1)} disabled={activePage === 1} style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', background: activePage === 1 ? '#eee' : '#fff', cursor: activePage === 1 ? 'default' : 'pointer', fontSize: '11px', fontWeight: '600' }}>First</button>
-          <button onClick={() => setActivePage(p => Math.max(1, p - 1))} disabled={activePage === 1} style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', background: activePage === 1 ? '#eee' : '#fff', cursor: activePage === 1 ? 'default' : 'pointer', fontSize: '11px', fontWeight: '600' }}>Prev</button>
-          <span style={{ fontSize: '12px', fontWeight: '600' }}>Page {activePage} of {Math.ceil(filteredOrders.length / ORDERS_PER_PAGE)}</span>
-          <button onClick={() => setActivePage(p => Math.min(Math.ceil(filteredOrders.length / ORDERS_PER_PAGE), p + 1))} disabled={activePage >= Math.ceil(filteredOrders.length / ORDERS_PER_PAGE)} style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', background: activePage >= Math.ceil(filteredOrders.length / ORDERS_PER_PAGE) ? '#eee' : '#fff', cursor: activePage >= Math.ceil(filteredOrders.length / ORDERS_PER_PAGE) ? 'default' : 'pointer', fontSize: '11px', fontWeight: '600' }}>Next</button>
-          <button onClick={() => setActivePage(Math.ceil(filteredOrders.length / ORDERS_PER_PAGE))} disabled={activePage >= Math.ceil(filteredOrders.length / ORDERS_PER_PAGE)} style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', background: activePage >= Math.ceil(filteredOrders.length / ORDERS_PER_PAGE) ? '#eee' : '#fff', cursor: activePage >= Math.ceil(filteredOrders.length / ORDERS_PER_PAGE) ? 'default' : 'pointer', fontSize: '11px', fontWeight: '600' }}>Last</button>
-        </div>
-      )}
 
       {/* Summary */}
       <div style={styles.summary}>
@@ -1325,11 +1313,10 @@ function Dashboard() {
                     const term = deletedSearchTerm.toLowerCase()
                     filtered = filtered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term) || (o.customerName || '').toLowerCase().includes(term))
                   }
-                  return filtered.slice((deletedPage - 1) * ORDERS_PER_PAGE, deletedPage * ORDERS_PER_PAGE).map((order, idx) => {
-                  const actualIdx = (deletedPage - 1) * ORDERS_PER_PAGE + idx
+                  return filtered.map((order, idx) => {
                   return (
-                  <tr key={order.id} style={actualIdx % 2 === 0 ? styles.trEven : styles.trOdd}>
-                    <td style={styles.td}>{actualIdx + 1}</td>
+                  <tr key={order.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                    <td style={styles.td}>{idx + 1}</td>
                     <td style={styles.td}>{formatDate(order.date)}</td>
                     <td style={styles.td}>{order.poNo}</td>
                     <td style={styles.td}>{order.orderNo}</td>
@@ -1363,15 +1350,6 @@ function Dashboard() {
               <p style={{ textAlign: 'center', padding: '40px', color: '#888' }}>No deleted/completed orders</p>
             )}
           </div>
-          {deletedOrders.length > ORDERS_PER_PAGE && (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '12px 0' }}>
-              <button onClick={() => setDeletedPage(1)} disabled={deletedPage === 1} style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', background: deletedPage === 1 ? '#eee' : '#fff', cursor: deletedPage === 1 ? 'default' : 'pointer', fontSize: '11px', fontWeight: '600' }}>First</button>
-              <button onClick={() => setDeletedPage(p => Math.max(1, p - 1))} disabled={deletedPage === 1} style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', background: deletedPage === 1 ? '#eee' : '#fff', cursor: deletedPage === 1 ? 'default' : 'pointer', fontSize: '11px', fontWeight: '600' }}>Prev</button>
-              <span style={{ fontSize: '12px', fontWeight: '600' }}>Page {deletedPage} of {Math.ceil(deletedOrders.length / ORDERS_PER_PAGE)}</span>
-              <button onClick={() => setDeletedPage(p => Math.min(Math.ceil(deletedOrders.length / ORDERS_PER_PAGE), p + 1))} disabled={deletedPage >= Math.ceil(deletedOrders.length / ORDERS_PER_PAGE)} style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', background: deletedPage >= Math.ceil(deletedOrders.length / ORDERS_PER_PAGE) ? '#eee' : '#fff', cursor: deletedPage >= Math.ceil(deletedOrders.length / ORDERS_PER_PAGE) ? 'default' : 'pointer', fontSize: '11px', fontWeight: '600' }}>Next</button>
-              <button onClick={() => setDeletedPage(Math.ceil(deletedOrders.length / ORDERS_PER_PAGE))} disabled={deletedPage >= Math.ceil(deletedOrders.length / ORDERS_PER_PAGE)} style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', background: deletedPage >= Math.ceil(deletedOrders.length / ORDERS_PER_PAGE) ? '#eee' : '#fff', cursor: deletedPage >= Math.ceil(deletedOrders.length / ORDERS_PER_PAGE) ? 'default' : 'pointer', fontSize: '11px', fontWeight: '600' }}>Last</button>
-            </div>
-          )}
         </div>
       )}
 
@@ -2206,7 +2184,7 @@ const styles = {
   filterTag: { display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', background: '#fff3cd', borderRadius: '4px', fontSize: '11px', fontWeight: '500' },
   filterTagClose: { background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#856404', marginLeft: '2px' },
   clearAllBtn: { padding: '4px 10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' },
-  tableWrap: { margin: '0 24px', overflowX: 'auto', overflowY: 'auto', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', maxHeight: '60vh' },
+  tableWrap: { margin: '0 24px', overflowX: 'auto', overflowY: 'auto', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', maxHeight: '420px' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: '12px' },
   th: { padding: '10px 8px', background: '#1a1a2e', color: '#fff', fontWeight: '600', textAlign: 'left', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 10 },
   thContent: { display: 'flex', alignItems: 'center', gap: '4px' },
