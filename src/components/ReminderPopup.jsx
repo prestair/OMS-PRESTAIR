@@ -30,8 +30,12 @@ function ReminderPopup({ onClose }) {
 
   const handleRespond = async (id) => {
     const text = responses[id]
-    if (!text || !text.trim()) {
-      alert('Please type your response/update before submitting')
+    if (!text || text.trim().length < 10) {
+      alert('Response must be at least 10 characters')
+      return
+    }
+    if (text.trim().length > 250) {
+      alert('Response must not exceed 250 characters')
       return
     }
     setSubmitting(prev => ({ ...prev, [id]: true }))
@@ -69,12 +73,14 @@ function ReminderPopup({ onClose }) {
               <div style={styles.responseRow}>
                 <input
                   type="text"
-                  placeholder="Type your response/update here..."
+                  placeholder="Type response (min 10, max 250 chars)..."
                   value={responses[r.id] || ''}
-                  onChange={e => setResponses(prev => ({ ...prev, [r.id]: e.target.value }))}
+                  onChange={e => { if (e.target.value.length <= 250) setResponses(prev => ({ ...prev, [r.id]: e.target.value })) }}
                   style={styles.responseInput}
                   onKeyDown={e => { if (e.key === 'Enter') handleRespond(r.id) }}
+                  maxLength={250}
                 />
+                <span style={{ fontSize: '9px', color: '#888', whiteSpace: 'nowrap' }}>{(responses[r.id] || '').length}/250</span>
                 <button onClick={() => handleRespond(r.id)} disabled={submitting[r.id]} style={styles.respondBtn}>
                   {submitting[r.id] ? '...' : 'Submit'}
                 </button>

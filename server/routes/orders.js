@@ -142,7 +142,8 @@ router.delete('/reminders/:id', async (req, res) => {
 
 router.put('/reminders/:id/respond', async (req, res) => {
   const { responseText } = req.body
-  if (!responseText || !responseText.trim()) return res.status(400).json({ error: 'Response text is required' })
+  if (!responseText || responseText.trim().length < 10) return res.status(400).json({ error: 'Response must be at least 10 characters' })
+  if (responseText.trim().length > 250) return res.status(400).json({ error: 'Response must not exceed 250 characters' })
   await supabase.from('reminders').update({ response_text: responseText.toUpperCase(), response_date: new Date().toISOString(), responded_by: req.user.username }).eq('id', parseInt(req.params.id))
   res.json({ message: 'Response saved' })
 })
