@@ -2057,10 +2057,8 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Reminder Popup on load */}
-      {showReminderPopup && (
-        <ReminderPopup onClose={() => setShowReminderPopup(false)} />
-      )}
+      {/* Reminder Popup - always active, auto-polls for new reminders */}
+      <ReminderPopup onClose={() => {}} />
 
       {/* Print Orientation Dialog */}
       {showPrintDialog && (

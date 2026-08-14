@@ -13,6 +13,9 @@ function ReminderPopup({ onClose }) {
 
   useEffect(() => {
     fetchDueReminders()
+    // Auto-check for new reminders every 30 seconds
+    const interval = setInterval(fetchDueReminders, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   const fetchDueReminders = async () => {
