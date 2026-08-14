@@ -123,7 +123,7 @@ router.put('/deleted/:id/update', adminOnly, async (req, res) => {
 // Reminders
 router.get('/reminders/due', async (req, res) => {
   const today = new Date().toISOString().split('T')[0]
-  const { data } = await supabase.from('reminders').select('*').lte('date', today)
+  const { data } = await supabase.from('reminders').select('*').or(`date.lte.${today},responded_by.is.null`)
   const username = req.user.username
   const isAdmin = req.user.role === 'admin'
   const filtered = (data || []).filter(r => {

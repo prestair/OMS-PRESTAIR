@@ -21,8 +21,8 @@ function ReminderPopup({ onClose }) {
   const fetchDueReminders = async () => {
     try {
       const res = await axios.get('/api/orders/reminders/due')
-      // Only show reminders where this user is a RECEIVER (in visible_to), not the creator or admin
-      const pending = res.data.filter(r => !r.response_text && r.createdBy !== currentUsername && !isAdmin)
+      // Only show reminders where: responded_by is null (pending), user is receiver, not creator, not admin
+      const pending = res.data.filter(r => !r.responded_by && r.createdBy !== currentUsername && !isAdmin)
       setReminders(pending)
     } catch (err) {
       console.error(err)
