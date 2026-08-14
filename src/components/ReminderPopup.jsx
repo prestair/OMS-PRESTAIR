@@ -72,6 +72,7 @@ function ReminderPopup({ onClose }) {
               </div>
               <p style={styles.client}>{r.client}</p>
               <p style={styles.desc}>{r.description}</p>
+              {r.response_text && <p style={{ fontSize: '12px', margin: '4px 0 6px', padding: '6px 10px', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '5px', color: '#856404', fontWeight: '600' }}>Previous: {r.response_text}</p>}
               <div style={styles.createdBy}>Set by: {r.createdBy}{r.visibleTo && r.visibleTo.length > 0 ? ` | For: ${r.visibleTo.join(', ')}` : ''}</div>
               <div style={styles.responseRow}>
                 <input
