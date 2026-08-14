@@ -129,6 +129,8 @@ function Dashboard() {
   const [editHistoryPopup, setEditHistoryPopup] = useState(null)
   const [showPrintDialog, setShowPrintDialog] = useState(false)
   const [allReminders, setAllReminders] = useState([])
+  const [reassignId, setReassignId] = useState(null)
+  const [reassignReason, setReassignReason] = useState('')
   const fileInputRef = useRef(null)
   const deletedFileInputRef = useRef(null)
 
@@ -2134,7 +2136,7 @@ function Dashboard() {
                     <td style={styles.td}>{r.responseDate ? new Date(r.responseDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}</td>
                     <td style={{ ...styles.td, fontWeight: '700', color: r.respondedBy ? '#27ae60' : '#e74c3c' }}>{r.respondedBy ? 'RESPONDED' : 'PENDING'}</td>
                     <td style={{ ...styles.td, whiteSpace: 'nowrap' }}>
-                      <button onClick={async () => { try { const reason = window.prompt('Reason for reassign (optional):'); if (reason === null) return; await axios.put(`/api/orders/reminders/${r.id}/reassign`, { reason: (reason || '').toUpperCase() }); alert('Reassigned successfully!'); fetchAllReminders() } catch(e) { alert('Error: ' + (e.response?.data?.error || e.message)) } }} style={{ padding: '3px 8px', background: '#f39c12', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '9px', cursor: 'pointer', fontWeight: '600', marginRight: '4px' }}>Reassign</button>
+                      <button onClick={() => { setReassignId(r.id); setReassignReason('') }} style={{ padding: '3px 8px', background: '#f39c12', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '9px', cursor: 'pointer', fontWeight: '600', marginRight: '4px' }}>Reassign</button>
                       <button onClick={async () => { if (window.confirm('Delete this reminder permanently?')) { await axios.delete(`/api/orders/reminders/${r.id}`); fetchAllReminders() } }} style={{ padding: '3px 8px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '9px', cursor: 'pointer', fontWeight: '600' }}>Delete</button>
                     </td>
                   </tr>
@@ -2143,6 +2145,21 @@ function Dashboard() {
             </table>
           </div>
           )}
+        </div>
+      )}
+
+      {/* Reassign Reminder Modal */}
+      {reassignId && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:1000}} onClick={()=>setReassignId(null)}>
+          <div style={{background:'#fff',borderRadius:'10px',padding:'24px',width:'380px'}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{margin:'0 0 12px',fontSize:'15px'}}>Reassign Reminder</h3>
+            <p style={{fontSize:'12px',color:'#555',margin:'0 0 12px'}}>Enter reason / additional query for user (optional):</p>
+            <input value={reassignReason} onChange={e=>setReassignReason(e.target.value)} placeholder="Reason for reassign..." style={{width:'100%',padding:'10px 12px',border:'1px solid #ddd',borderRadius:'6px',fontSize:'13px',boxSizing:'border-box',textTransform:'uppercase',marginBottom:'14px'}} />
+            <div style={{display:'flex',gap:'10px',justifyContent:'flex-end'}}>
+              <button onClick={()=>setReassignId(null)} style={{padding:'8px 16px',background:'#eee',border:'none',borderRadius:'6px',fontSize:'12px',cursor:'pointer',fontWeight:'600'}}>Cancel</button>
+              <button onClick={async()=>{try{await axios.put(`/api/orders/reminders/${reassignId}/reassign`,{reason:(reassignReason||'').toUpperCase()});setReassignId(null);setReassignReason('');fetchAllReminders()}catch(e){alert('Error: '+(e.response?.data?.error||e.message))}}} style={{padding:'8px 16px',background:'#f39c12',color:'#fff',border:'none',borderRadius:'6px',fontSize:'12px',cursor:'pointer',fontWeight:'700'}}>Reassign</button>
+            </div>
+          </div>
         </div>
       )}
 
