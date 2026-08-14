@@ -31,23 +31,29 @@ function ReminderPopup({ onClose }) {
     }
   }
 
+  const [error, setError] = useState('')
+
   const handleRespond = async (id) => {
     const text = responses[id]
     if (!text || text.trim().length < 10) {
-      alert('Response must be at least 10 characters')
+      setError('Response must be at least 10 characters')
+      setTimeout(() => setError(''), 3000)
       return
     }
     if (text.trim().length > 250) {
-      alert('Response must not exceed 250 characters')
+      setError('Response must not exceed 250 characters')
+      setTimeout(() => setError(''), 3000)
       return
     }
     setSubmitting(prev => ({ ...prev, [id]: true }))
+    setError('')
     try {
       await axios.put(`/api/orders/reminders/${id}/respond`, { responseText: text })
       setReminders(prev => prev.filter(r => r.id !== id))
       setResponses(prev => { const n = { ...prev }; delete n[id]; return n })
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to save response')
+      setError(err.response?.data?.error || 'Failed to save response')
+      setTimeout(() => setError(''), 5000)
     } finally {
       setSubmitting(prev => ({ ...prev, [id]: false }))
     }
@@ -93,6 +99,7 @@ function ReminderPopup({ onClose }) {
           ))}
         </div>
         <div style={styles.footer}>
+          {error && <span style={{ fontSize: '12px', color: '#e74c3c', fontWeight: '600' }}>{error}</span>}
           <span style={{ fontSize: '11px', color: '#888' }}>Respond to all reminders to continue working</span>
         </div>
       </div>
