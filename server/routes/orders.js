@@ -122,11 +122,11 @@ router.put('/deleted/:id/update', adminOnly, async (req, res) => {
 
 // Reminders
 router.get('/reminders/due', async (req, res) => {
-  const today = new Date().toISOString().split('T')[0]
-  const { data } = await supabase.from('reminders').select('*').or(`date.lte.${today},responded_by.is.null`)
+  const { data } = await supabase.from('reminders').select('*')
   const username = req.user.username
   const isAdmin = req.user.role === 'admin'
   const filtered = (data || []).filter(r => {
+    if (r.responded_by) return false
     if (isAdmin) return true
     if (r.created_by === username) return true
     if (r.visible_to && r.visible_to.includes(username)) return true
@@ -154,11 +154,12 @@ router.put('/reminders/:id/respond', async (req, res) => {
 })
 
 router.put('/reminders/:id/reassign', async (req, res) => {
-  // Reset response fields so reminder shows again to receiver
+  const { reason } = req.body
   const { data: existing } = await supabase.from('reminders').select('response_text').eq('id', parseInt(req.params.id))
   const prev = existing?.[0]?.response_text || ''
   const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' })
-  const appendText = `${prev ? prev + ' | ' : ''}${dateStr}: REASSIGNED BY ${req.user.username.toUpperCase()}`
+  const reasonText = reason ? ` - ${reason}` : ''
+  const appendText = `${prev ? prev + ' | ' : ''}${dateStr}: REASSIGNED BY ${req.user.username.toUpperCase()}${reasonText}`
   await supabase.from('reminders').update({ response_text: appendText, response_date: null, responded_by: null, date: new Date().toISOString().split('T')[0] }).eq('id', parseInt(req.params.id))
   res.json({ message: 'Reminder reassigned' })
 })
