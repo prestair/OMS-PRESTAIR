@@ -173,7 +173,14 @@ function Dashboard() {
     return () => clearInterval(interval)
   }, [])
 
-  // Version check - force refresh if admin triggers it
+  // Auto-refresh reminders tab every 30 seconds
+  useEffect(() => {
+    if (activeTab === 'reminders') {
+      fetchAllReminders()
+      const interval = setInterval(fetchAllReminders, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [activeTab])
   useEffect(() => {
     let currentVersion = null
     const checkVersion = async () => {
