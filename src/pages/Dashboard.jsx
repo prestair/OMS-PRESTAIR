@@ -131,6 +131,7 @@ function Dashboard() {
   const [allReminders, setAllReminders] = useState([])
   const [reassignId, setReassignId] = useState(null)
   const [reassignReason, setReassignReason] = useState('')
+  const [reminderNotification, setReminderNotification] = useState(null)
   const fileInputRef = useRef(null)
   const deletedFileInputRef = useRef(null)
 
@@ -181,6 +182,39 @@ function Dashboard() {
       return () => clearInterval(interval)
     }
   }, [activeTab])
+
+  // Check for new reminder responses (for reminder senders)
+  useEffect(() => {
+    let lastCheckedResponses = {}
+    const checkNewResponses = async () => {
+      try {
+        const res = await axios.get('/api/orders/reminders/all')
+        const myReminders = res.data.filter(r => r.createdBy === user.username || r.created_by === user.username)
+        myReminders.forEach(r => {
+          const key = `${r.id}_${r.respondedBy || r.responded_by || ''}`
+          if ((r.respondedBy || r.responded_by) && !lastCheckedResponses[r.id] && lastCheckedResponses[r.id] !== undefined) {
+            const responder = r.respondedBy || r.responded_by
+            const responderName = allUsers.find(u => u.username === responder)
+            const name = responderName ? (responderName.full_name || responderName.fullName || responder) : responder
+            setReminderNotification({ name, id: r.id })
+            setTimeout(() => setReminderNotification(null), 10000)
+          }
+          lastCheckedResponses[r.id] = r.respondedBy || r.responded_by || null
+        })
+      } catch {}
+    }
+    // Initialize on first load
+    const init = async () => {
+      try {
+        const res = await axios.get('/api/orders/reminders/all')
+        const myReminders = res.data.filter(r => r.createdBy === user.username || r.created_by === user.username)
+        myReminders.forEach(r => { lastCheckedResponses[r.id] = r.respondedBy || r.responded_by || null })
+      } catch {}
+    }
+    init()
+    const interval = setInterval(checkNewResponses, 30000)
+    return () => clearInterval(interval)
+  }, [allUsers])
   useEffect(() => {
     let currentVersion = null
     const checkVersion = async () => {
@@ -2153,6 +2187,15 @@ function Dashboard() {
             </table>
           </div>
           )}
+        </div>
+      )}
+
+      {/* Reminder Response Notification */}
+      {reminderNotification && (
+        <div onClick={() => { setActiveTab('reminders'); fetchAllReminders(); setReminderNotification(null) }} style={{ position: 'fixed', bottom: '20px', right: '20px', background: '#1a1a2e', color: '#fff', padding: '14px 20px', borderRadius: '10px', boxShadow: '0 6px 20px rgba(0,0,0,0.3)', cursor: 'pointer', zIndex: 3000, animation: 'slideIn 0.3s ease', maxWidth: '320px' }}>
+          <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>New Response Received</div>
+          <div style={{ fontSize: '12px', opacity: 0.9 }}>From: <strong>{reminderNotification.name}</strong></div>
+          <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '4px' }}>Click to view in Reminders tab</div>
         </div>
       )}
 
