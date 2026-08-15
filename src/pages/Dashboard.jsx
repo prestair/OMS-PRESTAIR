@@ -1047,7 +1047,8 @@ function Dashboard() {
         <div style={styles.headerRight}>
           <button onClick={() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests(); const btn = document.getElementById('refreshBtn'); btn.style.opacity='0.3'; setTimeout(()=>btn.style.opacity='1', 300) }} id="refreshBtn" style={{ ...styles.headerBtn, background: '#27ae60', transition: 'opacity 0.3s' }}>Refresh</button>
           {isAdmin && <button onClick={() => navigate('/users')} style={styles.headerBtn}>Manage Users</button>}
-          {isAdmin && <button onClick={async () => { if (window.confirm('Force refresh ALL users? Everyone will get a page reload.')) { await axios.post('/api/force-refresh'); alert('Done! All users will refresh within 30 seconds.') } }} style={{ ...styles.headerBtn, background: '#8e44ad' }}>Force Refresh All</button>}
+          {isAdmin && <button onClick={async () => { if (window.confirm('Send daily report email now?')) { try { const res = await axios.get('/api/cron-daily-report'); alert('Report sent to agm.prestairsystem@gmail.com') } catch(e) { alert('Error: ' + (e.response?.data?.error || e.message)) } } }} style={{ ...styles.headerBtn, background: '#27ae60' }}>Send Report</button>}
+          {isAdmin && <button onClick={async () => { if (window.confirm('Force refresh ALL users?')) { await axios.post('/api/force-refresh'); alert('All users will refresh within 30 seconds.') } }} style={{ ...styles.headerBtn, background: '#8e44ad' }}>Force Refresh All</button>}
           <button onClick={logout} style={{ ...styles.headerBtn, background: '#e74c3c' }}>Logout</button>
         </div>
       </header>
