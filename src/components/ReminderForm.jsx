@@ -13,6 +13,8 @@ function ReminderForm({ order, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [userSearch, setUserSearch] = useState('')
+  const [showUserDrop, setShowUserDrop] = useState(false)
 
   useEffect(() => {
     if (canAssign) {
@@ -85,22 +87,42 @@ function ReminderForm({ order, onClose, onSaved }) {
             />
           </div>
           <div style={styles.field}>
-            <label style={styles.label}>Show Reminder To (select users)</label>
-            <p style={{ fontSize: '11px', color: '#888', margin: '0 0 6px' }}>
-              Always visible to: Admin, You (creator){visibleTo.length > 0 ? `, + ${visibleTo.length} selected` : ''}
-            </p>
+            <label style={styles.label}>Assign Reminder To</label>
+            {visibleTo.length > 0 && (
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                {visibleTo.map(uname => {
+                  const u = users.find(x => x.username === uname)
+                  return (
+                    <span key={uname} style={{ background: '#1a1a2e', color: '#fff', padding: '3px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      {u ? (u.fullName || u.full_name || u.username) : uname}
+                      <button type="button" onClick={() => toggleUser(uname)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '12px', fontWeight: '700', padding: 0, lineHeight: 1 }}>x</button>
+                    </span>
+                  )
+                })}
+              </div>
+            )}
             {canAssign && users.length > 0 && (
-              <div style={styles.userList}>
-                {users.filter(u => u.username !== user.username).map(u => (
-                  <label key={u.id} style={styles.userCheckbox}>
-                    <input
-                      type="checkbox"
-                      checked={visibleTo.includes(u.username)}
-                      onChange={() => toggleUser(u.username)}
-                    />
-                    <span>{u.fullName || u.username} ({u.role})</span>
-                  </label>
-                ))}
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="Search user by name..."
+                  value={userSearch}
+                  onChange={e => { setUserSearch(e.target.value); setShowUserDrop(true) }}
+                  onFocus={() => { if (userSearch) setShowUserDrop(true) }}
+                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '12px', boxSizing: 'border-box' }}
+                />
+                {showUserDrop && userSearch.trim() && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', maxHeight: '150px', overflowY: 'auto', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                    {users.filter(u => u.username !== user.username && !visibleTo.includes(u.username) && (u.fullName || u.full_name || u.username || '').toLowerCase().includes(userSearch.toLowerCase())).map(u => (
+                      <div key={u.id} onClick={() => { toggleUser(u.username); setUserSearch(''); setShowUserDrop(false) }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '12px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.target.style.background = '#f0f8ff'} onMouseLeave={e => e.target.style.background = '#fff'}>
+                        {u.fullName || u.full_name || u.username}
+                      </div>
+                    ))}
+                    {users.filter(u => u.username !== user.username && !visibleTo.includes(u.username) && (u.fullName || u.full_name || u.username || '').toLowerCase().includes(userSearch.toLowerCase())).length === 0 && (
+                      <div style={{ padding: '10px', textAlign: 'center', color: '#888', fontSize: '11px' }}>No users found</div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             {!canAssign && (
