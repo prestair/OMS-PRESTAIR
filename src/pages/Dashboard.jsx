@@ -37,7 +37,7 @@ const ALL_COLUMNS = [
   { key: 'sectionDrawing', label: 'Section Drawing' },
   { key: 'sectionDrawingRemarks', label: 'SD Remarks' },
   { key: 'inProduction', label: 'In Production' },
-  { key: 'installation', label: 'Installation' },
+  { key: 'installation', label: 'Seasonal Discount' },
   { key: 'totalAmount', label: 'Total Amount' },
   { key: 'receivedAmount', label: 'Received' },
   { key: 'balance', label: 'Balance' },
@@ -1250,11 +1250,34 @@ function Dashboard() {
               <th style={{...styles.th, position:'sticky', left:0, zIndex:20, minWidth:'40px', background:'#1a1a2e'}}>#</th>
               {displayedColumns.map((col, colIdx) => {
                 const freezeCols = 4
-                const leftPositions = ['40px', '125px', '210px', '330px']
-                const colWidths = ['85px', '85px', '120px', '160px']
+                const leftPositions = ['40px', '125px', '210px', '370px']
+                const colWidths = ['85px', '85px', '160px', '160px']
                 const isFrozen = colIdx < freezeCols
+                const thStyle = isFrozen ? {...styles.th, position:'sticky', left: leftPositions[colIdx], zIndex:20, minWidth: colWidths[colIdx], background:'#1a1a2e'} : styles.th
                 return (
-                <th key={col.key} style={isFrozen ? {...styles.th, position:'sticky', left: leftPositions[colIdx], zIndex:20, minWidth: colWidths[colIdx], background:'#1a1a2e'} : styles.th}>{col.label}</th>
+                <th key={col.key} style={thStyle}>
+                  <div style={styles.thContent}>
+                    <span>{col.label}</span>
+                    <button onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: columnFilters[col.key] ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
+                  </div>
+                  {openFilter === col.key && (
+                    <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
+                      <div style={styles.filterDropdownHeader}>
+                        <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: {col.label}</span>
+                        <button onClick={() => clearFilter(col.key)} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
+                      </div>
+                      <div style={styles.filterOptions}>
+                        {getUniqueValues(col.key).map(val => (
+                          <label key={val} style={styles.filterOption}>
+                            <input type="checkbox" checked={(columnFilters[col.key] || []).includes(val)} onChange={() => toggleFilterValue(col.key, val)} />
+                            <span style={{ fontSize: '11px' }}>{val.length > 30 ? val.substring(0, 30) + '...' : val}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <button onClick={() => setOpenFilter(null)} style={styles.filterDoneBtn}>Done</button>
+                    </div>
+                  )}
+                </th>
                 )
               })}
               <th style={styles.th}>Actions</th>
@@ -1268,8 +1291,8 @@ function Dashboard() {
                 <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: rowBg, minWidth:'40px'}}>{idx + 1}</td>
                 {displayedColumns.map((col, colIdx) => {
                   const freezeCols = 4
-                  const leftPositions = ['40px', '125px', '210px', '330px']
-                  const colWidths = ['85px', '85px', '120px', '160px']
+                  const leftPositions = ['40px', '125px', '210px', '370px']
+                  const colWidths = ['85px', '85px', '160px', '160px']
                   const isFrozen = colIdx < freezeCols
                   return (
                   <td key={col.key} style={isFrozen ? {...styles.td, position:'sticky', left: leftPositions[colIdx], zIndex:5, background: rowBg, minWidth: colWidths[colIdx]} : styles.td}>{getCellValue(order, col.key)}</td>

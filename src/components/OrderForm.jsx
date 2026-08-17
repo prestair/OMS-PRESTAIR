@@ -25,7 +25,7 @@ const FIELDS = [
   { key: 'sectionDrawing', label: 'Section Drawing' },
   { key: 'sectionDrawingRemarks', label: 'SD Remarks' },
   { key: 'inProduction', label: 'In Production' },
-  { key: 'installation', label: 'Installation' },
+  { key: 'installation', label: 'Seasonal Discount' },
   { key: 'totalAmount', label: 'Total Amount', type: 'number' },
   { key: 'paymentRemarks', label: 'Payment Remarks' },
   { key: 'akhilSirAudit', label: 'Akhil Sir Audit' },
@@ -188,7 +188,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
               const isOrderNoLocked = field.key === 'orderNo' && !isAdmin
               const isDateLocked = field.key === 'date' && !isAdmin && !order
               const editable = !order ? (!isOrderNoLocked && !isDateLocked) : (isDeleted ? (isAdmin && !isOrderNoLocked) : (canEditColumn(field.key) && !isOrderNoLocked && !isDateLocked))
-              const isDropdown = field.key === 'photography' || field.key === 'siteVideo' || field.key === 'review' || field.key === 'status'
+              const isDropdown = field.key === 'photography' || field.key === 'siteVideo' || field.key === 'review' || field.key === 'status' || field.key === 'installation'
               return (
                 <div key={field.key} style={styles.field}>
                   <label style={styles.label}>{field.label}</label>
@@ -205,6 +205,12 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
                           <option value="MENTIONED">MENTIONED</option>
                           <option value="N/A">N/A</option>
                           <option value="REQ">REQ</option>
+                        </>
+                      ) : field.key === 'installation' ? (
+                        <>
+                          <option value="">-- Select --</option>
+                          <option value="YES">YES</option>
+                          <option value="NO">NO</option>
                         </>
                       ) : (
                         <>
