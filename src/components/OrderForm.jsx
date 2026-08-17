@@ -268,7 +268,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
             <label style={{ fontSize: '11px', fontWeight: '700', color: '#1a1a2e', marginBottom: '6px', display: 'block' }}>Payment Proof (Image) {form.paymentRemarks && form.paymentRemarks.trim() ? <span style={{ color: '#e74c3c' }}>*Required</span> : <span style={{ color: '#888' }}>(Optional)</span>}</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <button type="button" onClick={() => proofInputRef.current.click()} style={{ padding: '6px 14px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>{proofPreview ? 'Change Image' : 'Upload Image'}</button>
-              <input ref={proofInputRef} type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if (f) { setProofFile(f); setProofPreview(URL.createObjectURL(f)) } }} style={{ display: 'none' }} />
+              <input ref={proofInputRef} type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if (f) { if (f.size > 2 * 1024 * 1024) { setError('Image size must be less than 2MB'); setTimeout(() => setError(''), 3000); return } setProofFile(f); setProofPreview(URL.createObjectURL(f)); setError('') } }} style={{ display: 'none' }} />
               {proofPreview && <a href={proofPreview} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#2980b9', fontWeight: '600' }}>View Current</a>}
               {proofFile && <span style={{ fontSize: '10px', color: '#27ae60' }}>{proofFile.name}</span>}
               {uploading && <span style={{ fontSize: '10px', color: '#f39c12' }}>Uploading...</span>}
