@@ -353,7 +353,7 @@ router.put('/:id', async (req, res) => {
     if (oldVal !== newVal && !(oldVal === '0' && newVal === '') && !(oldVal === '' && newVal === '0')) changes.push({ field: key, oldValue: oldVal, newValue: newVal })
   })
   if (changes.length > 0) {
-    await supabase.from('edit_logs').insert({ order_id: parseInt(req.params.id), order_no: oldOrder.orderNo || '', edit_type: 'ORDER_EDIT', edited_by: req.user.username, changes })
+    await supabase.from('order_edit_history').insert({ order_id: parseInt(req.params.id), order_no: oldOrder.orderNo || '', edit_type: 'ORDER_EDIT', edited_by: req.user.username, changes })
   }
   res.json({ message: 'Updated' })
 })
@@ -432,12 +432,12 @@ router.get('/:id/reminders', async (req, res) => {
 
 // Edit logs
 router.get('/edit-logs/all', async (req, res) => {
-  const { data } = await supabase.from('edit_logs').select('*').order('created_at', { ascending: false }).limit(500)
+  const { data } = await supabase.from('order_edit_history').select('*').order('created_at', { ascending: false }).limit(500)
   res.json(data || [])
 })
 
 router.get('/:id/edit-logs', async (req, res) => {
-  const { data } = await supabase.from('edit_logs').select('*').eq('order_id', parseInt(req.params.id)).order('created_at', { ascending: false })
+  const { data } = await supabase.from('order_edit_history').select('*').eq('order_id', parseInt(req.params.id)).order('created_at', { ascending: false })
   res.json(data || [])
 })
 
