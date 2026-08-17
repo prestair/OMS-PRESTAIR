@@ -139,15 +139,15 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
       }
     })
     try {
-      // Upload image if selected (auto-delete old one first)
+      // Upload image if new file selected (auto-delete old one first)
       if (proofFile) {
         setUploading(true)
-        if (order && order.paymentProofUrl) {
+        if (order && order.id && order.paymentProofUrl) {
           try { await axios.delete(`/api/delete-payment-proof/${order.id}`) } catch {}
         }
         const reader = new FileReader()
         const fileData = await new Promise((resolve) => { reader.onload = (ev) => resolve(ev.target.result.split(',')[1]); reader.readAsDataURL(proofFile) })
-        const orderId = order ? order.id : 'new'
+        const orderId = order ? order.id : 'temp'
         const res = await axios.post('/api/upload-payment-proof', { orderId, fileData, fileName: proofFile.name })
         upperForm.paymentProofUrl = res.data.url
         setUploading(false)
