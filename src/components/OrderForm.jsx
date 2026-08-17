@@ -137,9 +137,12 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
       }
     })
     try {
-      // Upload image if selected
+      // Upload image if selected (auto-delete old one first)
       if (proofFile) {
         setUploading(true)
+        if (order && order.paymentProofUrl) {
+          try { await axios.delete(`/api/delete-payment-proof/${order.id}`) } catch {}
+        }
         const reader = new FileReader()
         const fileData = await new Promise((resolve) => { reader.onload = (ev) => resolve(ev.target.result.split(',')[1]); reader.readAsDataURL(proofFile) })
         const orderId = order ? order.id : 'new'
@@ -270,7 +273,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
               <button type="button" onClick={() => proofInputRef.current.click()} style={{ padding: '6px 14px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>{proofPreview ? 'Change Image' : 'Upload Image'}</button>
               <input ref={proofInputRef} type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if (f) { if (f.size > 2 * 1024 * 1024) { setError('Image size must be less than 2MB'); setTimeout(() => setError(''), 3000); return } setProofFile(f); setProofPreview(URL.createObjectURL(f)); setError('') } }} style={{ display: 'none' }} />
               {proofPreview && <a href={proofPreview} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#2980b9', fontWeight: '600' }}>View Current</a>}
-              {proofPreview && order && <button type="button" onClick={async () => { if (window.confirm('Delete this image?')) { try { await axios.delete(`/api/delete-payment-proof/${order.id}`); setProofPreview(''); setProofFile(null); setForm(prev => ({...prev, paymentProofUrl: ''})) } catch(e) { setError(e.response?.data?.error || 'Delete failed') } } }} style={{ padding: '4px 10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>Delete Image</button>}
+              {proofPreview && order && isAdmin && <button type="button" onClick={async () => { if (window.confirm('Delete this image?')) { try { await axios.delete(`/api/delete-payment-proof/${order.id}`); setProofPreview(''); setProofFile(null); setForm(prev => ({...prev, paymentProofUrl: ''})) } catch(e) { setError(e.response?.data?.error || 'Delete failed') } } }} style={{ padding: '4px 10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>Delete Image</button>}
               {proofFile && <span style={{ fontSize: '10px', color: '#27ae60' }}>{proofFile.name}</span>}
               {uploading && <span style={{ fontSize: '10px', color: '#f39c12' }}>Uploading...</span>}
             </div>
