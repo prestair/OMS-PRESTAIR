@@ -123,13 +123,11 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    // Validate payment proof - mandatory for every edit
-    if (order && !proofPreview && !proofFile) {
-      setError('Supporting image is mandatory. Please upload an image.')
-      return
-    }
-    if (!order && !proofFile) {
-      setError('Supporting image is mandatory. Please upload an image.')
+    // Validate payment proof - mandatory only when payment remarks is being entered/changed
+    const hasPaymentRemarks = form.paymentRemarks && form.paymentRemarks.trim()
+    const paymentRemarksChanged = order ? (form.paymentRemarks || '').trim() !== (order.paymentRemarks || '').trim() : hasPaymentRemarks
+    if (paymentRemarksChanged && hasPaymentRemarks && !proofPreview && !proofFile) {
+      setError('Supporting image is mandatory when entering/editing Payment Remarks')
       return
     }
     setSaving(true)
@@ -272,7 +270,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
           </div>
           {/* Payment Proof Upload */}
           <div style={{ padding: '10px', background: '#f0f8ff', borderRadius: '6px', border: '1px solid #bee5eb' }}>
-            <label style={{ fontSize: '11px', fontWeight: '700', color: '#1a1a2e', marginBottom: '6px', display: 'block' }}>Supporting Image <span style={{ color: '#e74c3c' }}>*Required</span> {proofPreview && !proofFile && <span style={{ color: '#27ae60' }}>(Current image will be kept if not changed)</span>}</label>
+            <label style={{ fontSize: '11px', fontWeight: '700', color: '#1a1a2e', marginBottom: '6px', display: 'block' }}>Supporting Image <span style={{ color: '#e74c3c' }}>*Required with Payment Remarks</span> {proofPreview && !proofFile && <span style={{ color: '#27ae60' }}>(Current kept if not changed)</span>}</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <button type="button" onClick={() => proofInputRef.current.click()} style={{ padding: '6px 14px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>{proofPreview ? 'Change Image' : 'Upload Image'}</button>
               <input ref={proofInputRef} type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if (f) { if (f.size > 2 * 1024 * 1024) { setError('Image size must be less than 2MB'); setTimeout(() => setError(''), 3000); return } setProofFile(f); setProofPreview(URL.createObjectURL(f)); setError('') } }} style={{ display: 'none' }} />
