@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import axios from 'axios'
 import { useAuth } from '../context/AuthContext'
 
@@ -80,6 +80,10 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
   })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [proofFile, setProofFile] = useState(null)
+  const [proofPreview, setProofPreview] = useState(order?.paymentProofUrl || '')
+  const [uploading, setUploading] = useState(false)
+  const proofInputRef = useRef(null)
 
   // Fetch next order number on mount for new orders
   React.useEffect(() => {
@@ -119,6 +123,11 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    // Validate payment proof if payment remarks is filled
+    if (form.paymentRemarks && form.paymentRemarks.trim() && !proofPreview && !proofFile) {
+      setError('Payment proof image is mandatory when Payment Remarks is filled')
+      return
+    }
     setSaving(true)
     // Convert all text fields to uppercase
     const upperForm = { ...form }
@@ -128,6 +137,16 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
       }
     })
     try {
+      // Upload image if selected
+      if (proofFile) {
+        setUploading(true)
+        const reader = new FileReader()
+        const fileData = await new Promise((resolve) => { reader.onload = (ev) => resolve(ev.target.result.split(',')[1]); reader.readAsDataURL(proofFile) })
+        const orderId = order ? order.id : 'new'
+        const res = await axios.post('/api/upload-payment-proof', { orderId, fileData, fileName: proofFile.name })
+        upperForm.paymentProofUrl = res.data.url
+        setUploading(false)
+      }
       if (order) {
         if (isDeleted) {
           await axios.put(`/api/orders/deleted/${order.id}/update`, upperForm)
@@ -135,13 +154,20 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
           await axios.put(`/api/orders/${order.id}`, upperForm)
         }
       } else {
-        await axios.post('/api/orders', upperForm)
+        const createRes = await axios.post('/api/orders', upperForm)
+        // Upload proof for new order
+        if (proofFile && createRes.data?.id) {
+          const reader = new FileReader()
+          const fileData = await new Promise((resolve) => { reader.onload = (ev) => resolve(ev.target.result.split(',')[1]); reader.readAsDataURL(proofFile) })
+          await axios.post('/api/upload-payment-proof', { orderId: createRes.data.id, fileData, fileName: proofFile.name })
+        }
       }
       onSaved()
     } catch (err) {
       setError(err.response?.data?.error || 'Save failed')
     } finally {
       setSaving(false)
+      setUploading(false)
     }
   }
 
@@ -236,6 +262,18 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
                 </div>
               )
             })}
+          </div>
+          {/* Payment Proof Upload */}
+          <div style={{ padding: '10px', background: '#f0f8ff', borderRadius: '6px', border: '1px solid #bee5eb' }}>
+            <label style={{ fontSize: '11px', fontWeight: '700', color: '#1a1a2e', marginBottom: '6px', display: 'block' }}>Payment Proof (Image) {form.paymentRemarks && form.paymentRemarks.trim() ? <span style={{ color: '#e74c3c' }}>*Required</span> : <span style={{ color: '#888' }}>(Optional)</span>}</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <button type="button" onClick={() => proofInputRef.current.click()} style={{ padding: '6px 14px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>{proofPreview ? 'Change Image' : 'Upload Image'}</button>
+              <input ref={proofInputRef} type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if (f) { setProofFile(f); setProofPreview(URL.createObjectURL(f)) } }} style={{ display: 'none' }} />
+              {proofPreview && <a href={proofPreview} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#2980b9', fontWeight: '600' }}>View Current</a>}
+              {proofFile && <span style={{ fontSize: '10px', color: '#27ae60' }}>{proofFile.name}</span>}
+              {uploading && <span style={{ fontSize: '10px', color: '#f39c12' }}>Uploading...</span>}
+            </div>
+            {proofPreview && <img src={proofPreview} alt="proof" style={{ marginTop: '8px', maxHeight: '80px', borderRadius: '4px', border: '1px solid #ddd' }} />}
           </div>
           {error && <p style={styles.error}>{error}</p>}
           <div style={styles.actions}>

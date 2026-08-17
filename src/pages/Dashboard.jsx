@@ -999,7 +999,7 @@ function Dashboard() {
   const getCellValue = (order, key) => {
     const val = order[key]
     if (key === 'paymentRemarks') {
-      return val || ''
+      return <span>{val || ''} {order.paymentProofUrl && <a href={order.paymentProofUrl} target="_blank" rel="noreferrer" style={{ color: '#2980b9', fontSize: '10px', fontWeight: '700' }} onClick={e => e.stopPropagation()}>View Proof</a>}</span>
     }
     if (key === 'orderNo') return <span onClick={(e)=>{e.stopPropagation();fetchEditLogs(order)}} style={{cursor:'pointer',color:'#1a1a2e',fontWeight:'600',textDecoration:'underline'}}>{val}</span>
     if (key === 'receivedAmount') return <span onClick={async(e)=>{e.stopPropagation();try{const res=await axios.get(`/api/orders/${order.id}/payments`);setReceiptDrillDown({order,payments:res.data})}catch{}}} style={{cursor:'pointer',color:'#2980b9',textDecoration:'underline',fontWeight:'600'}}>{formatCurrency(val)}</span>

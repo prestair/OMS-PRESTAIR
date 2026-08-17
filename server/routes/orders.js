@@ -327,7 +327,7 @@ router.post('/import', adminOnly, async (req, res) => {
 
 // Update order
 router.put('/:id', async (req, res) => {
-  const AUTO_FIELDS = ['receivedAmount', 'balance', 'percentReceived', 'received_amount', 'percent_received', 'id', 'createdAt', 'created_at', 'payments', '_needsOrderNo', 'daysToOrder', 'rowColor']
+  const AUTO_FIELDS = ['receivedAmount', 'balance', 'percentReceived', 'received_amount', 'percent_received', 'id', 'createdAt', 'created_at', 'payments', '_needsOrderNo', 'daysToOrder', 'rowColor', 'paymentProofUrl', 'payment_proof_url']
   const { data: existing } = await supabase.from('orders').select('*').eq('id', parseInt(req.params.id))
   const oldOrder = existing?.[0] ? mapOrder(existing[0]) : {}
   const { error } = await supabase.from('orders').update(snakeOrder(req.body)).eq('id', parseInt(req.params.id))
@@ -448,7 +448,7 @@ function mapOrder(o) {
   const receivedAmt = parseFloat(o.received_amount) || 0
   const balance = totalAmt - receivedAmt
   const percentReceived = totalAmt ? parseFloat(((receivedAmt / totalAmt) * 100).toFixed(2)) : 0
-  return { id: o.id, date: o.date, poNo: o.po_no, client: o.client, orderNo: o.order_no, status: o.status, deliveryDate: o.delivery_date, deliveryRemarks: o.delivery_remarks, customerName: o.customer_name, gst: o.gst, billingAddress: o.billing_address, followUp: o.follow_up, salesRep: o.sales_rep, deliveryAddress: o.delivery_address, phoneNo: o.phone_no, siteVerification: o.site_verification, siteVerificationRemarks: o.site_verification_remarks, installationStatus: o.installation_status, installationRemarks: o.installation_remarks, lop: o.lop, sectionDrawing: o.section_drawing, sectionDrawingRemarks: o.section_drawing_remarks, inProduction: o.in_production, billing: o.billing, installation: o.installation, totalAmount: totalAmt, receivedAmount: receivedAmt, balance: balance, percentReceived: percentReceived, paymentRemarks: o.payment_remarks, daysToOrder: o.days_to_order, remarks: o.remarks, akhilSirAudit: o.akhil_sir_audit, advanceBill: o.advance_bill, orRecvd: o.or_recvd, photography: o.photography, photographyRemarks: o.photography_remarks, siteVideo: o.site_video, siteVideoRemarks: o.site_video_remarks, review: o.review, reviewRemarks: o.review_remarks, rowColor: o.row_color || '', createdAt: o.created_at }
+  return { id: o.id, date: o.date, poNo: o.po_no, client: o.client, orderNo: o.order_no, status: o.status, deliveryDate: o.delivery_date, deliveryRemarks: o.delivery_remarks, customerName: o.customer_name, gst: o.gst, billingAddress: o.billing_address, followUp: o.follow_up, salesRep: o.sales_rep, deliveryAddress: o.delivery_address, phoneNo: o.phone_no, siteVerification: o.site_verification, siteVerificationRemarks: o.site_verification_remarks, installationStatus: o.installation_status, installationRemarks: o.installation_remarks, lop: o.lop, sectionDrawing: o.section_drawing, sectionDrawingRemarks: o.section_drawing_remarks, inProduction: o.in_production, billing: o.billing, installation: o.installation, totalAmount: totalAmt, receivedAmount: receivedAmt, balance: balance, percentReceived: percentReceived, paymentRemarks: o.payment_remarks, paymentProofUrl: o.payment_proof_url, daysToOrder: o.days_to_order, remarks: o.remarks, akhilSirAudit: o.akhil_sir_audit, advanceBill: o.advance_bill, orRecvd: o.or_recvd, photography: o.photography, photographyRemarks: o.photography_remarks, siteVideo: o.site_video, siteVideoRemarks: o.site_video_remarks, review: o.review, reviewRemarks: o.review_remarks, rowColor: o.row_color || '', createdAt: o.created_at }
 }
 
 // Helper: map camelCase frontend data to snake_case for DB
@@ -484,6 +484,7 @@ function snakeOrder(o) {
   if (o.balance !== undefined) s.balance = parseFloat(o.balance) || 0
   if (o.percentReceived !== undefined) s.percent_received = parseFloat(o.percentReceived) || 0
   if (o.paymentRemarks !== undefined) s.payment_remarks = o.paymentRemarks
+  if (o.paymentProofUrl !== undefined) s.payment_proof_url = o.paymentProofUrl
   if (o.daysToOrder !== undefined) s.days_to_order = parseInt(o.daysToOrder) || 0
   if (o.remarks !== undefined) s.remarks = o.remarks
   if (o.akhilSirAudit !== undefined) s.akhil_sir_audit = o.akhilSirAudit
