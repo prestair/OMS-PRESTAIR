@@ -632,9 +632,10 @@ function Dashboard() {
   const handleDelete = async (id) => {
     try {
       await axios.delete(`/api/orders/${id}`)
-      await fetchOrders()
-      await fetchDeletedOrders()
+      // Immediately remove from local state
+      setOrders(prev => prev.filter(o => o.id !== id))
       setDeleteConfirm(null)
+      fetchDeletedOrders()
     } catch (err) {
       alert('Delete failed: ' + (err.response?.data?.error || 'Permission denied'))
     }
