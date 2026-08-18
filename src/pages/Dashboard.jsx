@@ -1253,7 +1253,7 @@ function Dashboard() {
                 const leftPositions = ['40px', '125px', '210px', '370px']
                 const colWidths = ['85px', '85px', '160px', '160px']
                 const isFrozen = colIdx < freezeCols
-                const thStyle = isFrozen ? {...styles.th, position:'sticky', left: leftPositions[colIdx], zIndex:20, minWidth: colWidths[colIdx], background:'#1a1a2e'} : styles.th
+                const thStyle = isFrozen ? {...styles.th, position:'sticky', left: leftPositions[colIdx], zIndex:20, minWidth: colWidths[colIdx], background:'#1a1a2e'} : col.key === 'daysToOrder' ? {...styles.th, maxWidth:'60px', width:'60px'} : styles.th
                 return (
                 <th key={col.key} style={thStyle}>
                   <div style={styles.thContent}>
@@ -1280,7 +1280,7 @@ function Dashboard() {
                 </th>
                 )
               })}
-              <th style={styles.th}>Actions</th>
+              <th style={{...styles.th, minWidth:'200px'}}>Actions</th>
             </tr>
           </thead>
           <tbody>
