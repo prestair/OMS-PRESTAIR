@@ -640,11 +640,13 @@ function Dashboard() {
     }
   }
 
+  const [permanentDeleteConfirm, setPermanentDeleteConfirm] = useState(null)
+
   const handlePermanentDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to PERMANENTLY delete this order? This cannot be undone.')) return
     try {
       await axios.delete(`/api/orders/deleted/${id}`)
-      fetchDeletedOrders()
+      setPermanentDeleteConfirm(null)
+      await fetchDeletedOrders()
     } catch (err) {
       alert('Permanent delete failed: ' + (err.response?.data?.error || 'Admin access required'))
     }
@@ -1405,7 +1407,7 @@ function Dashboard() {
                   <th style={styles.th}>Balance</th>
                   <th style={styles.th}>Deleted By</th>
                   <th style={styles.th}>Deleted On</th>
-                  {isAdmin && <th style={styles.th}>Action</th>}
+                  {isAdmin && <th style={{...styles.th, minWidth:'220px'}}>Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1442,7 +1444,7 @@ function Dashboard() {
                       <td style={{ ...styles.td, whiteSpace: 'nowrap' }}>
                         <button onClick={() => { setEditingOrder(order); setEditingDeleted(true); setShowOrderForm(true) }} style={{ ...styles.tblBtn, background: '#2980b9' }}>Edit</button>
                         <button onClick={() => handleRestore(order.id)} style={{ ...styles.tblBtn, background: '#27ae60' }}>Restore</button>
-                        <button onClick={() => handlePermanentDelete(order.id)} style={{ ...styles.tblBtn, background: '#e74c3c' }}>Permanent Delete</button>
+                        <button onClick={() => setPermanentDeleteConfirm(order)} style={{ ...styles.tblBtn, background: '#e74c3c' }}>Permanent Delete</button>
                       </td>
                     )}
                   </tr>
@@ -2219,6 +2221,21 @@ function Dashboard() {
           <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>New Response Received</div>
           <div style={{ fontSize: '12px', opacity: 0.9 }}>From: <strong>{reminderNotification.name}</strong></div>
           <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '4px' }}>Click to view in Reminders tab</div>
+        </div>
+      )}
+
+      {/* Permanent Delete Confirmation */}
+      {permanentDeleteConfirm && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:1000}}>
+          <div style={{background:'#fff',borderRadius:'10px',padding:'24px',width:'380px',textAlign:'center'}}>
+            <h3 style={{margin:'0 0 12px',fontSize:'15px',color:'#e74c3c'}}>Permanent Delete</h3>
+            <p style={{fontSize:'12px',margin:'0 0 8px'}}>Are you sure you want to PERMANENTLY delete order <strong>{permanentDeleteConfirm.orderNo}</strong>?</p>
+            <p style={{fontSize:'11px',color:'#e74c3c',margin:'0 0 16px'}}>This cannot be undone!</p>
+            <div style={{display:'flex',gap:'10px',justifyContent:'center'}}>
+              <button onClick={()=>setPermanentDeleteConfirm(null)} style={{padding:'8px 16px',background:'#eee',border:'none',borderRadius:'6px',fontSize:'12px',cursor:'pointer',fontWeight:'600'}}>Cancel</button>
+              <button onClick={()=>handlePermanentDelete(permanentDeleteConfirm.id)} style={{padding:'8px 16px',background:'#e74c3c',color:'#fff',border:'none',borderRadius:'6px',fontSize:'12px',cursor:'pointer',fontWeight:'700'}}>Delete Permanently</button>
+            </div>
+          </div>
         </div>
       )}
 
