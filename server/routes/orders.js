@@ -369,6 +369,7 @@ router.delete('/:id', async (req, res) => {
   if (!orders?.length) return res.status(404).json({ error: 'Not found' })
 
   await supabase.from('deleted_orders').insert({ original_id: orders[0].id, data: mapOrder(orders[0]), deleted_by: req.user.username })
+  await supabase.from('payments').delete().eq('order_id', parseInt(req.params.id))
   await supabase.from('orders').delete().eq('id', parseInt(req.params.id))
   res.json({ message: 'Deleted' })
 })
