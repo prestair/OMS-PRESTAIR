@@ -206,7 +206,7 @@ router.post('/paper-requests/:id/accept', async (req, res) => {
 
 router.post('/paper-requests/:id/reject', async (req, res) => {
   const { remarks } = req.body
-  await supabase.from('paper_requests').update({ status: 'REJECTED', rejected_by: req.user.username, rejected_at: new Date().toISOString(), reject_remarks: remarks || '' }).eq('id', parseInt(req.params.id))
+  await supabase.from('paper_requests').update({ status: `REJECTED: ${remarks || ''}`, rejected_by: req.user.username, rejected_at: new Date().toISOString(), reject_remarks: remarks || '' }).eq('id', parseInt(req.params.id))
   res.json({ message: 'Rejected' })
 })
 
@@ -279,7 +279,7 @@ router.post('/return-requests/:id/accept', async (req, res) => {
 
 router.post('/return-requests/:id/reject', async (req, res) => {
   const { remarks } = req.body
-  await supabase.from('return_requests').update({ status: 'REJECTED', rejected_by: req.user.username, rejected_at: new Date().toISOString(), reject_remarks: remarks || '' }).eq('id', parseInt(req.params.id))
+  await supabase.from('return_requests').update({ status: `REJECTED: ${remarks || ''}`, rejected_by: req.user.username, rejected_at: new Date().toISOString(), reject_remarks: remarks || '' }).eq('id', parseInt(req.params.id))
   res.json({ message: 'Rejected' })
 })
 
