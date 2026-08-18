@@ -1283,7 +1283,7 @@ function Dashboard() {
                 </th>
                 )
               })}
-              <th style={{...styles.th, minWidth:'200px'}}>Actions</th>
+              <th style={{...styles.th, position:'sticky', right:0, zIndex:20, minWidth:'200px', background:'#1a1a2e'}}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -1301,7 +1301,7 @@ function Dashboard() {
                   <td key={col.key} style={isFrozen ? {...styles.td, position:'sticky', left: leftPositions[colIdx], zIndex:5, background: rowBg, minWidth: colWidths[colIdx]} : styles.td}>{getCellValue(order, col.key)}</td>
                   )
                 })}
-                <td style={{ ...styles.td, whiteSpace: 'nowrap' }}>
+                <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: rowBg }}>
                   {canColor && <span style={{ display:'inline-flex', gap:'2px', marginRight:'4px' }}>
                     <button onClick={async()=>{await axios.put('/api/orders/'+order.id,{rowColor:'red'});fetchOrders()}} style={{width:'14px',height:'14px',background:'#e74c3c',border:order.rowColor==='red'?'2px solid #000':'1px solid #ccc',borderRadius:'50%',cursor:'pointer',padding:0}} title="Red"/>
                     <button onClick={async()=>{await axios.put('/api/orders/'+order.id,{rowColor:'orange'});fetchOrders()}} style={{width:'14px',height:'14px',background:'#f39c12',border:order.rowColor==='orange'?'2px solid #000':'1px solid #ccc',borderRadius:'50%',cursor:'pointer',padding:0}} title="Orange"/>
@@ -1408,7 +1408,7 @@ function Dashboard() {
                   <th style={styles.th}>Balance</th>
                   <th style={styles.th}>Deleted By</th>
                   <th style={styles.th}>Deleted On</th>
-                  {isAdmin && <th style={{...styles.th, minWidth:'220px'}}>Action</th>}
+                  {isAdmin && <th style={{...styles.th, position:'sticky', right:0, zIndex:20, minWidth:'220px', background:'#1a1a2e'}}>Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1442,7 +1442,7 @@ function Dashboard() {
                     <td style={styles.td}>{order.deletedBy}</td>
                     <td style={styles.td}>{order.deletedAt ? (() => { const d = new Date(order.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''}</td>
                     {isAdmin && (
-                      <td style={{ ...styles.td, whiteSpace: 'nowrap' }}>
+                      <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff' }}>
                         <button onClick={() => { setEditingOrder(order); setEditingDeleted(true); setShowOrderForm(true) }} style={{ ...styles.tblBtn, background: '#2980b9' }}>Edit</button>
                         <button onClick={() => handleRestore(order.id)} style={{ ...styles.tblBtn, background: '#27ae60' }}>Restore</button>
                         <button onClick={() => setPermanentDeleteConfirm(order)} style={{ ...styles.tblBtn, background: '#e74c3c' }}>Permanent Delete</button>
