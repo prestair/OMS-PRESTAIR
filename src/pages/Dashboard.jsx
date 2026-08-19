@@ -1288,7 +1288,7 @@ function Dashboard() {
                 </th>
                 )
               })}
-              <th style={{...styles.th, position:'sticky', right:0, zIndex:20, minWidth:'200px', background:'#1a1a2e'}}>Actions</th>
+              <th style={{...styles.th, position:'sticky', right:0, zIndex:20, minWidth:'260px', background:'#1a1a2e'}}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -1306,7 +1306,7 @@ function Dashboard() {
                   <td key={col.key} style={isFrozen ? {...styles.td, position:'sticky', left: leftPositions[colIdx], zIndex:5, background: rowBg, minWidth: colWidths[colIdx]} : styles.td}>{getCellValue(order, col.key)}</td>
                   )
                 })}
-                <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: rowBg }}>
+                <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: rowBg, minWidth:'260px', boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' }}>
                   {canColor && <span style={{ display:'inline-flex', gap:'2px', marginRight:'4px' }}>
                     <button onClick={async()=>{await axios.put('/api/orders/'+order.id,{rowColor:'red'});fetchOrders()}} style={{width:'14px',height:'14px',background:'#e74c3c',border:order.rowColor==='red'?'2px solid #000':'1px solid #ccc',borderRadius:'50%',cursor:'pointer',padding:0}} title="Red"/>
                     <button onClick={async()=>{await axios.put('/api/orders/'+order.id,{rowColor:'orange'});fetchOrders()}} style={{width:'14px',height:'14px',background:'#f39c12',border:order.rowColor==='orange'?'2px solid #000':'1px solid #ccc',borderRadius:'50%',cursor:'pointer',padding:0}} title="Orange"/>
