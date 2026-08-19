@@ -266,6 +266,12 @@ router.post('/paper-requests/:id/reroute', async (req, res) => {
   res.json(mapPaperReq(newReq[0]))
 })
 
+// Delete paper request (admin only)
+router.delete('/paper-requests/:id', adminOnly, async (req, res) => {
+  await supabase.from('paper_requests').delete().eq('id', parseInt(req.params.id))
+  res.json({ message: 'Deleted' })
+})
+
 // Return requests
 router.get('/return-requests/all', async (req, res) => {
   const { data } = await supabase.from('return_requests').select('*').order('id', { ascending: false })
