@@ -235,16 +235,47 @@ function Dashboard() {
     return () => clearInterval(interval)
   }, [])
 
+  // Request notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }, [])
+
   // Paper issue popup - check every 2 minutes
   useEffect(() => {
+    let prevCount = 0
     const checkPaperRequests = async () => {
       try {
-        const res = await axios.get('/api/orders/paper-requests/my')
-        if (res.data.length > 0) setPaperIssuePopup(res.data)
+        const [issueRes, returnRes] = await Promise.all([
+          axios.get('/api/orders/paper-requests/my'),
+          axios.get('/api/orders/return-requests/my')
+        ])
+        const issueData = issueRes.data || []
+        const returnData = returnRes.data || []
+        const totalCount = issueData.length + returnData.length
+        if (issueData.length > 0) setPaperIssuePopup(issueData)
+        // Send desktop notification if new requests arrived
+        if (totalCount > prevCount && prevCount !== 0) {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            const newIssue = issueData.length > 0 ? `${issueData.length} Issue Request` : ''
+            const newReturn = returnData.length > 0 ? `${returnData.length} Return Request` : ''
+            const body = [newIssue, newReturn].filter(Boolean).join(' + ')
+            new Notification('OMS - Paper Request', { body: body + ' pending!', icon: '/logo.PNG', tag: 'paper-request', requireInteraction: true })
+          }
+        } else if (prevCount === 0 && totalCount > 0) {
+          if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+            const newIssue = issueData.length > 0 ? `${issueData.length} Issue Request` : ''
+            const newReturn = returnData.length > 0 ? `${returnData.length} Return Request` : ''
+            const body = [newIssue, newReturn].filter(Boolean).join(' + ')
+            new Notification('OMS - Paper Request', { body: body + ' pending!', icon: '/logo.PNG', tag: 'paper-request', requireInteraction: true })
+          }
+        }
+        prevCount = totalCount
       } catch {}
     }
     checkPaperRequests()
-    const interval = setInterval(checkPaperRequests, 120000)
+    const interval = setInterval(checkPaperRequests, 30000)
     return () => clearInterval(interval)
   }, [])
 
