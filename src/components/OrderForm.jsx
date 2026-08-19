@@ -123,13 +123,6 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    // Validate payment proof - mandatory only when payment remarks is being entered/changed
-    const hasPaymentRemarks = form.paymentRemarks && form.paymentRemarks.trim()
-    const paymentRemarksChanged = order ? (form.paymentRemarks || '').trim() !== (order.paymentRemarks || '').trim() : hasPaymentRemarks
-    if (paymentRemarksChanged && hasPaymentRemarks && !proofPreview && !proofFile) {
-      setError('Supporting image is mandatory when entering/editing Payment Remarks')
-      return
-    }
     setSaving(true)
     // Convert all text fields to uppercase
     const upperForm = { ...form }

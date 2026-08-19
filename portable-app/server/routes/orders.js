@@ -136,6 +136,12 @@ router.get('/paper-requests/my', async (req, res) => {
 router.post('/paper-requests', async (req, res) => {
   const { orderNo, issueTo } = req.body
   if (!orderNo || !issueTo) return res.status(400).json({ error: 'Order No and Issue To required' })
+  // Check if this order already has a PENDING paper request
+  const { data: pendingReqs } = await supabase.from('paper_requests').select('*').eq('order_no', orderNo).eq('status', 'PENDING')
+  if (pendingReqs && pendingReqs.length > 0) {
+    const pendingWith = pendingReqs[0].issue_to
+    return res.status(400).json({ error: `Order ${orderNo} is already pending with ${pendingWith.toUpperCase()}` })
+  }
   const { data: orders } = await supabase.from('orders').select('client').eq('order_no', orderNo)
   const client = orders?.[0]?.client || ''
   const { data, error } = await supabase.from('paper_requests').insert({ order_no: orderNo, client, requested_by: req.user.username, issue_to: issueTo, status: 'PENDING' }).select()
