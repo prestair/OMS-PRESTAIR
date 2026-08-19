@@ -134,6 +134,8 @@ function Dashboard() {
   const [reminderNotification, setReminderNotification] = useState(null)
   const [rejectModal, setRejectModal] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [orTabSearch, setOrTabSearch] = useState('')
+  const [orTabStatusFilter, setOrTabStatusFilter] = useState([])
   const fileInputRef = useRef(null)
   const deletedFileInputRef = useRef(null)
 
@@ -1707,7 +1709,7 @@ function Dashboard() {
             <button onClick={() => { setDailyFilter('photography'); setDailyFilterValue([]) }} style={dailyFilter === 'photography' ? styles.dailyBtnActive : styles.dailyBtn}>Photo</button>
             <button onClick={() => { setDailyFilter('siteVideo'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVideo' ? styles.dailyBtnActive : styles.dailyBtn}>Video</button>
             <button onClick={() => { setDailyFilter('review'); setDailyFilterValue([]) }} style={dailyFilter === 'review' ? styles.dailyBtnActive : styles.dailyBtn}>Review</button>
-            <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]) }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR</button>
+            <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]); setOrTabSearch(''); setOrTabStatusFilter([]) }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR</button>
             <button onClick={() => { setDailyFilter('paymentUpdate'); setDailyFilterValue([]); fetchAllPayments() }} style={dailyFilter === 'paymentUpdate' ? styles.dailyBtnActive : styles.dailyBtn}>Payment</button>
             <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 2px' }}></span>
             <button onClick={() => handleDailyPrint()} style={{ padding: '5px 10px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>Print</button>
@@ -1715,7 +1717,7 @@ function Dashboard() {
           </div>
 
           {/* Filter Value Selection */}
-          {dailyFilter && dailyFilter !== 'percentReceived' && dailyFilter !== 'paymentUpdate' && (
+          {dailyFilter && dailyFilter !== 'percentReceived' && dailyFilter !== 'paymentUpdate' && dailyFilter !== 'orRecvd' && (
             <div style={styles.dailyFilterBar}>
               <span style={{ fontSize: '12px', fontWeight: '600' }}>Filter by: {ALL_COLUMNS.find(c => c.key === dailyFilter)?.label}</span>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -1850,6 +1852,17 @@ function Dashboard() {
           </div>
           ) : dailyFilter === 'orRecvd' ? (
           <div style={styles.tableWrap}>
+            {/* OR Tab Filter & Search */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '6px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '600' }}>Status:</span>
+              <button onClick={() => setOrTabStatusFilter([])} style={orTabStatusFilter.length === 0 ? styles.dailyValActive : styles.dailyVal}>All</button>
+              {['PENDING', 'ISSUED', 'RECEIVED', 'REROUTED', 'REJECTED', 'ISSUE', 'NO REQUEST'].map(s => (
+                <button key={s} onClick={() => orTabStatusFilter.includes(s) ? setOrTabStatusFilter(orTabStatusFilter.filter(x => x !== s)) : setOrTabStatusFilter([...orTabStatusFilter, s])} style={orTabStatusFilter.includes(s) ? styles.dailyValActive : styles.dailyVal}>{s}</button>
+              ))}
+              <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 4px' }}></span>
+              <input value={orTabSearch} onChange={e => setOrTabSearch(e.target.value)} placeholder="Search Order No..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', width: '180px' }} />
+              {orTabSearch && <button onClick={() => setOrTabSearch('')} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Clear</button>}
+            </div>
             <table style={styles.table}>
               <thead>
                 <tr>
@@ -1866,7 +1879,7 @@ function Dashboard() {
               </thead>
               <tbody>
                 {(() => {
-                  let filtered = getDailyFilteredData()
+                  let filtered = orders
                   // Build status from paper requests
                   const getRequestStatus = (orderNo) => {
                     const pr = (paperRequests || []).filter(r => r.orderNo === orderNo)
@@ -1883,6 +1896,23 @@ function Dashboard() {
                       return latestIssue.status || '-'
                     }
                     return '-'
+                  }
+                  // Apply search filter
+                  if (orTabSearch.trim()) {
+                    const term = orTabSearch.toLowerCase()
+                    filtered = filtered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term))
+                  }
+                  // Apply status filter
+                  if (orTabStatusFilter.length > 0) {
+                    filtered = filtered.filter(o => {
+                      const status = getRequestStatus(o.orderNo).toUpperCase()
+                      return orTabStatusFilter.some(f => {
+                        if (f === 'ISSUED') return status.startsWith('ISSUED TO')
+                        if (f === 'REROUTED') return status.startsWith('REROUTED')
+                        if (f === 'NO REQUEST') return status === '-'
+                        return status === f || status === 'RETURN PENDING' && f === 'PENDING'
+                      })
+                    })
                   }
                   // Sort: ISSUE first, then PENDING, then ISSUED TO (alphabetically), then RECEIVED
                   filtered = filtered.sort((a, b) => {
