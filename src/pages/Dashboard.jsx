@@ -1019,7 +1019,7 @@ function Dashboard() {
 
   const formatCurrency = (val) => {
     if (!val && val !== 0) return ''
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val)
+    return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(val)
   }
 
   const formatDate = (val) => {
@@ -1293,7 +1293,7 @@ function Dashboard() {
                 const leftPositions = ['40px', '105px', '180px', '400px']
                 const colWidths = ['65px', '75px', '220px', '130px']
                 const isFrozen = colIdx < freezeCols
-                const getColWidth = (key) => { if (key === 'salesRep') return '80px'; if (key === 'totalAmount') return '75px'; if (key === 'balance') return '70px'; if (key === 'percentReceived') return '55px'; return undefined }
+                const getColWidth = (key) => { if (key === 'salesRep') return '80px'; if (key === 'totalAmount') return '85px'; if (key === 'balance') return '80px'; if (key === 'percentReceived') return '55px'; return undefined }
                 const colW = getColWidth(col.key)
                 const thStyle = isFrozen ? {...styles.th, position:'sticky', left: leftPositions[colIdx], zIndex:20, minWidth: colWidths[colIdx], background:'#1a1a2e', whiteSpace:'normal'} : col.key === 'daysToOrder' ? {...styles.th, maxWidth:'60px', width:'60px', whiteSpace:'normal'} : {...styles.th, whiteSpace:'normal', ...(colW ? {width: colW, maxWidth: colW} : {})}
                 return (
@@ -1336,7 +1336,7 @@ function Dashboard() {
                   const leftPositions = ['40px', '115px', '200px', '390px']
                   const colWidths = ['75px', '85px', '190px', '130px']
                   const isFrozen = colIdx < freezeCols
-                  const getColWidth = (key) => { if (key === 'salesRep') return '80px'; if (key === 'totalAmount') return '75px'; if (key === 'balance') return '70px'; if (key === 'percentReceived') return '55px'; return undefined }
+                  const getColWidth = (key) => { if (key === 'salesRep') return '80px'; if (key === 'totalAmount') return '85px'; if (key === 'balance') return '80px'; if (key === 'percentReceived') return '55px'; return undefined }
                   const colW = getColWidth(col.key)
                   return (
                   <td key={col.key} style={isFrozen ? {...styles.td, position:'sticky', left: leftPositions[colIdx], zIndex:5, background: rowBg, minWidth: colWidths[colIdx]} : {...styles.td, ...(colW ? {width: colW, maxWidth: colW} : {})}}>{getCellValue(order, col.key)}</td>
