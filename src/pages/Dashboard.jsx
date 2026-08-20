@@ -1290,8 +1290,8 @@ function Dashboard() {
               <th style={{...styles.th, position:'sticky', left:0, zIndex:20, minWidth:'40px', background:'#1a1a2e'}}>#</th>
               {displayedColumns.map((col, colIdx) => {
                 const freezeCols = 4
-                const leftPositions = ['40px', '115px', '200px', '390px']
-                const colWidths = ['75px', '85px', '190px', '130px']
+                const leftPositions = ['40px', '105px', '180px', '400px']
+                const colWidths = ['65px', '75px', '220px', '130px']
                 const isFrozen = colIdx < freezeCols
                 const getColWidth = (key) => { if (key === 'salesRep') return '80px'; if (key === 'totalAmount') return '75px'; if (key === 'balance') return '70px'; if (key === 'percentReceived') return '55px'; return undefined }
                 const colW = getColWidth(col.key)
