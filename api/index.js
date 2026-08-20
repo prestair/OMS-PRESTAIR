@@ -136,39 +136,4 @@ app.post('/api/upload-payment-proof', authenticate, async (req, res) => { try { 
 app.delete('/api/delete-payment-proof/:orderId', authenticate, async (req, res) => { try { const orderId=parseInt(req.params.orderId); const{data:order}=await supabase.from('orders').select('payment_proof_url').eq('id',orderId); const url=order?.[0]?.payment_proof_url; if(url&&url.includes('/payment-proofs/')){const path=url.split('/payment-proofs/')[1]; if(path){try{await supabase.storage.from('payment-proofs').remove([decodeURIComponent(path)])}catch{}}} await supabase.from('orders').update({payment_proof_url:null}).eq('id',orderId); res.json({message:'Deleted'}) } catch(e){res.status(500).json({error:e.message})} })
 app.get('/api/orders/:id/edit-logs', authenticate, async (req, res) => { try { const{data}=await supabase.from('order_edit_history').select('*').eq('order_id',parseInt(req.params.id)).order('created_at',{ascending:false}); res.json(data||[]) } catch(e){res.status(500).json({error:e.message})} })
 
-// Fix old payment proof URLs - migrate files with special chars to sanitized names
-app.post('/api/fix-payment-proofs', authenticate, adminOnly, async (req, res) => {
-  try {
-    const { data: orders } = await supabase.from('orders').select('id, payment_proof_url').not('payment_proof_url', 'is', null)
-    const results = { fixed: 0, failed: 0, skipped: 0, errors: [] }
-    for (const order of (orders || [])) {
-      if (!order.payment_proof_url) { results.skipped++; continue }
-      const url = order.payment_proof_url
-      if (!url.includes('/payment-proofs/')) { results.skipped++; continue }
-      const path = decodeURIComponent(url.split('/payment-proofs/')[1])
-      const safePath = path.split('/').map(part => part.replace(/[^a-zA-Z0-9._-]/g, '_')).join('/')
-      if (path === safePath) { results.skipped++; continue }
-      try {
-        // Download file from old path
-        const { data: fileData, error: dlErr } = await supabase.storage.from('payment-proofs').download(path)
-        if (dlErr) { results.failed++; results.errors.push(`${order.id}: download failed - ${dlErr.message}`); continue }
-        const buffer = Buffer.from(await fileData.arrayBuffer())
-        // Upload to new sanitized path
-        const ext = (safePath.split('.').pop() || 'jpg').toLowerCase()
-        const contentTypes = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', pdf: 'application/pdf' }
-        const contentType = contentTypes[ext] || 'application/octet-stream'
-        const { error: upErr } = await supabase.storage.from('payment-proofs').upload(safePath, buffer, { contentType, upsert: true })
-        if (upErr) { results.failed++; results.errors.push(`${order.id}: upload failed - ${upErr.message}`); continue }
-        // Get new public URL and update DB
-        const { data: urlData } = supabase.storage.from('payment-proofs').getPublicUrl(safePath)
-        await supabase.from('orders').update({ payment_proof_url: urlData.publicUrl }).eq('id', order.id)
-        // Remove old file
-        try { await supabase.storage.from('payment-proofs').remove([path]) } catch {}
-        results.fixed++
-      } catch (e) { results.failed++; results.errors.push(`${order.id}: ${e.message}`) }
-    }
-    res.json(results)
-  } catch (e) { res.status(500).json({ error: e.message }) }
-})
-
 module.exports = app

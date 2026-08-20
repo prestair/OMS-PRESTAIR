@@ -81,6 +81,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [proofFile, setProofFile] = useState(null)
+  const [proofFileName, setProofFileName] = useState('')
   const [proofPreview, setProofPreview] = useState(order?.paymentProofUrl || '')
   const [uploading, setUploading] = useState(false)
   const proofInputRef = useRef(null)
@@ -141,7 +142,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
         const reader = new FileReader()
         const fileData = await new Promise((resolve) => { reader.onload = (ev) => resolve(ev.target.result.split(',')[1]); reader.readAsDataURL(proofFile) })
         const orderId = order ? order.id : 'temp'
-        const res = await axios.post('/api/upload-payment-proof', { orderId, fileData, fileName: proofFile.name })
+        const res = await axios.post('/api/upload-payment-proof', { orderId, fileData, fileName: proofFileName || proofFile.name })
         upperForm.paymentProofUrl = res.data.url
         setUploading(false)
       }
@@ -157,7 +158,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
         if (proofFile && createRes.data?.id) {
           const reader = new FileReader()
           const fileData = await new Promise((resolve) => { reader.onload = (ev) => resolve(ev.target.result.split(',')[1]); reader.readAsDataURL(proofFile) })
-          await axios.post('/api/upload-payment-proof', { orderId: createRes.data.id, fileData, fileName: proofFile.name })
+          await axios.post('/api/upload-payment-proof', { orderId: createRes.data.id, fileData, fileName: proofFileName || proofFile.name })
         }
       }
       onSaved()
@@ -267,12 +268,17 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
             <label style={{ fontSize: '11px', fontWeight: '700', color: '#1a1a2e', marginBottom: '6px', display: 'block' }}>Supporting Image <span style={{ color: '#e74c3c' }}>*Required with Payment Remarks</span> {proofPreview && !proofFile && <span style={{ color: '#27ae60' }}>(Current kept if not changed)</span>}</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <button type="button" onClick={() => proofInputRef.current.click()} style={{ padding: '6px 14px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>{proofPreview ? 'Change File' : 'Upload File'}</button>
-              <input ref={proofInputRef} type="file" accept="image/*,.pdf" onChange={(e) => { const f = e.target.files[0]; if (f) { if (f.size > 5 * 1024 * 1024) { setError('File size must be less than 5MB'); setTimeout(() => setError(''), 3000); return } setProofFile(f); setProofPreview(URL.createObjectURL(f)); setError('') } }} style={{ display: 'none' }} />
+              <input ref={proofInputRef} type="file" accept="image/*,.pdf" onChange={(e) => { const f = e.target.files[0]; if (f) { if (f.size > 5 * 1024 * 1024) { setError('File size must be less than 5MB'); setTimeout(() => setError(''), 3000); return } setProofFile(f); const ext = f.name.split('.').pop() || ''; const nameWithoutExt = f.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9._-]/g, '_'); setProofFileName(nameWithoutExt + '.' + ext); setProofPreview(URL.createObjectURL(f)); setError('') } }} style={{ display: 'none' }} />
               {proofPreview && <a href={proofPreview} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#2980b9', fontWeight: '600' }}>View Current</a>}
-              {proofPreview && order && isAdmin && <button type="button" onClick={async () => { if (window.confirm('Delete this image?')) { try { await axios.delete(`/api/delete-payment-proof/${order.id}`); setProofPreview(''); setProofFile(null); setForm(prev => ({...prev, paymentProofUrl: ''})) } catch(e) { setError(e.response?.data?.error || 'Delete failed') } } }} style={{ padding: '4px 10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>Delete Image</button>}
-              {proofFile && <span style={{ fontSize: '10px', color: '#27ae60' }}>{proofFile.name}</span>}
+              {proofPreview && order && isAdmin && <button type="button" onClick={async () => { if (window.confirm('Delete this image?')) { try { await axios.delete(`/api/delete-payment-proof/${order.id}`); setProofPreview(''); setProofFile(null); setProofFileName(''); setForm(prev => ({...prev, paymentProofUrl: ''})) } catch(e) { setError(e.response?.data?.error || 'Delete failed') } } }} style={{ padding: '4px 10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>Delete</button>}
               {uploading && <span style={{ fontSize: '10px', color: '#f39c12' }}>Uploading...</span>}
             </div>
+            {proofFile && (
+              <div style={{ marginTop: '6px' }}>
+                <label style={{ fontSize: '10px', fontWeight: '600', color: '#555' }}>File Name (only A-Z, 0-9, dot, dash, underscore allowed):</label>
+                <input value={proofFileName} onChange={(e) => setProofFileName(e.target.value.replace(/[^a-zA-Z0-9._-]/g, '_'))} style={{ padding: '4px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box', marginTop: '3px' }} />
+              </div>
+            )}
             {proofPreview && <img src={proofPreview} alt="proof" style={{ marginTop: '8px', maxHeight: '80px', borderRadius: '4px', border: '1px solid #ddd' }} />}
           </div>
           {error && <p style={styles.error}>{error}</p>}
