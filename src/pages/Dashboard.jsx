@@ -136,6 +136,7 @@ function Dashboard() {
   const [rejectReason, setRejectReason] = useState('')
   const [orTabSearch, setOrTabSearch] = useState('')
   const [orTabStatusFilter, setOrTabStatusFilter] = useState([])
+  const [orTabUserSearch, setOrTabUserSearch] = useState('')
   const [paperRequestSearch, setPaperRequestSearch] = useState('')
   const [paperIssueError, setPaperIssueError] = useState('')
   const [reissueOrderNo, setReissueOrderNo] = useState('')
@@ -855,7 +856,8 @@ function Dashboard() {
       }
       let orFiltered = orders
       if (orTabSearch.trim()) { const term = orTabSearch.toLowerCase(); orFiltered = orFiltered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) }
-      if (orTabStatusFilter.length > 0) { orFiltered = orFiltered.filter(o => { const status = getRequestStatus(o.orderNo).toUpperCase(); return orTabStatusFilter.some(f => { if (f === 'ISSUED') return status.startsWith('ISSUED TO'); if (f === 'REROUTED') return status.startsWith('REROUTED'); if (f === 'NO REQUEST') return status === '-'; return status === f || (status === 'RETURN PENDING' && f === 'PENDING') }) }) }
+      if (orTabUserSearch.trim()) { const uTerm = orTabUserSearch.toLowerCase(); orFiltered = orFiltered.filter(o => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING')); if (!pr) return false; const n1 = getFullName(pr.requested_by || pr.requestedBy).toLowerCase(); const n2 = getFullName(pr.issue_to || pr.issueTo).toLowerCase(); return n1.includes(uTerm) || n2.includes(uTerm) }) }
+      if (orTabStatusFilter.length > 0) { orFiltered = orFiltered.filter(o => { const status = getRequestStatus(o.orderNo).toUpperCase(); return orTabStatusFilter.some(f => { if (f === 'ISSUED') return status.startsWith('ISSUED TO'); if (f === 'NO REQUEST') return status === '-'; return status === f }) }) }
       orFiltered.sort((a, b) => { const getOrd = (orderNo) => { const v = getRequestStatus(orderNo).toUpperCase(); if (v === '-') return 5; if (v === 'ISSUE') return 0; if (v === 'PENDING' || v === 'RETURN PENDING') return 1; if (v.startsWith('ISSUED TO')) return 2; if (v.startsWith('REROUTED')) return 1; if (v === 'RECEIVED') return 3; if (v === 'REJECTED') return 4; return 2 }; return getOrd(a.orderNo) - getOrd(b.orderNo) })
       const exportData = orFiltered.map((o, idx) => {
         const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
@@ -1052,7 +1054,8 @@ function Dashboard() {
       }
       let orFiltered = orders
       if (orTabSearch.trim()) { const term = orTabSearch.toLowerCase(); orFiltered = orFiltered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) }
-      if (orTabStatusFilter.length > 0) { orFiltered = orFiltered.filter(o => { const status = getRequestStatus(o.orderNo).toUpperCase(); return orTabStatusFilter.some(f => { if (f === 'ISSUED') return status.startsWith('ISSUED TO'); if (f === 'REROUTED') return status.startsWith('REROUTED'); if (f === 'NO REQUEST') return status === '-'; return status === f || (status === 'RETURN PENDING' && f === 'PENDING') }) }) }
+      if (orTabUserSearch.trim()) { const uTerm = orTabUserSearch.toLowerCase(); orFiltered = orFiltered.filter(o => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING')); if (!pr) return false; const n1 = getFullName(pr.requested_by || pr.requestedBy).toLowerCase(); const n2 = getFullName(pr.issue_to || pr.issueTo).toLowerCase(); return n1.includes(uTerm) || n2.includes(uTerm) }) }
+      if (orTabStatusFilter.length > 0) { orFiltered = orFiltered.filter(o => { const status = getRequestStatus(o.orderNo).toUpperCase(); return orTabStatusFilter.some(f => { if (f === 'ISSUED') return status.startsWith('ISSUED TO'); if (f === 'NO REQUEST') return status === '-'; return status === f }) }) }
       orFiltered.sort((a, b) => { const getOrd = (orderNo) => { const v = getRequestStatus(orderNo).toUpperCase(); if (v === '-') return 5; if (v === 'ISSUE') return 0; if (v === 'PENDING' || v === 'RETURN PENDING') return 1; if (v.startsWith('ISSUED TO')) return 2; if (v.startsWith('REROUTED')) return 1; if (v === 'RECEIVED') return 3; if (v === 'REJECTED') return 4; return 2 }; return getOrd(a.orderNo) - getOrd(b.orderNo) })
       let html = `<html><head><title>OR Report - OMS Prestair</title><style>
         @page { size: A4 ${orientation}; margin: 10mm; }
@@ -1881,7 +1884,7 @@ function Dashboard() {
             <button onClick={() => { setDailyFilter('photography'); setDailyFilterValue([]) }} style={dailyFilter === 'photography' ? styles.dailyBtnActive : styles.dailyBtn}>Photo</button>
             <button onClick={() => { setDailyFilter('siteVideo'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVideo' ? styles.dailyBtnActive : styles.dailyBtn}>Video</button>
             <button onClick={() => { setDailyFilter('review'); setDailyFilterValue([]) }} style={dailyFilter === 'review' ? styles.dailyBtnActive : styles.dailyBtn}>Review</button>
-            <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]); setOrTabSearch(''); setOrTabStatusFilter([]) }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR</button>
+            <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]); setOrTabSearch(''); setOrTabStatusFilter([]); setOrTabUserSearch('') }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR</button>
             <button onClick={() => { setDailyFilter('paymentUpdate'); setDailyFilterValue([]); fetchAllPayments() }} style={dailyFilter === 'paymentUpdate' ? styles.dailyBtnActive : styles.dailyBtn}>Payment</button>
             <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 2px' }}></span>
             <button onClick={() => handleDailyPrint()} style={{ padding: '5px 10px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>Print</button>
@@ -2028,12 +2031,15 @@ function Dashboard() {
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '6px' }}>
               <span style={{ fontSize: '11px', fontWeight: '600' }}>Status:</span>
               <button onClick={() => setOrTabStatusFilter([])} style={orTabStatusFilter.length === 0 ? styles.dailyValActive : styles.dailyVal}>All</button>
-              {['PENDING', 'ISSUED', 'RECEIVED', 'REROUTED', 'REJECTED', 'ISSUE', 'NO REQUEST'].map(s => (
+              {['ISSUED', 'RECEIVED', 'NO REQUEST'].map(s => (
                 <button key={s} onClick={() => orTabStatusFilter.includes(s) ? setOrTabStatusFilter(orTabStatusFilter.filter(x => x !== s)) : setOrTabStatusFilter([...orTabStatusFilter, s])} style={orTabStatusFilter.includes(s) ? styles.dailyValActive : styles.dailyVal}>{s}</button>
               ))}
               <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 4px' }}></span>
-              <input value={orTabSearch} onChange={e => setOrTabSearch(e.target.value)} placeholder="Search Order No..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', width: '180px' }} />
+              <input value={orTabSearch} onChange={e => setOrTabSearch(e.target.value)} placeholder="Search Order No..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', width: '150px' }} />
               {orTabSearch && <button onClick={() => setOrTabSearch('')} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Clear</button>}
+              <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 4px' }}></span>
+              <input value={orTabUserSearch} onChange={e => setOrTabUserSearch(e.target.value)} placeholder="Search User Name..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', width: '150px' }} />
+              {orTabUserSearch && <button onClick={() => setOrTabUserSearch('')} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Clear</button>}
             </div>
             <table style={styles.table}>
               <thead>
@@ -2074,15 +2080,25 @@ function Dashboard() {
                     const term = orTabSearch.toLowerCase()
                     filtered = filtered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term))
                   }
+                  // Apply user search filter
+                  if (orTabUserSearch.trim()) {
+                    const uTerm = orTabUserSearch.toLowerCase()
+                    filtered = filtered.filter(o => {
+                      const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING'))
+                      if (!pr) return false
+                      const issuedToName = getFullName(pr.requestedBy || pr.requested_by).toLowerCase()
+                      const issueToName = getFullName(pr.issueTo || pr.issue_to).toLowerCase()
+                      return issuedToName.includes(uTerm) || issueToName.includes(uTerm)
+                    })
+                  }
                   // Apply status filter
                   if (orTabStatusFilter.length > 0) {
                     filtered = filtered.filter(o => {
                       const status = getRequestStatus(o.orderNo).toUpperCase()
                       return orTabStatusFilter.some(f => {
                         if (f === 'ISSUED') return status.startsWith('ISSUED TO')
-                        if (f === 'REROUTED') return status.startsWith('REROUTED')
                         if (f === 'NO REQUEST') return status === '-'
-                        return status === f || status === 'RETURN PENDING' && f === 'PENDING'
+                        return status === f
                       })
                     })
                   }
