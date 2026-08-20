@@ -1290,10 +1290,12 @@ function Dashboard() {
               <th style={{...styles.th, position:'sticky', left:0, zIndex:20, minWidth:'40px', background:'#1a1a2e'}}>#</th>
               {displayedColumns.map((col, colIdx) => {
                 const freezeCols = 4
-                const leftPositions = ['40px', '125px', '210px', '370px']
-                const colWidths = ['85px', '85px', '160px', '160px']
+                const leftPositions = ['40px', '115px', '200px', '390px']
+                const colWidths = ['75px', '85px', '190px', '130px']
                 const isFrozen = colIdx < freezeCols
-                const thStyle = isFrozen ? {...styles.th, position:'sticky', left: leftPositions[colIdx], zIndex:20, minWidth: colWidths[colIdx], background:'#1a1a2e'} : col.key === 'daysToOrder' ? {...styles.th, maxWidth:'60px', width:'60px'} : styles.th
+                const getColWidth = (key) => { if (key === 'salesRep') return '80px'; if (key === 'totalAmount') return '75px'; if (key === 'balance') return '70px'; if (key === 'percentReceived') return '55px'; return undefined }
+                const colW = getColWidth(col.key)
+                const thStyle = isFrozen ? {...styles.th, position:'sticky', left: leftPositions[colIdx], zIndex:20, minWidth: colWidths[colIdx], background:'#1a1a2e', whiteSpace:'normal'} : col.key === 'daysToOrder' ? {...styles.th, maxWidth:'60px', width:'60px', whiteSpace:'normal'} : {...styles.th, whiteSpace:'normal', ...(colW ? {width: colW, maxWidth: colW} : {})}
                 return (
                 <th key={col.key} style={thStyle}>
                   <div style={styles.thContent}>
@@ -1331,11 +1333,13 @@ function Dashboard() {
                 <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: rowBg, minWidth:'40px'}}>{idx + 1}</td>
                 {displayedColumns.map((col, colIdx) => {
                   const freezeCols = 4
-                  const leftPositions = ['40px', '125px', '210px', '370px']
-                  const colWidths = ['85px', '85px', '160px', '160px']
+                  const leftPositions = ['40px', '115px', '200px', '390px']
+                  const colWidths = ['75px', '85px', '190px', '130px']
                   const isFrozen = colIdx < freezeCols
+                  const getColWidth = (key) => { if (key === 'salesRep') return '80px'; if (key === 'totalAmount') return '75px'; if (key === 'balance') return '70px'; if (key === 'percentReceived') return '55px'; return undefined }
+                  const colW = getColWidth(col.key)
                   return (
-                  <td key={col.key} style={isFrozen ? {...styles.td, position:'sticky', left: leftPositions[colIdx], zIndex:5, background: rowBg, minWidth: colWidths[colIdx]} : styles.td}>{getCellValue(order, col.key)}</td>
+                  <td key={col.key} style={isFrozen ? {...styles.td, position:'sticky', left: leftPositions[colIdx], zIndex:5, background: rowBg, minWidth: colWidths[colIdx]} : {...styles.td, ...(colW ? {width: colW, maxWidth: colW} : {})}}>{getCellValue(order, col.key)}</td>
                   )
                 })}
                 <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: rowBg, minWidth:'260px', boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' }}>
@@ -2475,7 +2479,7 @@ const styles = {
   clearAllBtn: { padding: '4px 10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' },
   tableWrap: { margin: '0 24px', overflowX: 'auto', overflowY: 'auto', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', maxHeight: '70vh', position: 'relative' },
   table: { borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px', minWidth: '1800px' },
-  th: { padding: '10px 8px', background: '#1a1a2e', color: '#fff', fontWeight: '600', textAlign: 'left', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 10 },
+  th: { padding: '10px 8px', background: '#1a1a2e', color: '#fff', fontWeight: '600', textAlign: 'left', whiteSpace: 'normal', position: 'sticky', top: 0, zIndex: 10 },
   thContent: { display: 'flex', alignItems: 'center', gap: '4px' },
   filterBtn: { padding: '2px 5px', border: 'none', borderRadius: '3px', color: '#fff', fontSize: '8px', cursor: 'pointer' },
   filterDropdown: { position: 'absolute', top: '100%', left: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '8px', minWidth: '180px', maxWidth: '250px', zIndex: 100, display: 'flex', flexDirection: 'column' },
