@@ -201,7 +201,7 @@ router.post('/paper-requests', async (req, res) => {
     const { data: returnAccepted } = await supabase.from('return_requests').select('*').eq('order_no', orderNo).eq('status', 'ACCEPTED')
     if (!returnAccepted || returnAccepted.length === 0) {
       const issuedTo = acceptedReqs[0].requested_by || acceptedReqs[0].issue_to
-      return res.status(400).json({ error: `Order ${orderNo} is already issued to ${issuedTo.toUpperCase()} (not returned yet)` })
+      return res.status(400).json({ error: `Order ${orderNo} is already issued to ${issuedTo.toUpperCase()} (not returned yet)`, issuedTo: issuedTo, canReissue: true })
     }
   }
   const { data: orders } = await supabase.from('orders').select('client').eq('order_no', orderNo)
@@ -215,8 +215,36 @@ router.post('/paper-requests/:id/accept', async (req, res) => {
   const { data: reqs } = await supabase.from('paper_requests').select('*').eq('id', parseInt(req.params.id))
   if (!reqs?.length) return res.status(404).json({ error: 'Not found' })
   const request = reqs[0]
-  await supabase.from('paper_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString() }).eq('id', request.id)
+  // If this is a reissue request, update the old ACCEPTED entry and mark this as reissue
+  if (request.reject_remarks === 'REISSUE') {
+    // Mark old ACCEPTED request for this order as REISSUED
+    await supabase.from('paper_requests').update({ status: `REISSUED TO ${request.requested_by.toUpperCase()}` }).eq('order_no', request.order_no).eq('status', 'ACCEPTED')
+    // Mark this reissue request as ACCEPTED with reissue info
+    await supabase.from('paper_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString(), reject_remarks: `REISSUE BY ${req.user.username.toUpperCase()}` }).eq('id', request.id)
+  } else {
+    await supabase.from('paper_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString() }).eq('id', request.id)
+  }
   res.json({ message: 'Accepted' })
+})
+
+// Reissue request - when paper is already with someone, another user can request reissue
+router.post('/paper-requests/reissue', async (req, res) => {
+  const { orderNo } = req.body
+  if (!orderNo) return res.status(400).json({ error: 'Order No required' })
+  // Check reissue count - max 2
+  const { data: allReqs } = await supabase.from('paper_requests').select('status').eq('order_no', orderNo)
+  const reissueCount = (allReqs || []).filter(r => r.status && r.status.startsWith('REISSUED')).length
+  if (reissueCount >= 2) return res.status(400).json({ error: 'Maximum 2 reissues reached. Please use Return Request.' })
+  // Find who currently has the paper
+  const { data: acceptedReqs } = await supabase.from('paper_requests').select('*').eq('order_no', orderNo).eq('status', 'ACCEPTED')
+  if (!acceptedReqs || acceptedReqs.length === 0) return res.status(400).json({ error: 'No active issue found for this order' })
+  const currentHolder = acceptedReqs[0].requested_by || acceptedReqs[0].issue_to
+  // Create reissue request - sent to the current holder
+  const { data: orders } = await supabase.from('orders').select('client').eq('order_no', orderNo)
+  const client = orders?.[0]?.client || ''
+  const { data, error } = await supabase.from('paper_requests').insert({ order_no: orderNo, client, requested_by: req.user.username, issue_to: currentHolder, status: 'PENDING', reject_remarks: 'REISSUE' }).select()
+  if (error) return res.status(400).json({ error: error.message })
+  res.json(mapPaperReq(data[0]))
 })
 
 router.post('/paper-requests/:id/reject', async (req, res) => {
