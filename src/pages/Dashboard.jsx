@@ -1255,6 +1255,7 @@ function Dashboard() {
           {isAdmin && <button onClick={() => navigate('/users')} style={styles.headerBtn}>Manage Users</button>}
           {isAdmin && <button onClick={async () => { if (window.confirm('Send daily report email now?')) { try { const res = await axios.get('/api/cron-daily-report'); alert('Report sent to agm.prestairsystem@gmail.com') } catch(e) { alert('Error: ' + (e.response?.data?.error || e.message)) } } }} style={{ ...styles.headerBtn, background: '#27ae60' }}>Send Report</button>}
           {isAdmin && <button onClick={async () => { if (window.confirm('Force refresh ALL users?')) { await axios.post('/api/force-refresh'); alert('All users will refresh within 30 seconds.') } }} style={{ ...styles.headerBtn, background: '#8e44ad' }}>Force Refresh All</button>}
+          {isAdmin && <button onClick={async () => { if (window.confirm('Fix old payment proof URLs? This may take a moment.')) { try { const res = await axios.post('/api/fix-payment-proofs'); alert(`Done! Fixed: ${res.data.fixed}, Failed: ${res.data.failed}, Skipped: ${res.data.skipped}${res.data.errors?.length ? '\n\nErrors:\n' + res.data.errors.join('\n') : ''}`) } catch(e) { alert('Error: ' + (e.response?.data?.error || e.message)) } } }} style={{ ...styles.headerBtn, background: '#16a085' }}>Fix Proof URLs</button>}
           <button onClick={logout} style={{ ...styles.headerBtn, background: '#e74c3c' }}>Logout</button>
         </div>
       </header>
