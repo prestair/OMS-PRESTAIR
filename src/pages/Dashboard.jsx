@@ -138,8 +138,34 @@ function Dashboard() {
   const [orTabStatusFilter, setOrTabStatusFilter] = useState([])
   const [paperRequestSearch, setPaperRequestSearch] = useState('')
   const [paperIssueError, setPaperIssueError] = useState('')
+  const [colWidthsState, setColWidthsState] = useState(() => {
+    const saved = localStorage.getItem(`oms_col_widths_${user.username}`)
+    return saved ? JSON.parse(saved) : {}
+  })
+  const resizingRef = useRef(null)
   const fileInputRef = useRef(null)
   const deletedFileInputRef = useRef(null)
+
+  const handleResizeStart = (e, colKey) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const startWidth = colWidthsState[colKey] || 120
+    resizingRef.current = { colKey, startX, startWidth }
+    const onMouseMove = (ev) => {
+      if (!resizingRef.current) return
+      const diff = ev.clientX - resizingRef.current.startX
+      const newWidth = Math.max(40, resizingRef.current.startWidth + diff)
+      setColWidthsState(prev => { const updated = { ...prev, [colKey]: newWidth }; localStorage.setItem(`oms_col_widths_${user.username}`, JSON.stringify(updated)); return updated })
+    }
+    const onMouseUp = () => {
+      resizingRef.current = null
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }
 
   // Determine columns user is allowed to see
   const isAdmin = user.role === 'admin'
@@ -808,6 +834,57 @@ function Dashboard() {
       return
     }
 
+    // Handle OR tab export separately
+    if (dailyFilter === 'orRecvd') {
+      const getRequestStatus = (orderNo) => {
+        const pr = (paperRequests || []).filter(r => r.orderNo === orderNo)
+        const rt = (returnRequests || []).find(r => r.orderNo === orderNo)
+        const latestIssue = pr.length > 0 ? pr[0] : null
+        if (rt && rt.status === 'ACCEPTED') return 'RECEIVED'
+        if (rt && rt.status === 'PENDING') return 'RETURN PENDING'
+        if (latestIssue) {
+          if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${getFullName(latestIssue.requestedBy || latestIssue.requested_by)}`
+          if (latestIssue.status === 'PENDING') return 'PENDING'
+          if (latestIssue.status === 'REJECTED') return 'REJECTED'
+          if (latestIssue.status === 'ISSUE') return 'ISSUE'
+          if ((latestIssue.status || '').startsWith('REROUTED')) return `REROUTED TO ${getFullName((latestIssue.status || '').replace('REROUTED TO ','').trim())}`
+          return latestIssue.status || '-'
+        }
+        return '-'
+      }
+      let orFiltered = orders
+      if (orTabSearch.trim()) { const term = orTabSearch.toLowerCase(); orFiltered = orFiltered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) }
+      if (orTabStatusFilter.length > 0) { orFiltered = orFiltered.filter(o => { const status = getRequestStatus(o.orderNo).toUpperCase(); return orTabStatusFilter.some(f => { if (f === 'ISSUED') return status.startsWith('ISSUED TO'); if (f === 'REROUTED') return status.startsWith('REROUTED'); if (f === 'NO REQUEST') return status === '-'; return status === f || (status === 'RETURN PENDING' && f === 'PENDING') }) }) }
+      orFiltered.sort((a, b) => { const getOrd = (orderNo) => { const v = getRequestStatus(orderNo).toUpperCase(); if (v === '-') return 5; if (v === 'ISSUE') return 0; if (v === 'PENDING' || v === 'RETURN PENDING') return 1; if (v.startsWith('ISSUED TO')) return 2; if (v.startsWith('REROUTED')) return 1; if (v === 'RECEIVED') return 3; if (v === 'REJECTED') return 4; return 2 }; return getOrd(a.orderNo) - getOrd(b.orderNo) })
+      const exportData = orFiltered.map((o, idx) => {
+        const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
+        const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
+        return { '#': idx + 1, 'Date': formatDate(o.date), 'Order No': o.orderNo || '', 'Client': o.client || '', 'Issue Date': pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-', 'Issue To': pr ? getFullName(pr.requestedBy || pr.requested_by) : '-', 'Status': getRequestStatus(o.orderNo), 'Collected By': rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-', 'Return Date': rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' }
+      })
+      const headers = Object.keys(exportData[0] || {})
+      let html = `<html><head><title>Excel Preview - OR Report</title><style>body{font-family:Arial,sans-serif;margin:10px;font-size:9px}h2{text-align:center;font-size:14px;margin-bottom:4px}.subtitle{text-align:center;font-size:11px;color:#555;margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:3px 5px;text-align:center;font-size:8px;word-wrap:break-word}th{background:#FFD700;font-weight:bold;font-size:9px}tr:nth-child(even){background:#f9f9f9}.no-print{text-align:center;margin:12px 0}.no-print button{padding:10px 24px;font-size:14px;font-weight:700;border:none;border-radius:6px;cursor:pointer;margin:0 8px}.dl-btn{background:#27ae60;color:#fff}.cancel-btn{background:#eee;color:#333}</style></head><body>`
+      html += `<div class="no-print"><button class="dl-btn" id="dlBtn">Download Excel</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span style="margin-left:16px;font-size:13px;font-weight:600;color:#555">Total Rows: ${exportData.length}</span></div>`
+      html += `<h2>OMS - Prestair Systems LLP</h2>`
+      html += `<p class="subtitle">OR Report | ${exportData.length} records | ${new Date().toLocaleDateString('en-IN')}</p>`
+      html += `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
+      exportData.forEach(row => { html += `<tr>${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>` })
+      html += `</tbody></table></body></html>`
+      const previewWin = window.open('', '_blank')
+      previewWin.document.write(html)
+      previewWin.document.close()
+      previewWin.document.getElementById('dlBtn').onclick = () => {
+        const ws = XLSX.utils.json_to_sheet(exportData)
+        ws['!cols'] = headers.map(key => { let maxLen = key.length; exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length }); return { wch: Math.min(Math.max(maxLen + 2, 10), 35) } })
+        const range = XLSX.utils.decode_range(ws['!ref'])
+        for (let r = range.s.r; r <= range.e.r; r++) { for (let c = range.s.c; c <= range.e.c; c++) { const addr = XLSX.utils.encode_cell({ r, c }); if (!ws[addr]) ws[addr] = { v: '', t: 's' }; if (!ws[addr].s) ws[addr].s = {}; ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }; ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }; if (r === 0) { ws[addr].s.font = { bold: true, sz: 11 }; ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } } } else { ws[addr].s.font = { sz: 10 } } } }
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, ws, 'OR Report')
+        XLSX.writeFile(wb, `OR_Report_${new Date().toISOString().split('T')[0]}.xlsx`)
+        previewWin.close()
+      }
+      return
+    }
+
     const filtered = getDailyFilteredData()
     const filterLabel = dailyFilter ? ALL_COLUMNS.find(c => c.key === dailyFilter)?.label : ''
     const exportData = filtered.map((o, idx) => {
@@ -947,6 +1024,61 @@ function Dashboard() {
         html += `<tr><td>${idx + 1}</td><td>${formatPayDate(p.paymentDate)}</td><td>${p.client || ''}</td><td>${p.orderNo || ''}</td><td>${p.amount ? p.amount.toLocaleString() : '0'}</td><td>${p.remarks || '-'}</td><td>${p.totalAmount ? p.totalAmount.toLocaleString() : '0'}</td><td>${p.receivedAmount ? p.receivedAmount.toLocaleString() : '0'}</td><td>${p.balance ? p.balance.toLocaleString() : '0'}</td></tr>`
       })
       html += `</tbody></table><p class="footer">Total: ${filtered.length} payments | Generated: ${new Date().toLocaleString('en-IN')}</p><script>window.onload=function(){var ph=${orientation === 'landscape' ? 190 : 277};var pages=Math.ceil(document.body.scrollHeight/(ph*3.78));document.getElementById("pageInfo").textContent="Total Pages: "+pages;}</script></body></html>`
+      const printWindow = window.open('', '_blank')
+      printWindow.document.write(html)
+      printWindow.document.close()
+      setShowPrintPreview(false)
+      return
+    }
+
+    // Handle OR tab print separately
+    if (dailyFilter === 'orRecvd') {
+      const getRequestStatus = (orderNo) => {
+        const pr = (paperRequests || []).filter(r => r.orderNo === orderNo)
+        const rt = (returnRequests || []).find(r => r.orderNo === orderNo)
+        const latestIssue = pr.length > 0 ? pr[0] : null
+        if (rt && rt.status === 'ACCEPTED') return 'RECEIVED'
+        if (rt && rt.status === 'PENDING') return 'RETURN PENDING'
+        if (latestIssue) {
+          if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${getFullName(latestIssue.requestedBy || latestIssue.requested_by)}`
+          if (latestIssue.status === 'PENDING') return 'PENDING'
+          if (latestIssue.status === 'REJECTED') return 'REJECTED'
+          if (latestIssue.status === 'ISSUE') return 'ISSUE'
+          if ((latestIssue.status || '').startsWith('REROUTED')) return `REROUTED TO ${getFullName((latestIssue.status || '').replace('REROUTED TO ','').trim())}`
+          return latestIssue.status || '-'
+        }
+        return '-'
+      }
+      let orFiltered = orders
+      if (orTabSearch.trim()) { const term = orTabSearch.toLowerCase(); orFiltered = orFiltered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) }
+      if (orTabStatusFilter.length > 0) { orFiltered = orFiltered.filter(o => { const status = getRequestStatus(o.orderNo).toUpperCase(); return orTabStatusFilter.some(f => { if (f === 'ISSUED') return status.startsWith('ISSUED TO'); if (f === 'REROUTED') return status.startsWith('REROUTED'); if (f === 'NO REQUEST') return status === '-'; return status === f || (status === 'RETURN PENDING' && f === 'PENDING') }) }) }
+      orFiltered.sort((a, b) => { const getOrd = (orderNo) => { const v = getRequestStatus(orderNo).toUpperCase(); if (v === '-') return 5; if (v === 'ISSUE') return 0; if (v === 'PENDING' || v === 'RETURN PENDING') return 1; if (v.startsWith('ISSUED TO')) return 2; if (v.startsWith('REROUTED')) return 1; if (v === 'RECEIVED') return 3; if (v === 'REJECTED') return 4; return 2 }; return getOrd(a.orderNo) - getOrd(b.orderNo) })
+      let html = `<html><head><title>OR Report - OMS Prestair</title><style>
+        @page { size: A4 ${orientation}; margin: 10mm; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 5px; }
+        h2 { color: #1a1a2e; margin: 0 0 4px; font-size: 14px; }
+        .subtitle { color: #555; font-size: 10px; margin: 2px 0 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: ${orientation === 'portrait' ? '8px' : '9px'}; border: 1px solid #333; }
+        th { background: #FFD700; color: #000; padding: 4px 3px; text-align: center; font-weight: bold; border: 1px solid #333; }
+        td { padding: 3px 4px; border: 1px solid #999; text-align: center; }
+        tr:nth-child(even) { background: #f5f5f5; }
+        .no-print { margin: 10px 0; text-align: center; }
+        .no-print button { padding: 10px 24px; font-size: 14px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin: 0 8px; }
+        .print-btn { background: #1a1a2e; color: #fff; }
+        .cancel-btn { background: #eee; color: #333; }
+        @media print { .no-print { display: none !important; } }
+      </style></head><body>`
+      html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button></div>`
+      html += `<h2>OMS - Prestair Systems LLP</h2>`
+      html += `<p class="subtitle">OR Report | ${orFiltered.length} records | ${new Date().toLocaleDateString('en-IN')}</p>`
+      html += `<table><thead><tr><th>#</th><th>Date</th><th>Order No</th><th>Client</th><th>Issue Date</th><th>Issue To</th><th>Status</th><th>Collected By</th><th>Return Date</th></tr></thead><tbody>`
+      orFiltered.forEach((o, idx) => {
+        const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
+        const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
+        const status = getRequestStatus(o.orderNo)
+        html += `<tr><td>${idx+1}</td><td>${formatDate(o.date)}</td><td>${o.orderNo||''}</td><td>${o.client||''}</td><td>${pr&&pr.acceptedAt?formatDate(pr.acceptedAt.split('T')[0]):pr&&pr.createdAt?formatDate(pr.createdAt.split('T')[0]):'-'}</td><td>${pr?getFullName(pr.requestedBy||pr.requested_by):'-'}</td><td>${status}</td><td>${rt?getFullName(rt.acceptedBy||rt.accepted_by):'-'}</td><td>${rt&&rt.acceptedAt?formatDate(rt.acceptedAt.split('T')[0]):'-'}</td></tr>`
+      })
+      html += `</tbody></table></body></html>`
       const printWindow = window.open('', '_blank')
       printWindow.document.write(html)
       printWindow.document.close()
@@ -1290,18 +1422,19 @@ function Dashboard() {
               <th style={{...styles.th, position:'sticky', left:0, zIndex:20, minWidth:'40px', background:'#1a1a2e'}}>#</th>
               {displayedColumns.map((col, colIdx) => {
                 const freezeCols = 4
-                const leftPositions = ['40px', '105px', '180px', '400px']
-                const colWidths = ['65px', '75px', '220px', '130px']
+                const defaultWidths = { date: 65, poNo: 75, client: 220, orderNo: 130, salesRep: 80, totalAmount: 85, balance: 80, percentReceived: 55, daysToOrder: 60 }
+                const userW = colWidthsState[col.key]
+                const baseW = userW || defaultWidths[col.key] || 120
                 const isFrozen = colIdx < freezeCols
-                const getColWidth = (key) => { if (key === 'salesRep') return '80px'; if (key === 'totalAmount') return '85px'; if (key === 'balance') return '80px'; if (key === 'percentReceived') return '55px'; return undefined }
-                const colW = getColWidth(col.key)
-                const thStyle = isFrozen ? {...styles.th, position:'sticky', left: leftPositions[colIdx], zIndex:20, minWidth: colWidths[colIdx], background:'#1a1a2e', whiteSpace:'normal'} : col.key === 'daysToOrder' ? {...styles.th, maxWidth:'60px', width:'60px', whiteSpace:'normal'} : {...styles.th, whiteSpace:'normal', ...(colW ? {width: colW, maxWidth: colW} : {})}
+                const frozenLeft = (() => { if (!isFrozen) return 0; let left = 40; for (let i = 0; i < colIdx; i++) { left += colWidthsState[displayedColumns[i].key] || defaultWidths[displayedColumns[i].key] || 120 } return left })()
+                const thStyle = isFrozen ? {...styles.th, position:'sticky', left: frozenLeft+'px', zIndex:20, width: baseW+'px', minWidth: baseW+'px', background:'#1a1a2e', whiteSpace:'normal'} : {...styles.th, whiteSpace:'normal', width: baseW+'px', minWidth: baseW+'px'}
                 return (
                 <th key={col.key} style={thStyle}>
-                  <div style={styles.thContent}>
+                  <div style={{...styles.thContent, position:'relative'}}>
                     <span>{col.label}</span>
                     <button onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: columnFilters[col.key] ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
                   </div>
+                  <div onMouseDown={(e) => handleResizeStart(e, col.key)} style={{ position:'absolute', right:0, top:0, bottom:0, width:'4px', cursor:'col-resize', background:'transparent', zIndex:25 }} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.4)'} onMouseLeave={e=>e.target.style.background='transparent'} />
                   {openFilter === col.key && (
                     <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
                       <div style={styles.filterDropdownHeader}>
@@ -1333,13 +1466,12 @@ function Dashboard() {
                 <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: rowBg, minWidth:'40px'}}>{idx + 1}</td>
                 {displayedColumns.map((col, colIdx) => {
                   const freezeCols = 4
-                  const leftPositions = ['40px', '115px', '200px', '390px']
-                  const colWidths = ['75px', '85px', '190px', '130px']
+                  const defaultWidths = { date: 65, poNo: 75, client: 220, orderNo: 130, salesRep: 80, totalAmount: 85, balance: 80, percentReceived: 55, daysToOrder: 60 }
+                  const baseW = colWidthsState[col.key] || defaultWidths[col.key] || 120
                   const isFrozen = colIdx < freezeCols
-                  const getColWidth = (key) => { if (key === 'salesRep') return '80px'; if (key === 'totalAmount') return '85px'; if (key === 'balance') return '80px'; if (key === 'percentReceived') return '55px'; return undefined }
-                  const colW = getColWidth(col.key)
+                  const frozenLeft = (() => { if (!isFrozen) return 0; let left = 40; for (let i = 0; i < colIdx; i++) { left += colWidthsState[displayedColumns[i].key] || defaultWidths[displayedColumns[i].key] || 120 } return left })()
                   return (
-                  <td key={col.key} style={isFrozen ? {...styles.td, position:'sticky', left: leftPositions[colIdx], zIndex:5, background: rowBg, minWidth: colWidths[colIdx]} : {...styles.td, ...(colW ? {width: colW, maxWidth: colW} : {})}}>{getCellValue(order, col.key)}</td>
+                  <td key={col.key} style={isFrozen ? {...styles.td, position:'sticky', left: frozenLeft+'px', zIndex:5, background: rowBg, width: baseW+'px', minWidth: baseW+'px'} : {...styles.td, width: baseW+'px', minWidth: baseW+'px'}}>{getCellValue(order, col.key)}</td>
                   )
                 })}
                 <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: rowBg, minWidth:'260px', boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' }}>
