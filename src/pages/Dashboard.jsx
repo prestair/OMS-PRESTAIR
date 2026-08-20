@@ -1427,7 +1427,7 @@ function Dashboard() {
                 const baseW = userW || defaultWidths[col.key] || 120
                 const isFrozen = colIdx < freezeCols
                 const frozenLeft = (() => { if (!isFrozen) return 0; let left = 40; for (let i = 0; i < colIdx; i++) { left += colWidthsState[displayedColumns[i].key] || defaultWidths[displayedColumns[i].key] || 120 } return left })()
-                const thStyle = isFrozen ? {...styles.th, position:'sticky', left: frozenLeft+'px', zIndex:20, width: baseW+'px', minWidth: baseW+'px', background:'#1a1a2e', whiteSpace:'normal'} : {...styles.th, whiteSpace:'normal', width: baseW+'px', minWidth: baseW+'px'}
+                const thStyle = isFrozen ? {...styles.th, position:'sticky', left: frozenLeft+'px', zIndex:20, width: baseW+'px', minWidth: baseW+'px', background:'#1a1a2e', whiteSpace:'normal'} : {...styles.th, whiteSpace:'normal', width: baseW+'px', minWidth: baseW+'px', ...(['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','orRecvd','photography','siteVideo','review','status'].includes(col.key)?{textAlign:'center'}:{})}
                 return (
                 <th key={col.key} style={thStyle}>
                   <div style={{...styles.thContent, position:'relative'}}>
@@ -1470,8 +1470,10 @@ function Dashboard() {
                   const baseW = colWidthsState[col.key] || defaultWidths[col.key] || 120
                   const isFrozen = colIdx < freezeCols
                   const frozenLeft = (() => { if (!isFrozen) return 0; let left = 40; for (let i = 0; i < colIdx; i++) { left += colWidthsState[displayedColumns[i].key] || defaultWidths[displayedColumns[i].key] || 120 } return left })()
+                  const centerCols = ['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','orRecvd','photography','siteVideo','review','status']
+                  const isCenter = centerCols.includes(col.key)
                   return (
-                  <td key={col.key} style={isFrozen ? {...styles.td, position:'sticky', left: frozenLeft+'px', zIndex:5, background: rowBg, width: baseW+'px', minWidth: baseW+'px'} : {...styles.td, width: baseW+'px', minWidth: baseW+'px'}}>{getCellValue(order, col.key)}</td>
+                  <td key={col.key} style={isFrozen ? {...styles.td, position:'sticky', left: frozenLeft+'px', zIndex:5, background: rowBg, width: baseW+'px', minWidth: baseW+'px', ...(isCenter?{textAlign:'center'}:{})} : {...styles.td, width: baseW+'px', minWidth: baseW+'px', ...(isCenter?{textAlign:'center'}:{})}}>{getCellValue(order, col.key)}</td>
                   )
                 })}
                 <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: rowBg, minWidth:'260px', boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' }}>
