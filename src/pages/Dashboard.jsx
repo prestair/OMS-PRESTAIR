@@ -85,9 +85,13 @@ function Dashboard() {
   const [showReminderForm, setShowReminderForm] = useState(null)
   const [showReminderPopup, setShowReminderPopup] = useState(true)
   const [paperIssuePopup, setPaperIssuePopup] = useState([])
-  const [activeTab, setActiveTab] = useState('active')
+  const [activeTab, setActiveTab] = useState(() => {
+    return sessionStorage.getItem('oms_activeTab') || 'active'
+  })
   const [deletedOrders, setDeletedOrders] = useState([])
-  const [dailyFilter, setDailyFilter] = useState('')
+  const [dailyFilter, setDailyFilter] = useState(() => {
+    return sessionStorage.getItem('oms_dailyFilter') || ''
+  })
   const [dailyFilterValue, setDailyFilterValue] = useState([])
   const [dailyLopFilter, setDailyLopFilter] = useState([])
   const [dailyPercentMax, setDailyPercentMax] = useState('')
@@ -238,6 +242,10 @@ function Dashboard() {
     const interval = setInterval(checkNewResponses, 30000)
     return () => clearInterval(interval)
   }, [allUsers])
+  // Persist active tab and daily filter to survive auto-refresh
+  useEffect(() => { sessionStorage.setItem('oms_activeTab', activeTab) }, [activeTab])
+  useEffect(() => { sessionStorage.setItem('oms_dailyFilter', dailyFilter) }, [dailyFilter])
+
   // Auto hard refresh every 2 minutes to keep data fresh
   useEffect(() => {
     const interval = setInterval(() => { window.location.reload() }, 120000)
