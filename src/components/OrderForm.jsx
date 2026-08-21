@@ -128,7 +128,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
     // Convert all text fields to uppercase
     const upperForm = { ...form }
     Object.keys(upperForm).forEach(key => {
-      if (typeof upperForm[key] === 'string') {
+      if (typeof upperForm[key] === 'string' && key !== 'paymentProofUrl') {
         upperForm[key] = upperForm[key].toUpperCase()
       }
     })
