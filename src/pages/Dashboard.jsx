@@ -1417,7 +1417,7 @@ function Dashboard() {
                 const centerCols = ['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','orRecvd','photography','siteVideo','review','status']
                 const isCenter = centerCols.includes(col.key)
                 const userW = colWidthOverrides[col.key]
-                const colStyle = {...styles.th, whiteSpace:'normal', ...(isCenter?{textAlign:'center'}:{}), ...(col.key === 'client' && !userW ? {minWidth:'180px'} : {}), ...(userW ? {width: userW+'px', minWidth: userW+'px'} : {}), position:'relative'}
+                const colStyle = {...styles.th, whiteSpace:'normal', ...(isCenter?{textAlign:'center'}:{}), ...(col.key === 'client' && !userW ? {minWidth:'180px'} : {}), ...(col.key === 'poNo' && !userW ? {width:'70px', maxWidth:'70px'} : {}), ...(userW ? {width: userW+'px', minWidth: userW+'px'} : {}), position:'relative'}
                 return (
                 <th key={col.key} style={colStyle}>
                   <div style={styles.thContent}>
