@@ -140,34 +140,8 @@ function Dashboard() {
   const [paperRequestSearch, setPaperRequestSearch] = useState('')
   const [paperIssueError, setPaperIssueError] = useState('')
   const [reissueOrderNo, setReissueOrderNo] = useState('')
-  const [colWidthsState, setColWidthsState] = useState(() => {
-    const saved = localStorage.getItem(`oms_col_widths_${user.username}`)
-    return saved ? JSON.parse(saved) : {}
-  })
-  const resizingRef = useRef(null)
   const fileInputRef = useRef(null)
   const deletedFileInputRef = useRef(null)
-
-  const handleResizeStart = (e, colKey) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const startX = e.clientX
-    const startWidth = colWidthsState[colKey] || 120
-    resizingRef.current = { colKey, startX, startWidth }
-    const onMouseMove = (ev) => {
-      if (!resizingRef.current) return
-      const diff = ev.clientX - resizingRef.current.startX
-      const newWidth = Math.max(40, resizingRef.current.startWidth + diff)
-      setColWidthsState(prev => { const updated = { ...prev, [colKey]: newWidth }; localStorage.setItem(`oms_col_widths_${user.username}`, JSON.stringify(updated)); return updated })
-    }
-    const onMouseUp = () => {
-      resizingRef.current = null
-      document.removeEventListener('mousemove', onMouseMove)
-      document.removeEventListener('mouseup', onMouseUp)
-    }
-    document.addEventListener('mousemove', onMouseMove)
-    document.addEventListener('mouseup', onMouseUp)
-  }
 
   // Determine columns user is allowed to see
   const isAdmin = user.role === 'admin'
@@ -1423,22 +1397,17 @@ function Dashboard() {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={{...styles.th, position:'sticky', left:0, zIndex:20, minWidth:'40px', background:'#1a1a2e'}}>#</th>
+              <th style={{...styles.th, width:'35px', minWidth:'35px'}}>#</th>
               {displayedColumns.map((col, colIdx) => {
-                const freezeCols = 4
-                const defaultWidths = { date: 65, poNo: 75, client: 220, orderNo: 130, salesRep: 80, totalAmount: 85, balance: 80, percentReceived: 55, daysToOrder: 60 }
-                const userW = colWidthsState[col.key]
-                const baseW = userW || defaultWidths[col.key] || 120
-                const isFrozen = colIdx < freezeCols
-                const frozenLeft = (() => { if (!isFrozen) return 0; let left = 40; for (let i = 0; i < colIdx; i++) { left += colWidthsState[displayedColumns[i].key] || defaultWidths[displayedColumns[i].key] || 120 } return left })()
-                const thStyle = isFrozen ? {...styles.th, position:'sticky', left: frozenLeft+'px', zIndex:20, width: baseW+'px', minWidth: baseW+'px', background:'#1a1a2e', whiteSpace:'normal'} : {...styles.th, whiteSpace:'normal', width: baseW+'px', minWidth: baseW+'px', ...(['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','orRecvd','photography','siteVideo','review','status'].includes(col.key)?{textAlign:'center'}:{})}
+                const centerCols = ['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','orRecvd','photography','siteVideo','review','status']
+                const isCenter = centerCols.includes(col.key)
+                const colStyle = col.key === 'client' ? {...styles.th, whiteSpace:'normal', minWidth:'180px'} : {...styles.th, whiteSpace:'normal', ...(isCenter?{textAlign:'center'}:{})}
                 return (
-                <th key={col.key} style={thStyle}>
-                  <div style={{...styles.thContent, position:'relative'}}>
+                <th key={col.key} style={colStyle}>
+                  <div style={styles.thContent}>
                     <span>{col.label}</span>
                     <button onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: columnFilters[col.key] ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
                   </div>
-                  <div onMouseDown={(e) => handleResizeStart(e, col.key)} style={{ position:'absolute', right:0, top:0, bottom:0, width:'4px', cursor:'col-resize', background:'transparent', zIndex:25 }} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.4)'} onMouseLeave={e=>e.target.style.background='transparent'} />
                   {openFilter === col.key && (
                     <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
                       <div style={styles.filterDropdownHeader}>
@@ -1467,17 +1436,12 @@ function Dashboard() {
               const rowBg = order.rowColor === 'red' ? '#ffcccc' : order.rowColor === 'orange' ? '#ffe0b2' : order.rowColor === 'yellow' ? '#fff9c4' : (idx % 2 === 0 ? '#f8f9fa' : '#fff')
               return (
               <tr key={order.id} style={{ ...styles.trEven, background: rowBg }}>
-                <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: rowBg, minWidth:'40px'}}>{idx + 1}</td>
+                <td style={{...styles.td, width:'35px'}}>{idx + 1}</td>
                 {displayedColumns.map((col, colIdx) => {
-                  const freezeCols = 4
-                  const defaultWidths = { date: 65, poNo: 75, client: 220, orderNo: 130, salesRep: 80, totalAmount: 85, balance: 80, percentReceived: 55, daysToOrder: 60 }
-                  const baseW = colWidthsState[col.key] || defaultWidths[col.key] || 120
-                  const isFrozen = colIdx < freezeCols
-                  const frozenLeft = (() => { if (!isFrozen) return 0; let left = 40; for (let i = 0; i < colIdx; i++) { left += colWidthsState[displayedColumns[i].key] || defaultWidths[displayedColumns[i].key] || 120 } return left })()
                   const centerCols = ['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','orRecvd','photography','siteVideo','review','status']
                   const isCenter = centerCols.includes(col.key)
                   return (
-                  <td key={col.key} style={isFrozen ? {...styles.td, position:'sticky', left: frozenLeft+'px', zIndex:5, background: rowBg, width: baseW+'px', minWidth: baseW+'px', ...(isCenter?{textAlign:'center'}:{})} : {...styles.td, width: baseW+'px', minWidth: baseW+'px', ...(isCenter?{textAlign:'center'}:{})}}>{getCellValue(order, col.key)}</td>
+                  <td key={col.key} style={{...styles.td, ...(isCenter?{textAlign:'center'}:{})}}>{getCellValue(order, col.key)}</td>
                   )
                 })}
                 <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: rowBg, minWidth:'260px', boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' }}>
@@ -2629,7 +2593,7 @@ const styles = {
   filterTagClose: { background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: '#856404', marginLeft: '2px' },
   clearAllBtn: { padding: '4px 10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' },
   tableWrap: { margin: '0 24px', overflowX: 'auto', overflowY: 'auto', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', maxHeight: '70vh', position: 'relative' },
-  table: { borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px', minWidth: '1800px' },
+  table: { borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px', width: '100%' },
   th: { padding: '10px 8px', background: '#1a1a2e', color: '#fff', fontWeight: '600', textAlign: 'left', whiteSpace: 'normal', position: 'sticky', top: 0, zIndex: 10 },
   thContent: { display: 'flex', alignItems: 'center', gap: '4px' },
   filterBtn: { padding: '2px 5px', border: 'none', borderRadius: '3px', color: '#fff', fontSize: '8px', cursor: 'pointer' },
