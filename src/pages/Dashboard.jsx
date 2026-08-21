@@ -142,6 +142,21 @@ function Dashboard() {
   const [reissueOrderNo, setReissueOrderNo] = useState('')
   const fileInputRef = useRef(null)
   const deletedFileInputRef = useRef(null)
+  const [colWidthOverrides, setColWidthOverrides] = useState(() => {
+    const saved = localStorage.getItem(`oms_col_widths_${user.username}`)
+    return saved ? JSON.parse(saved) : {}
+  })
+  const resizeRef = useRef(null)
+  const handleColResize = (e, colKey) => {
+    e.preventDefault(); e.stopPropagation()
+    const th = e.target.parentElement
+    const startX = e.clientX
+    const startW = th.offsetWidth
+    const onMove = (ev) => { const diff = ev.clientX - startX; const newW = Math.max(50, startW + diff); setColWidthOverrides(prev => { const updated = {...prev, [colKey]: newW}; localStorage.setItem(`oms_col_widths_${user.username}`, JSON.stringify(updated)); return updated }) }
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   // Determine columns user is allowed to see
   const isAdmin = user.role === 'admin'
@@ -1401,13 +1416,15 @@ function Dashboard() {
               {displayedColumns.map((col, colIdx) => {
                 const centerCols = ['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','orRecvd','photography','siteVideo','review','status']
                 const isCenter = centerCols.includes(col.key)
-                const colStyle = col.key === 'client' ? {...styles.th, whiteSpace:'normal', minWidth:'180px'} : {...styles.th, whiteSpace:'normal', ...(isCenter?{textAlign:'center'}:{})}
+                const userW = colWidthOverrides[col.key]
+                const colStyle = {...styles.th, whiteSpace:'normal', ...(isCenter?{textAlign:'center'}:{}), ...(col.key === 'client' && !userW ? {minWidth:'180px'} : {}), ...(userW ? {width: userW+'px', minWidth: userW+'px'} : {}), position:'relative'}
                 return (
                 <th key={col.key} style={colStyle}>
                   <div style={styles.thContent}>
                     <span>{col.label}</span>
                     <button onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: columnFilters[col.key] ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
                   </div>
+                  <div onMouseDown={(e) => handleColResize(e, col.key)} style={{ position:'absolute', right:0, top:0, bottom:0, width:'4px', cursor:'col-resize', background:'transparent' }} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.5)'} onMouseLeave={e=>e.target.style.background='transparent'} />
                   {openFilter === col.key && (
                     <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
                       <div style={styles.filterDropdownHeader}>
@@ -1440,8 +1457,9 @@ function Dashboard() {
                 {displayedColumns.map((col, colIdx) => {
                   const centerCols = ['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','orRecvd','photography','siteVideo','review','status']
                   const isCenter = centerCols.includes(col.key)
+                  const userW = colWidthOverrides[col.key]
                   return (
-                  <td key={col.key} style={{...styles.td, ...(isCenter?{textAlign:'center'}:{})}}>{getCellValue(order, col.key)}</td>
+                  <td key={col.key} style={{...styles.td, ...(isCenter?{textAlign:'center'}:{}), ...(userW ? {width: userW+'px', minWidth: userW+'px'} : {})}}>{getCellValue(order, col.key)}</td>
                   )
                 })}
                 <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: rowBg, minWidth:'260px', boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' }}>
