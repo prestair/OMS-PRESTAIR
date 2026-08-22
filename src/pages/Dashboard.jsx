@@ -65,8 +65,12 @@ function Dashboard() {
   const [showDeletedSearchDrop, setShowDeletedSearchDrop] = useState(false)
   const [statusCheckSearch, setStatusCheckSearch] = useState('')
   const [statusCheckResults, setStatusCheckResults] = useState([])
-  const [activePage, setActivePage] = useState(1)
-  const [deletedPage, setDeletedPage] = useState(1)
+  const [activePage, setActivePage] = useState(() => {
+    return parseInt(sessionStorage.getItem('oms_activePage')) || 1
+  })
+  const [deletedPage, setDeletedPage] = useState(() => {
+    return parseInt(sessionStorage.getItem('oms_deletedPage')) || 1
+  })
   const ORDERS_PER_PAGE = 10
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const saved = localStorage.getItem(`oms_columns_${user.username}`)
@@ -245,10 +249,18 @@ function Dashboard() {
   // Persist active tab and daily filter to survive auto-refresh
   useEffect(() => { sessionStorage.setItem('oms_activeTab', activeTab) }, [activeTab])
   useEffect(() => { sessionStorage.setItem('oms_dailyFilter', dailyFilter) }, [dailyFilter])
+  useEffect(() => { sessionStorage.setItem('oms_activePage', activePage) }, [activePage])
+  useEffect(() => { sessionStorage.setItem('oms_deletedPage', deletedPage) }, [deletedPage])
 
-  // Auto hard refresh every 2 minutes to keep data fresh
+  // Auto hard refresh every 5 minutes to keep data fresh
   useEffect(() => {
-    const interval = setInterval(() => { window.location.reload() }, 120000)
+    const interval = setInterval(() => {
+      sessionStorage.setItem('oms_scrollY', window.scrollY)
+      window.location.reload()
+    }, 300000)
+    // Restore scroll position after refresh
+    const savedScroll = sessionStorage.getItem('oms_scrollY')
+    if (savedScroll) { setTimeout(() => { window.scrollTo(0, parseInt(savedScroll)); sessionStorage.removeItem('oms_scrollY') }, 500) }
     return () => clearInterval(interval)
   }, [])
 
