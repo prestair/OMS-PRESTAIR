@@ -212,8 +212,9 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
             {visibleFields.map(field => {
               const isOrderNoLocked = field.key === 'orderNo' && !isAdmin
               const isDateLocked = field.key === 'date' && !isAdmin && !order
-              const isSeasonalLocked = field.key === 'installation' && !isAdmin && !user.canEdit
-              const editable = !order ? (!isOrderNoLocked && !isDateLocked && !isSeasonalLocked) : (isDeleted ? (isAdmin && !isOrderNoLocked) : (canEditColumn(field.key) && !isOrderNoLocked && !isDateLocked))
+              const newOrderDisabledFields = ['installation','photography','photographyRemarks','siteVideo','siteVideoRemarks','review','reviewRemarks','inProduction','akhilSirAudit','remarks','installationStatus','installationRemarks']
+              const isNewOrderLocked = !order && newOrderDisabledFields.includes(field.key)
+              const editable = !order ? (!isOrderNoLocked && !isDateLocked && !isNewOrderLocked) : (isDeleted ? (isAdmin && !isOrderNoLocked) : (canEditColumn(field.key) && !isOrderNoLocked && !isDateLocked))
               const isDropdown = field.key === 'photography' || field.key === 'siteVideo' || field.key === 'review' || field.key === 'status' || field.key === 'installation'
               return (
                 <div key={field.key} style={styles.field}>
