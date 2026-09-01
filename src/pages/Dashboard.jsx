@@ -95,6 +95,8 @@ function Dashboard() {
   const [deletedOrders, setDeletedOrders] = useState([])
   const [deletedColumnFilters, setDeletedColumnFilters] = useState({})
   const [deletedOpenFilter, setDeletedOpenFilter] = useState(null)
+  const [deletedDateFrom, setDeletedDateFrom] = useState('')
+  const [deletedDateTo, setDeletedDateTo] = useState('')
   const [dailyFilter, setDailyFilter] = useState(() => {
     return sessionStorage.getItem('oms_dailyFilter') || ''
   })
@@ -1517,7 +1519,7 @@ function Dashboard() {
             </div>
           )}
           {/* Active Column Filters Summary */}
-          {Object.keys(deletedColumnFilters).length > 0 && (
+          {(Object.keys(deletedColumnFilters).length > 0 || deletedDateFrom || deletedDateTo) && (
             <div style={styles.filterSummary}>
               <span style={{ fontWeight: '600', fontSize: '12px' }}>Active Filters:</span>
               {Object.entries(deletedColumnFilters).map(([key, vals]) => (
@@ -1526,12 +1528,18 @@ function Dashboard() {
                     { key: 'client', label: 'Client' }, { key: 'customerName', label: 'Customer' },
                     { key: 'photography', label: 'Photography' }, { key: 'siteVideo', label: 'Site Video' },
                     { key: 'review', label: 'Review' }, { key: 'salesRep', label: 'Sales Rep' },
-                    { key: 'deletedBy', label: 'Deleted By' }, { key: 'deletedOn', label: 'Deleted On' }
+                    { key: 'deletedBy', label: 'Deleted By' }
                   ].find(c => c.key === key)?.label}: {vals.length} selected
                   <button onClick={() => setDeletedColumnFilters(prev => { const { [key]: _, ...rest } = prev; return rest })} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', marginLeft: '4px', fontSize: '12px', fontWeight: '700' }}>×</button>
                 </span>
               ))}
-              <button onClick={() => setDeletedColumnFilters({})} style={styles.clearAllBtn}>Clear All</button>
+              {(deletedDateFrom || deletedDateTo) && (
+                <span style={styles.filterTag}>
+                  Deleted On: {deletedDateFrom || '...'} — {deletedDateTo || '...'}
+                  <button onClick={() => { setDeletedDateFrom(''); setDeletedDateTo('') }} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', marginLeft: '4px', fontSize: '12px', fontWeight: '700' }}>×</button>
+                </span>
+              )}
+              <button onClick={() => { setDeletedColumnFilters({}); setDeletedDateFrom(''); setDeletedDateTo('') }} style={styles.clearAllBtn}>Clear All</button>
             </div>
           )}
           <div style={{ marginBottom: '12px', position: 'relative', maxWidth: '400px' }}>
@@ -1597,7 +1605,7 @@ function Dashboard() {
                     { key: 'deletedOn', label: 'Deleted On' },
                   ].map(col => {
                     const filterable = ['client','customerName','photography','siteVideo','review','salesRep','deletedBy','deletedOn'].includes(col.key)
-                    const isActive = deletedColumnFilters[col.key] && deletedColumnFilters[col.key].length > 0
+                    const isActive = col.key === 'deletedOn' ? (deletedDateFrom || deletedDateTo) : (deletedColumnFilters[col.key] && deletedColumnFilters[col.key].length > 0)
                     const uniqueVals = filterable ? [...new Set(deletedOrders.map(o => {
                       if (col.key === 'deletedOn') return o.deletedAt ? (() => { const d = new Date(o.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''
                       return String(o[col.key] || '')
@@ -1610,7 +1618,7 @@ function Dashboard() {
                             <button onClick={(e) => { e.stopPropagation(); setDeletedOpenFilter(deletedOpenFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: isActive ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
                           )}
                         </div>
-                        {deletedOpenFilter === col.key && (
+                        {deletedOpenFilter === col.key && col.key !== 'deletedOn' && (
                           <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
                             <div style={styles.filterDropdownHeader}>
                               <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: {col.label}</span>
@@ -1634,6 +1642,25 @@ function Dashboard() {
                             <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneBtn}>Done</button>
                           </div>
                         )}
+                        {deletedOpenFilter === col.key && col.key === 'deletedOn' && (
+                          <div style={{ ...styles.filterDropdown, minWidth: '220px' }} onClick={e => e.stopPropagation()}>
+                            <div style={styles.filterDropdownHeader}>
+                              <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: Deleted On</span>
+                              <button onClick={() => { setDeletedDateFrom(''); setDeletedDateTo(''); setDeletedOpenFilter(null) }} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 0' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <label style={{ fontSize: '10px', color: '#888', fontWeight: '600' }}>From</label>
+                                <input type="date" value={deletedDateFrom} onChange={e => setDeletedDateFrom(e.target.value)} style={{ padding: '5px 8px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '11px', outline: 'none', cursor: 'pointer' }} />
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <label style={{ fontSize: '10px', color: '#888', fontWeight: '600' }}>To</label>
+                                <input type="date" value={deletedDateTo} onChange={e => setDeletedDateTo(e.target.value)} style={{ padding: '5px 8px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '11px', outline: 'none', cursor: 'pointer' }} />
+                              </div>
+                            </div>
+                            <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneBtn}>Apply</button>
+                          </div>
+                        )}
                       </th>
                     )
                   })}
@@ -1651,15 +1678,11 @@ function Dashboard() {
                   }
                   Object.entries(deletedColumnFilters).forEach(([key, selectedValues]) => {
                     if (selectedValues && selectedValues.length > 0) {
-                      filtered = filtered.filter(o => {
-                        if (key === 'deletedOn') {
-                          const d = o.deletedAt ? (() => { const dt = new Date(o.deletedAt); return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}` })() : ''
-                          return selectedValues.includes(d)
-                        }
-                        return selectedValues.includes(String(o[key] || ''))
-                      })
+                      filtered = filtered.filter(o => selectedValues.includes(String(o[key] || '')))
                     }
                   })
+                  if (deletedDateFrom) filtered = filtered.filter(o => o.deletedAt && new Date(o.deletedAt) >= new Date(deletedDateFrom))
+                  if (deletedDateTo) filtered = filtered.filter(o => o.deletedAt && new Date(o.deletedAt) <= new Date(deletedDateTo + 'T23:59:59'))
                   return filtered.map((order, idx) => {
                   return (
                   <tr key={order.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
