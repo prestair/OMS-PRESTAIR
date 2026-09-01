@@ -93,6 +93,8 @@ function Dashboard() {
     return sessionStorage.getItem('oms_activeTab') || 'active'
   })
   const [deletedOrders, setDeletedOrders] = useState([])
+  const [deletedColumnFilters, setDeletedColumnFilters] = useState({})
+  const [deletedOpenFilter, setDeletedOpenFilter] = useState(null)
   const [dailyFilter, setDailyFilter] = useState(() => {
     return sessionStorage.getItem('oms_dailyFilter') || ''
   })
@@ -1514,6 +1516,24 @@ function Dashboard() {
               <input ref={deletedFileInputRef} type="file" accept=".xlsx,.xls" onChange={handleDeletedImport} style={{ display: 'none' }} />
             </div>
           )}
+          {/* Active Column Filters Summary */}
+          {Object.keys(deletedColumnFilters).length > 0 && (
+            <div style={styles.filterSummary}>
+              <span style={{ fontWeight: '600', fontSize: '12px' }}>Active Filters:</span>
+              {Object.entries(deletedColumnFilters).map(([key, vals]) => (
+                <span key={key} style={styles.filterTag}>
+                  {[
+                    { key: 'client', label: 'Client' }, { key: 'customerName', label: 'Customer' },
+                    { key: 'photography', label: 'Photography' }, { key: 'siteVideo', label: 'Site Video' },
+                    { key: 'review', label: 'Review' }, { key: 'salesRep', label: 'Sales Rep' },
+                    { key: 'deletedBy', label: 'Deleted By' }, { key: 'deletedOn', label: 'Deleted On' }
+                  ].find(c => c.key === key)?.label}: {vals.length} selected
+                  <button onClick={() => setDeletedColumnFilters(prev => { const { [key]: _, ...rest } = prev; return rest })} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', marginLeft: '4px', fontSize: '12px', fontWeight: '700' }}>×</button>
+                </span>
+              ))}
+              <button onClick={() => setDeletedColumnFilters({})} style={styles.clearAllBtn}>Clear All</button>
+            </div>
+          )}
           <div style={{ marginBottom: '12px', position: 'relative', maxWidth: '400px' }}>
             {selectedDeletedOrders.length > 0 && (
               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
@@ -1555,25 +1575,68 @@ function Dashboard() {
           <div style={styles.tableWrap}>
             <table style={styles.table}>
               <thead>
-                <tr>
+                <tr onClick={() => setDeletedOpenFilter(null)}>
                   <th style={{...styles.th, position:'sticky', left:0, zIndex:20, minWidth:'40px', background:'#1a1a2e'}}>#</th>
                   <th style={{...styles.th, position:'sticky', left:'40px', zIndex:20, minWidth:'85px', background:'#1a1a2e'}}>Date</th>
                   <th style={{...styles.th, position:'sticky', left:'125px', zIndex:20, minWidth:'85px', background:'#1a1a2e'}}>PO No</th>
                   <th style={{...styles.th, position:'sticky', left:'210px', zIndex:20, minWidth:'160px', background:'#1a1a2e'}}>Order No</th>
-                  <th style={styles.th}>Client</th>
-                  <th style={styles.th}>Customer</th>
-                  <th style={styles.th}>GST</th>
-                  <th style={styles.th}>Photography</th>
-                  <th style={styles.th}>Site Video</th>
-                  <th style={styles.th}>Review</th>
-                  <th style={styles.th}>Sales Rep</th>
-                  <th style={styles.th}>Delivery Address</th>
-                  <th style={styles.th}>Phone No</th>
-                  <th style={styles.th}>Total Amount</th>
-                  <th style={styles.th}>Received</th>
-                  <th style={styles.th}>Balance</th>
-                  <th style={styles.th}>Deleted By</th>
-                  <th style={styles.th}>Deleted On</th>
+                  {[
+                    { key: 'client', label: 'Client' },
+                    { key: 'customerName', label: 'Customer' },
+                    { key: 'gst', label: 'GST' },
+                    { key: 'photography', label: 'Photography' },
+                    { key: 'siteVideo', label: 'Site Video' },
+                    { key: 'review', label: 'Review' },
+                    { key: 'salesRep', label: 'Sales Rep' },
+                    { key: 'deliveryAddress', label: 'Delivery Address' },
+                    { key: 'phoneNo', label: 'Phone No' },
+                    { key: 'totalAmount', label: 'Total Amount' },
+                    { key: 'receivedAmount', label: 'Received' },
+                    { key: 'balance', label: 'Balance' },
+                    { key: 'deletedBy', label: 'Deleted By' },
+                    { key: 'deletedOn', label: 'Deleted On' },
+                  ].map(col => {
+                    const filterable = ['client','customerName','photography','siteVideo','review','salesRep','deletedBy','deletedOn'].includes(col.key)
+                    const isActive = deletedColumnFilters[col.key] && deletedColumnFilters[col.key].length > 0
+                    const uniqueVals = filterable ? [...new Set(deletedOrders.map(o => {
+                      if (col.key === 'deletedOn') return o.deletedAt ? (() => { const d = new Date(o.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''
+                      return String(o[col.key] || '')
+                    }).filter(Boolean))].sort() : []
+                    return (
+                      <th key={col.key} style={{ ...styles.th, position: 'relative' }} onClick={e => e.stopPropagation()}>
+                        <div style={styles.thContent}>
+                          <span>{col.label}</span>
+                          {filterable && (
+                            <button onClick={(e) => { e.stopPropagation(); setDeletedOpenFilter(deletedOpenFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: isActive ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
+                          )}
+                        </div>
+                        {deletedOpenFilter === col.key && (
+                          <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
+                            <div style={styles.filterDropdownHeader}>
+                              <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: {col.label}</span>
+                              <button onClick={() => { setDeletedColumnFilters(prev => { const { [col.key]: _, ...rest } = prev; return rest }); setDeletedOpenFilter(null) }} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
+                            </div>
+                            <div style={styles.filterOptions}>
+                              {uniqueVals.map(val => (
+                                <label key={val} style={styles.filterOption}>
+                                  <input type="checkbox" checked={(deletedColumnFilters[col.key] || []).includes(val)} onChange={() => {
+                                    setDeletedColumnFilters(prev => {
+                                      const current = prev[col.key] || []
+                                      const updated = current.includes(val) ? current.filter(v => v !== val) : [...current, val]
+                                      if (updated.length === 0) { const { [col.key]: _, ...rest } = prev; return rest }
+                                      return { ...prev, [col.key]: updated }
+                                    })
+                                  }} />
+                                  <span style={{ fontSize: '11px' }}>{val.length > 30 ? val.substring(0, 30) + '...' : val}</span>
+                                </label>
+                              ))}
+                            </div>
+                            <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneBtn}>Done</button>
+                          </div>
+                        )}
+                      </th>
+                    )
+                  })}
                   {isAdmin && <th style={{...styles.th, position:'sticky', right:0, zIndex:20, minWidth:'220px', background:'#1a1a2e'}}>Action</th>}
                 </tr>
               </thead>
@@ -1586,6 +1649,17 @@ function Dashboard() {
                     const term = deletedSearchTerm.toLowerCase()
                     filtered = filtered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term) || (o.customerName || '').toLowerCase().includes(term))
                   }
+                  Object.entries(deletedColumnFilters).forEach(([key, selectedValues]) => {
+                    if (selectedValues && selectedValues.length > 0) {
+                      filtered = filtered.filter(o => {
+                        if (key === 'deletedOn') {
+                          const d = o.deletedAt ? (() => { const dt = new Date(o.deletedAt); return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}` })() : ''
+                          return selectedValues.includes(d)
+                        }
+                        return selectedValues.includes(String(o[key] || ''))
+                      })
+                    }
+                  })
                   return filtered.map((order, idx) => {
                   return (
                   <tr key={order.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
