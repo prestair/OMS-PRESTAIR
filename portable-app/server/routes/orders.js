@@ -245,17 +245,32 @@ router.get('/return-requests/my', async (req, res) => {
 router.post('/return-requests', async (req, res) => {
   const { orderNo, returnTo } = req.body
   if (!orderNo || !returnTo) return res.status(400).json({ error: 'Required' })
+
+  // Check: requester ke paas ye order ka paper hai ya nahi
+  const { data: acceptedReqs } = await supabase
+    .from('paper_requests').select('*')
+    .eq('order_no', orderNo).eq('status', 'ACCEPTED')
+
+  if (!acceptedReqs || acceptedReqs.length === 0) {
+    return res.status(400).json({ error: `Order ${orderNo} is not currently issued to anyone` })
+  }
+
+  const holder = acceptedReqs[0].requested_by || acceptedReqs[0].issue_to
+  if (holder !== req.user.username) {
+    return res.status(400).json({ error: `Order ${orderNo} paper is with ${holder.toUpperCase()}, only they can submit a return request` })
+  }
+
+  // Check: already pending return request nahi ho
+  const { data: pendingReturn } = await supabase
+    .from('return_requests').select('*')
+    .eq('order_no', orderNo).eq('status', 'PENDING')
+  if (pendingReturn && pendingReturn.length > 0) {
+    return res.status(400).json({ error: `Return request for ${orderNo} is already pending` })
+  }
+
   const { data: orders } = await supabase.from('orders').select('client').eq('order_no', orderNo)
   const { data } = await supabase.from('return_requests').insert({ order_no: orderNo, client: orders?.[0]?.client || '', requested_by: req.user.username, return_to: returnTo, status: 'PENDING' }).select()
   res.json(data[0])
-})
-
-router.post('/return-requests/:id/accept', async (req, res) => {
-  const { data: reqs } = await supabase.from('return_requests').select('*').eq('id', parseInt(req.params.id))
-  if (!reqs?.length) return res.status(404).json({ error: 'Not found' })
-  await supabase.from('return_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString() }).eq('id', parseInt(req.params.id))
-  await supabase.from('orders').update({ or_recvd: 'Paper Received' }).eq('order_no', reqs[0].order_no)
-  res.json({ message: 'Accepted' })
 })
 
 router.post('/return-requests/:id/reject', async (req, res) => {

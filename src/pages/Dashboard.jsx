@@ -2377,7 +2377,32 @@ function Dashboard() {
                   {returnIssueTo && <span style={{ fontSize: '9px', color: '#27ae60' }}>{getFullName(returnIssueTo)}</span>}
                   {showReturnUserDrop && returnUserSearch && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>{allUsers.filter(u => u.username !== user.username && ((u.fullName || '').toLowerCase().includes(returnUserSearch.toLowerCase()) || u.username.toLowerCase().includes(returnUserSearch.toLowerCase()))).map(u => (<div key={u.id} onClick={() => { setReturnIssueTo(u.username); setReturnUserSearch(u.fullName || u.username); setShowReturnUserDrop(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.target.style.background='#f0f8ff'} onMouseLeave={e => e.target.style.background='#fff'}>{u.fullName || u.username}</div>))}</div>)}
                 </div>
-                <button onClick={async () => { if (!returnOrderNo.length || !returnIssueTo) { alert('Select Order & User'); return } try { for (const on of returnOrderNo) { await axios.post('/api/orders/return-requests', { orderNo: on, returnTo: returnIssueTo }) } setReturnOrderNo([]); setReturnIssueTo(''); setReturnOrderSearch(''); setReturnUserSearch(''); fetchPaperRequests(); alert('Return submitted!') } catch (err) { alert(err.response?.data?.error || 'Failed') } }} style={{ padding: '6px 10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>Return</button>
+                <button onClick={async () => {
+                  if (!returnOrderNo.length || !returnIssueTo) { alert('Select Order & User'); return }
+                  const errors = []
+                  const success = []
+                  for (const on of returnOrderNo) {
+                    // Pre-check: kiske paas paper hai
+                    const accepted = paperRequests.find(r => r.orderNo === on && r.status === 'ACCEPTED')
+                    if (!accepted) {
+                      errors.push(`${on}: Not currently issued to anyone`)
+                      continue
+                    }
+                    if (accepted.requestedBy !== user.username) {
+                      errors.push(`${on}: Paper is with ${(accepted.requestedBy || '').toUpperCase()}, only they can return`)
+                      continue
+                    }
+                    try {
+                      await axios.post('/api/orders/return-requests', { orderNo: on, returnTo: returnIssueTo })
+                      success.push(on)
+                    } catch (err) {
+                      errors.push(err.response?.data?.error || `${on}: Failed`)
+                    }
+                  }
+                  if (success.length > 0) { setReturnOrderNo([]); setReturnIssueTo(''); setReturnOrderSearch(''); setReturnUserSearch(''); fetchPaperRequests() }
+                  if (errors.length > 0) alert(errors.join('\n'))
+                  else alert('Return submitted!')
+                }} style={{ padding: '6px 10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>Return</button>
               </div>
             </div>
             <div style={{ ...styles.reportSection, marginBottom: 0, padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
