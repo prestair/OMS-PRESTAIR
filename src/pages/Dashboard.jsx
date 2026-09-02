@@ -904,15 +904,15 @@ function Dashboard() {
     const exportData = filtered.map((o, idx) => {
       const row = { '#': idx + 1, 'Date': formatDate(o.date), 'PO No': o.poNo || '', 'Client': o.client || '', 'Order No': o.orderNo || '', 'GST': o.gst || '', 'Follow Up': o.followUp || '' }
       if (dailyFilter) row[filterLabel] = o[dailyFilter] || ''
-      if (dailyFilter === 'siteVerification') row['Site Verification Remarks'] = o.siteVerificationRemarks || ''
-      if (dailyFilter === 'installationStatus') row['Installation Remarks'] = o.installationRemarks || ''
+      if (dailyFilter === 'siteVerification') row['SV Remarks'] = o.siteVerificationRemarks || ''
+      if (dailyFilter === 'installationStatus') row['Inst. Remarks'] = o.installationRemarks || ''
       if (dailyFilter === 'sectionDrawing') row['LOP'] = o.lop || ''
       if (dailyFilter === 'sectionDrawing') row['SD Remarks'] = o.sectionDrawingRemarks || ''
       if (dailyFilter === 'advanceBill') row['Akhil Sir Audit'] = o.akhilSirAudit || ''
       if (dailyFilter === 'akhilSirAudit') row['Audit Remarks'] = o.remarks || ''
       if (dailyFilter === 'percentReceived') { row['Total Amount'] = o.totalAmount || 0; row['Received'] = o.receivedAmount || 0; row['Balance'] = (o.totalAmount || 0) - (o.receivedAmount || 0) }
-      if (dailyFilter === 'photography') row['Photography Remarks'] = o.photographyRemarks || ''
-      if (dailyFilter === 'siteVideo') row['Site Video Remarks'] = o.siteVideoRemarks || ''
+      if (dailyFilter === 'photography') row['Photo Remarks'] = o.photographyRemarks || ''
+      if (dailyFilter === 'siteVideo') row['Video Remarks'] = o.siteVideoRemarks || ''
       if (dailyFilter === 'review') row['Review Remarks'] = o.reviewRemarks || ''
       return row
     })
