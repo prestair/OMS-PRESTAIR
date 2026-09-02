@@ -2388,8 +2388,8 @@ function Dashboard() {
                       errors.push(`${on}: Not currently issued to anyone`)
                       continue
                     }
-                    if (accepted.requestedBy !== user.username) {
-                      errors.push(`${on}: Paper is with ${(accepted.requestedBy || '').toUpperCase()}, only they can return`)
+                    if (accepted.issueTo !== user.username) {
+                      errors.push(`${on}: Paper is with ${(accepted.issueTo || '').toUpperCase()}, only they can return`)
                       continue
                     }
                     try {

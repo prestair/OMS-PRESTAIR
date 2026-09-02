@@ -324,7 +324,7 @@ router.post('/return-requests', async (req, res) => {
     return res.status(400).json({ error: `Order ${orderNo} is not currently issued to anyone` })
   }
 
-  const holder = acceptedReqs[0].requested_by || acceptedReqs[0].issue_to
+  const holder = acceptedReqs[0].issue_to
   if (holder !== req.user.username) {
     return res.status(400).json({ error: `Order ${orderNo} paper is with ${holder.toUpperCase()}, only they can submit a return request` })
   }
