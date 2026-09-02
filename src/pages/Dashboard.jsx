@@ -542,7 +542,21 @@ function Dashboard() {
   }
 
   const handleDeletedExport = () => {
-    const exportData = deletedOrders.map((o, idx) => ({
+    let exportFiltered = deletedOrders
+    if (selectedDeletedOrders.length > 0) {
+      exportFiltered = exportFiltered.filter(o => selectedDeletedOrders.includes(o.orderNo))
+    } else if (deletedSearchTerm.trim()) {
+      const term = deletedSearchTerm.toLowerCase()
+      exportFiltered = exportFiltered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term) || (o.customerName || '').toLowerCase().includes(term))
+    }
+    Object.entries(deletedColumnFilters).forEach(([key, selectedValues]) => {
+      if (selectedValues && selectedValues.length > 0) {
+        exportFiltered = exportFiltered.filter(o => selectedValues.includes(String(o[key] || '')))
+      }
+    })
+    if (deletedDateFrom) exportFiltered = exportFiltered.filter(o => o.deletedAt && new Date(o.deletedAt) >= new Date(deletedDateFrom))
+    if (deletedDateTo) exportFiltered = exportFiltered.filter(o => o.deletedAt && new Date(o.deletedAt) <= new Date(deletedDateTo + 'T23:59:59'))
+    const exportData = exportFiltered.map((o, idx) => ({
       '#': idx + 1,
       'Date': formatDate(o.date),
       'PO No': o.poNo || '',
