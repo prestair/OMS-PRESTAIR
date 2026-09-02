@@ -152,6 +152,7 @@ function Dashboard() {
   const [paperRequestSearch, setPaperRequestSearch] = useState('')
   const [paperIssueError, setPaperIssueError] = useState('')
   const [reissueOrderNo, setReissueOrderNo] = useState('')
+  const [paperIssuing, setPaperIssuing] = useState(false)
   const fileInputRef = useRef(null)
   const deletedFileInputRef = useRef(null)
   const [colWidthOverrides, setColWidthOverrides] = useState(() => {
@@ -2341,7 +2342,24 @@ function Dashboard() {
                   {paperIssueTo && <span style={{ fontSize: '9px', color: '#27ae60' }}>{getFullName(paperIssueTo)}</span>}
                   {showUserDropdown && paperUserSearch && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>{allUsers.filter(u => u.username !== user.username && ((u.fullName || '').toLowerCase().includes(paperUserSearch.toLowerCase()) || u.username.toLowerCase().includes(paperUserSearch.toLowerCase()))).map(u => (<div key={u.id} onClick={() => { setPaperIssueTo(u.username); setPaperUserSearch(u.fullName || u.username); setShowUserDropdown(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.target.style.background='#f0f8ff'} onMouseLeave={e => e.target.style.background='#fff'}>{u.fullName || u.username}</div>))}</div>)}
                 </div>
-                <button onClick={async () => { if (!paperOrderNo.length || !paperIssueTo) { setPaperIssueError(!paperOrderNo.length ? 'Select Order No' : 'Select User'); return } setPaperIssueError(''); setReissueOrderNo(''); const errors = []; const success = []; let reissueON = ''; for (const on of paperOrderNo) { try { await axios.post('/api/orders/paper-requests', { orderNo: on, issueTo: paperIssueTo }); success.push(on) } catch (err) { const errData = err.response?.data; if (errData?.canReissue) { reissueON = on; errors.push(errData.error + ' — Use Reissue button below') } else { errors.push(errData?.error || `${on}: Failed`) } } } if (success.length > 0) { setPaperOrderNo(prev => prev.filter(o => !success.includes(o))); setPaperIssueTo(''); setPaperOrderSearch(''); setPaperUserSearch(''); fetchPaperRequests() } if (errors.length > 0) { setPaperIssueError(errors.join(' | ')); if (reissueON) setReissueOrderNo(reissueON) } else { setPaperOrderNo([]); setPaperIssueError('') } }} style={{ padding: '6px 10px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>Issue</button>
+                <button onClick={async () => {
+                  if (!paperOrderNo.length || !paperIssueTo) { setPaperIssueError(!paperOrderNo.length ? 'Select Order No' : 'Select User'); return }
+                  if (paperIssuing) return
+                  // Pre-check: koi order already pending/issued toh nahi hai
+                  const alreadyPending = paperOrderNo.filter(on => {
+                    return paperRequests.some(r => r.orderNo === on && (r.status === 'PENDING' || r.status === 'ACCEPTED'))
+                  })
+                  if (alreadyPending.length > 0) {
+                    setPaperIssueError(`Already pending/issued: ${alreadyPending.join(', ')} — duplicate request blocked`)
+                    return
+                  }
+                  setPaperIssuing(true)
+                  setPaperIssueError(''); setReissueOrderNo(''); const errors = []; const success = []; let reissueON = '';
+                  for (const on of paperOrderNo) { try { await axios.post('/api/orders/paper-requests', { orderNo: on, issueTo: paperIssueTo }); success.push(on) } catch (err) { const errData = err.response?.data; if (errData?.canReissue) { reissueON = on; errors.push(errData.error + ' — Use Reissue button below') } else { errors.push(errData?.error || `${on}: Failed`) } } }
+                  if (success.length > 0) { setPaperOrderNo(prev => prev.filter(o => !success.includes(o))); setPaperIssueTo(''); setPaperOrderSearch(''); setPaperUserSearch(''); fetchPaperRequests() }
+                  if (errors.length > 0) { setPaperIssueError(errors.join(' | ')); if (reissueON) setReissueOrderNo(reissueON) } else { setPaperOrderNo([]); setPaperIssueError('') }
+                  setPaperIssuing(false)
+                }} disabled={paperIssuing} style={{ padding: '6px 10px', background: paperIssuing ? '#aaa' : '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: paperIssuing ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: paperIssuing ? 0.7 : 1 }}>{paperIssuing ? 'Sending...' : 'Issue'}</button>
               </div>
               {paperIssueError && <div style={{ marginTop: '4px', padding: '4px 8px', background: '#fdecea', border: '1px solid #e74c3c', borderRadius: '4px', fontSize: '10px', color: '#e74c3c', fontWeight: '600' }}>{paperIssueError}{reissueOrderNo && <button onClick={async () => { try { await axios.post('/api/orders/paper-requests/reissue', { orderNo: reissueOrderNo }); setPaperIssueError(''); setReissueOrderNo(''); setPaperOrderNo([]); fetchPaperRequests(); alert('Reissue request sent!') } catch (err) { setPaperIssueError(err.response?.data?.error || 'Reissue failed') } }} style={{ marginLeft: '8px', padding: '3px 8px', background: '#8e44ad', color: '#fff', border: 'none', borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>Reissue Request</button>}</div>}
             </>)}

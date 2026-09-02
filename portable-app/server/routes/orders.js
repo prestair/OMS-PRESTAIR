@@ -136,21 +136,32 @@ router.get('/paper-requests/my', async (req, res) => {
 router.post('/paper-requests', async (req, res) => {
   const { orderNo, issueTo } = req.body
   if (!orderNo || !issueTo) return res.status(400).json({ error: 'Order No and Issue To required' })
-  // Check if this order already has a PENDING paper request
-  const { data: pendingReqs } = await supabase.from('paper_requests').select('*').eq('order_no', orderNo).eq('status', 'PENDING')
-  if (pendingReqs && pendingReqs.length > 0) {
-    const pendingWith = pendingReqs[0].issue_to
-    return res.status(400).json({ error: `Order ${orderNo} is already pending with ${pendingWith.toUpperCase()}` })
-  }
-  // Check if order is already issued (ACCEPTED) and not yet returned
-  const { data: acceptedReqs } = await supabase.from('paper_requests').select('*').eq('order_no', orderNo).eq('status', 'ACCEPTED')
-  if (acceptedReqs && acceptedReqs.length > 0) {
-    const { data: returnAccepted } = await supabase.from('return_requests').select('*').eq('order_no', orderNo).eq('status', 'ACCEPTED')
-    if (!returnAccepted || returnAccepted.length === 0) {
-      const issuedTo = acceptedReqs[0].requested_by || acceptedReqs[0].issue_to
-      return res.status(400).json({ error: `Order ${orderNo} is already issued to ${issuedTo.toUpperCase()} (not returned yet)`, issuedTo: issuedTo, canReissue: true })
+
+  // Single query — check PENDING or ACCEPTED in one shot to reduce race window
+  const { data: existingReqs } = await supabase
+    .from('paper_requests').select('*')
+    .eq('order_no', orderNo)
+    .in('status', ['PENDING', 'ACCEPTED'])
+
+  if (existingReqs && existingReqs.length > 0) {
+    const pending = existingReqs.find(r => r.status === 'PENDING')
+    if (pending) {
+      // Same user trying to submit again
+      if (pending.requested_by === req.user.username) {
+        return res.status(400).json({ error: `You already have a pending request for ${orderNo} with ${pending.issue_to.toUpperCase()}` })
+      }
+      return res.status(400).json({ error: `Order ${orderNo} already has a pending request with ${pending.issue_to.toUpperCase()}` })
+    }
+    const accepted = existingReqs.find(r => r.status === 'ACCEPTED')
+    if (accepted) {
+      const { data: returnAccepted } = await supabase.from('return_requests').select('*').eq('order_no', orderNo).eq('status', 'ACCEPTED')
+      if (!returnAccepted || returnAccepted.length === 0) {
+        const issuedTo = accepted.requested_by || accepted.issue_to
+        return res.status(400).json({ error: `Order ${orderNo} is already issued to ${issuedTo.toUpperCase()} (not returned yet)`, issuedTo, canReissue: true })
+      }
     }
   }
+
   const { data: orders } = await supabase.from('orders').select('client').eq('order_no', orderNo)
   const client = orders?.[0]?.client || ''
   const { data, error } = await supabase.from('paper_requests').insert({ order_no: orderNo, client, requested_by: req.user.username, issue_to: issueTo, status: 'PENDING' }).select()
