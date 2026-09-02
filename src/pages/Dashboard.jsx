@@ -908,6 +908,7 @@ function Dashboard() {
       if (dailyFilter === 'installationStatus') row['Installation Remarks'] = o.installationRemarks || ''
       if (dailyFilter === 'sectionDrawing') row['LOP'] = o.lop || ''
       if (dailyFilter === 'sectionDrawing') row['SD Remarks'] = o.sectionDrawingRemarks || ''
+      if (dailyFilter === 'advanceBill') row['Akhil Sir Audit'] = o.akhilSirAudit || ''
       if (dailyFilter === 'akhilSirAudit') row['Audit Remarks'] = o.remarks || ''
       if (dailyFilter === 'percentReceived') { row['Total Amount'] = o.totalAmount || 0; row['Received'] = o.receivedAmount || 0; row['Balance'] = (o.totalAmount || 0) - (o.receivedAmount || 0) }
       if (dailyFilter === 'photography') row['Photography Remarks'] = o.photographyRemarks || ''
