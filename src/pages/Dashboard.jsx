@@ -1972,18 +1972,18 @@ function Dashboard() {
         <div style={{ padding: '24px' }}>
           {/* Filter Buttons */}
           <div style={{ background: '#fff', borderRadius: '8px', padding: '6px 10px', marginBottom: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-            <button onClick={() => { setDailyFilter('siteVerification'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVerification' ? styles.dailyBtnActive : styles.dailyBtn}>Site Verif.</button>
-            <button onClick={() => { setDailyFilter('installationStatus'); setDailyFilterValue([]) }} style={dailyFilter === 'installationStatus' ? styles.dailyBtnActive : styles.dailyBtn}>Installation</button>
-            <button onClick={() => { setDailyFilter('sectionDrawing'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'sectionDrawing' ? styles.dailyBtnActive : styles.dailyBtn}>Sec. Drawing</button>
-            <button onClick={() => { setDailyFilter('inProduction'); setDailyFilterValue([]) }} style={dailyFilter === 'inProduction' ? styles.dailyBtnActive : styles.dailyBtn}>Production</button>
-            <button onClick={() => { setDailyFilter('percentReceived'); setDailyFilterValue([]); setDailyPercentMax(''); setDailyPercentDateFrom('') }} style={dailyFilter === 'percentReceived' ? styles.dailyBtnActive : styles.dailyBtn}>% Rec</button>
-            <button onClick={() => { setDailyFilter('akhilSirAudit'); setDailyFilterValue([]) }} style={dailyFilter === 'akhilSirAudit' ? styles.dailyBtnActive : styles.dailyBtn}>Audit</button>
-            <button onClick={() => { setDailyFilter('advanceBill'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'advanceBill' ? styles.dailyBtnActive : styles.dailyBtn}>Adv Bill</button>
-            <button onClick={() => { setDailyFilter('photography'); setDailyFilterValue([]) }} style={dailyFilter === 'photography' ? styles.dailyBtnActive : styles.dailyBtn}>Photo</button>
-            <button onClick={() => { setDailyFilter('siteVideo'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVideo' ? styles.dailyBtnActive : styles.dailyBtn}>Video</button>
+            <button onClick={() => { setDailyFilter('siteVerification'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVerification' ? styles.dailyBtnActive : styles.dailyBtn}>Site Verification</button>
+            <button onClick={() => { setDailyFilter('installationStatus'); setDailyFilterValue([]) }} style={dailyFilter === 'installationStatus' ? styles.dailyBtnActive : styles.dailyBtn}>Installation Status</button>
+            <button onClick={() => { setDailyFilter('sectionDrawing'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'sectionDrawing' ? styles.dailyBtnActive : styles.dailyBtn}>Section Drawing</button>
+            <button onClick={() => { setDailyFilter('inProduction'); setDailyFilterValue([]) }} style={dailyFilter === 'inProduction' ? styles.dailyBtnActive : styles.dailyBtn}>In Production</button>
+            <button onClick={() => { setDailyFilter('percentReceived'); setDailyFilterValue([]); setDailyPercentMax(''); setDailyPercentDateFrom('') }} style={dailyFilter === 'percentReceived' ? styles.dailyBtnActive : styles.dailyBtn}>% Received</button>
+            <button onClick={() => { setDailyFilter('akhilSirAudit'); setDailyFilterValue([]) }} style={dailyFilter === 'akhilSirAudit' ? styles.dailyBtnActive : styles.dailyBtn}>Akhil Sir Audit</button>
+            <button onClick={() => { setDailyFilter('advanceBill'); setDailyFilterValue([]); setDailyLopFilter([]) }} style={dailyFilter === 'advanceBill' ? styles.dailyBtnActive : styles.dailyBtn}>Advance Bill</button>
+            <button onClick={() => { setDailyFilter('photography'); setDailyFilterValue([]) }} style={dailyFilter === 'photography' ? styles.dailyBtnActive : styles.dailyBtn}>Photography</button>
+            <button onClick={() => { setDailyFilter('siteVideo'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVideo' ? styles.dailyBtnActive : styles.dailyBtn}>Site Video</button>
             <button onClick={() => { setDailyFilter('review'); setDailyFilterValue([]) }} style={dailyFilter === 'review' ? styles.dailyBtnActive : styles.dailyBtn}>Review</button>
-            <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]); setOrTabSearch(''); setOrTabStatusFilter([]); setOrTabUserSearch('') }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR</button>
-            <button onClick={() => { setDailyFilter('paymentUpdate'); setDailyFilterValue([]); fetchAllPayments() }} style={dailyFilter === 'paymentUpdate' ? styles.dailyBtnActive : styles.dailyBtn}>Payment</button>
+            <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]); setOrTabSearch(''); setOrTabStatusFilter([]); setOrTabUserSearch('') }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR Issue Report</button>
+            <button onClick={() => { setDailyFilter('paymentUpdate'); setDailyFilterValue([]); fetchAllPayments() }} style={dailyFilter === 'paymentUpdate' ? styles.dailyBtnActive : styles.dailyBtn}>Payment Update</button>
             <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 2px' }}></span>
             <button onClick={() => handleDailyPrint()} style={{ padding: '5px 10px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>Print</button>
             <button onClick={() => handleDailyExport()} style={{ padding: '5px 10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>Excel</button>
