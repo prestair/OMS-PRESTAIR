@@ -560,23 +560,21 @@ function Dashboard() {
       '#': idx + 1,
       'Date': formatDate(o.date),
       'PO No': o.poNo || '',
-      'Client': o.client || '',
       'Order No': o.orderNo || '',
+      'Client': o.client || '',
       'Customer Name': o.customerName || '',
       'GST': o.gst || '',
-      'DOD Status': o.status || '',
+      'Photography': o.photography || '',
+      'Site Video': o.siteVideo || '',
+      'Review': o.review || '',
       'Sales Rep': o.salesRep || '',
+      'Delivery Address': o.deliveryAddress || '',
+      'Phone No': o.phoneNo || '',
       'Total Amount': o.totalAmount || 0,
       'Received': o.receivedAmount || 0,
-      'Balance': (o.totalAmount || 0) - (o.receivedAmount || 0),
-      '% Rcv': o.percentReceived || 0,
-      'Payment Remarks': o.paymentRemarks || '',
-      'Audit Remarks': o.remarks || '',
-      'Akhil Sir Audit': o.akhilSirAudit || '',
-      'Advance Bill': o.advanceBill || '',
-      'OR Recvd': o.orRecvd || '',
+      'Balance': o.balance || 0,
       'Deleted By': o.deletedBy || '',
-      'Deleted On': o.deletedAt ? formatDate(o.deletedAt.split('T')[0]) : ''
+      'Deleted On': o.deletedAt ? (() => { const d = new Date(o.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''
     }))
     const ws = XLSX.utils.json_to_sheet(exportData)
     const wb = XLSX.utils.book_new()
