@@ -76,6 +76,39 @@ router.get('/deleted/all', async (req, res) => {
   res.json(mapped)
 })
 
+// Bulk import deleted orders
+router.post('/deleted/import', adminOnly, async (req, res) => {
+  const { orders } = req.body
+  if (!orders?.length) return res.status(400).json({ error: 'No orders provided' })
+  let added = 0
+  const duplicates = []
+  for (const o of orders) {
+    const { data: existing } = await supabase.from('deleted_orders').select('original_id').eq('data->>order_no', o.orderNo)
+    if (existing?.length) {
+      duplicates.push(o.orderNo)
+      continue
+    }
+    const { data: maxRow } = await supabase.from('deleted_orders').select('original_id').order('original_id', { ascending: false }).limit(1)
+    const nextId = maxRow?.length ? (maxRow[0].original_id + 1) : 90000
+    const orderData = {
+      date: o.date || '', poNo: o.poNo || '', client: o.client || '', orderNo: o.orderNo || '',
+      customerName: o.customerName || '', gst: o.gst || '', photography: o.photography || '',
+      siteVideo: o.siteVideo || '', review: o.review || '', salesRep: o.salesRep || '',
+      deliveryAddress: o.deliveryAddress || '', phoneNo: o.phoneNo || '',
+      totalAmount: o.totalAmount || 0, receivedAmount: o.receivedAmount || 0, balance: o.balance || 0,
+      paymentRemarks: o.paymentRemarks || '', remarks: o.remarks || '',
+      akhilSirAudit: o.akhilSirAudit || '', advanceBill: o.advanceBill || '', orRecvd: o.orRecvd || ''
+    }
+    const { error } = await supabase.from('deleted_orders').insert({
+      original_id: nextId + added,
+      data: orderData,
+      deleted_by: o.deletedBy || req.user.username
+    })
+    if (!error) added++
+  }
+  res.json({ added, duplicates })
+})
+
 // Permanently delete from deleted
 router.delete('/deleted/:id', adminOnly, async (req, res) => {
   await supabase.from('deleted_orders').delete().eq('original_id', parseInt(req.params.id))
@@ -313,41 +346,6 @@ router.post('/', async (req, res) => {
   const { data, error } = await supabase.from('orders').insert(snakeOrder(o)).select()
   if (error) return res.status(400).json({ error: error.message })
   res.json(mapOrder(data[0]))
-})
-
-// Bulk import deleted orders
-router.post('/deleted/import', adminOnly, async (req, res) => {
-  const { orders } = req.body
-  if (!orders?.length) return res.status(400).json({ error: 'No orders provided' })
-  let added = 0
-  const duplicates = []
-  for (const o of orders) {
-    // Check if already exists in deleted_orders
-    const { data: existing } = await supabase.from('deleted_orders').select('original_id').eq('data->>order_no', o.orderNo)
-    if (existing?.length) {
-      duplicates.push(o.orderNo)
-      continue
-    }
-    // Get a unique id — use max original_id + 1
-    const { data: maxRow } = await supabase.from('deleted_orders').select('original_id').order('original_id', { ascending: false }).limit(1)
-    const nextId = maxRow?.length ? (maxRow[0].original_id + 1) : 90000
-    const orderData = {
-      date: o.date || '', poNo: o.poNo || '', client: o.client || '', orderNo: o.orderNo || '',
-      customerName: o.customerName || '', gst: o.gst || '', photography: o.photography || '',
-      siteVideo: o.siteVideo || '', review: o.review || '', salesRep: o.salesRep || '',
-      deliveryAddress: o.deliveryAddress || '', phoneNo: o.phoneNo || '',
-      totalAmount: o.totalAmount || 0, receivedAmount: o.receivedAmount || 0, balance: o.balance || 0,
-      paymentRemarks: o.paymentRemarks || '', remarks: o.remarks || '',
-      akhilSirAudit: o.akhilSirAudit || '', advanceBill: o.advanceBill || '', orRecvd: o.orRecvd || ''
-    }
-    const { error } = await supabase.from('deleted_orders').insert({
-      original_id: nextId + added,
-      data: orderData,
-      deleted_by: o.deletedBy || req.user.username
-    })
-    if (!error) added++
-  }
-  res.json({ added, duplicates })
 })
 
 // Bulk import
