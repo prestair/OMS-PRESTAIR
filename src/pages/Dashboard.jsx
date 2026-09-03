@@ -622,7 +622,7 @@ function Dashboard() {
         orRecvd: row['OR Recvd'] || ''
       }))
       try {
-        const res = await axios.post('/api/orders/import', { orders, overwrite: false })
+        const res = await axios.post('/api/orders/deleted/import', { orders })
         if (res.data.duplicates?.length) {
           alert(`Imported ${res.data.added} orders. ${res.data.duplicates.length} duplicates skipped.`)
         } else {
