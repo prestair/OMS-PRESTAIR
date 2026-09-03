@@ -583,6 +583,110 @@ function Dashboard() {
     XLSX.writeFile(wb, `OMS_Completed_Orders_${new Date().toISOString().split('T')[0]}.xlsx`)
   }
 
+  const handleDeletedCompleteDownload = () => {
+    const ALL_DELETED_COLS = [
+      { key: '#', label: '#' },
+      { key: 'date', label: 'Date' },
+      { key: 'poNo', label: 'PO No' },
+      { key: 'orderNo', label: 'Order No' },
+      { key: 'client', label: 'Client' },
+      { key: 'customerName', label: 'Customer Name' },
+      { key: 'gst', label: 'GST' },
+      { key: 'status', label: 'DOD Status' },
+      { key: 'followUp', label: 'Follow Up' },
+      { key: 'salesRep', label: 'Sales Rep' },
+      { key: 'deliveryAddress', label: 'Delivery Address' },
+      { key: 'phoneNo', label: 'Phone No' },
+      { key: 'photography', label: 'Photography' },
+      { key: 'photographyRemarks', label: 'Photography Remarks' },
+      { key: 'siteVideo', label: 'Site Video' },
+      { key: 'siteVideoRemarks', label: 'Site Video Remarks' },
+      { key: 'review', label: 'Review' },
+      { key: 'reviewRemarks', label: 'Review Remarks' },
+      { key: 'siteVerification', label: 'Site Verification' },
+      { key: 'installationStatus', label: 'Installation Status' },
+      { key: 'installationRemarks', label: 'Installation Remarks' },
+      { key: 'lop', label: 'LOP' },
+      { key: 'sectionDrawing', label: 'Section Drawing' },
+      { key: 'inProduction', label: 'In Production' },
+      { key: 'totalAmount', label: 'Total Amount' },
+      { key: 'receivedAmount', label: 'Received' },
+      { key: 'balance', label: 'Balance' },
+      { key: 'percentReceived', label: '% Rcv' },
+      { key: 'paymentRemarks', label: 'Payment Remarks' },
+      { key: 'akhilSirAudit', label: 'Akhil Sir Audit' },
+      { key: 'remarks', label: 'Audit Remarks' },
+      { key: 'advanceBill', label: 'Advance Bill' },
+      { key: 'orRecvd', label: 'OR Recvd' },
+      { key: 'deletedBy', label: 'Deleted By' },
+      { key: 'deletedOn', label: 'Deleted On' },
+    ]
+    const exportData = deletedOrders.map((o, idx) => {
+      const row = {}
+      ALL_DELETED_COLS.forEach(col => {
+        if (col.key === '#') { row[col.label] = idx + 1; return }
+        if (col.key === 'date') { row[col.label] = formatDate(o.date); return }
+        if (col.key === 'deletedOn') { row[col.label] = o.deletedAt ? (() => { const d = new Date(o.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''; return }
+        if (['totalAmount','receivedAmount','balance'].includes(col.key)) { row[col.label] = o[col.key] || 0; return }
+        if (col.key === 'percentReceived') { row[col.label] = `${o[col.key] || 0}%`; return }
+        row[col.label] = o[col.key] || ''
+      })
+      return row
+    })
+    const headers = Object.keys(exportData[0] || {})
+    // Preview window with download button
+    let html = `<html><head><title>Complete Download - Completed Orders</title><style>
+      body { font-family: Arial, sans-serif; margin: 10px; font-size: 9px; }
+      h2 { text-align: center; font-size: 14px; margin-bottom: 4px; }
+      .subtitle { text-align: center; font-size: 11px; color: #555; margin-bottom: 10px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #333; padding: 3px 5px; text-align: center; font-size: 8px; word-wrap: break-word; }
+      th { background: #FFD700; font-weight: bold; font-size: 9px; }
+      tr:nth-child(even) { background: #f9f9f9; }
+      .no-print { text-align: center; margin: 12px 0; }
+      .no-print button { padding: 10px 24px; font-size: 14px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin: 0 8px; }
+      .dl-btn { background: #27ae60; color: #fff; }
+      .cancel-btn { background: #eee; color: #333; }
+    </style></head><body>`
+    html += `<div class="no-print"><button class="dl-btn" id="dlBtn">Download Excel</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span style="margin-left:16px;font-size:13px;font-weight:600;color:#555">Total Rows: ${exportData.length}</span></div>`
+    html += `<h2>OMS - Prestair Systems LLP</h2>`
+    html += `<p class="subtitle">Completed / Deleted Orders — All Columns | ${exportData.length} records | ${new Date().toLocaleDateString('en-IN')}</p>`
+    html += `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
+    exportData.forEach(row => { html += `<tr>${headers.map(h => `<td>${row[h] ?? ''}</td>`).join('')}</tr>` })
+    html += `</tbody></table></body></html>`
+    const previewWin = window.open('', '_blank')
+    previewWin.document.write(html)
+    previewWin.document.close()
+    previewWin.document.getElementById('dlBtn').onclick = () => {
+      const ws = XLSX.utils.json_to_sheet(exportData)
+      ws['!cols'] = headers.map(key => {
+        let maxLen = key.length
+        exportData.forEach(row => { const val = String(row[key] ?? ''); if (val.length > maxLen) maxLen = val.length })
+        return { wch: Math.min(Math.max(maxLen + 2, 10), 40) }
+      })
+      const range = XLSX.utils.decode_range(ws['!ref'])
+      for (let r = range.s.r; r <= range.e.r; r++) {
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const addr = XLSX.utils.encode_cell({ r, c })
+          if (!ws[addr]) ws[addr] = { v: '', t: 's' }
+          if (!ws[addr].s) ws[addr].s = {}
+          ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
+          ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }
+          if (r === 0) {
+            ws[addr].s.font = { bold: true, sz: 11 }
+            ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } }
+          } else {
+            ws[addr].s.font = { sz: 10 }
+          }
+        }
+      }
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Completed Orders')
+      XLSX.writeFile(wb, `OMS_Completed_All_${new Date().toISOString().split('T')[0]}.xlsx`)
+      previewWin.close()
+    }
+  }
+
   const handleDeletedImport = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -1545,6 +1649,7 @@ function Dashboard() {
         <div style={{ padding: '0 24px' }}>
           {isAdmin && (
             <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', justifyContent: 'flex-end' }}>
+              <button onClick={handleDeletedCompleteDownload} style={{ ...styles.actionBtn, background: '#1a1a2e' }}>Complete Download</button>
               <button onClick={handleDeletedExport} style={{ ...styles.actionBtn, background: '#27ae60' }}>Download Excel</button>
               <button onClick={() => deletedFileInputRef.current.click()} style={{ ...styles.actionBtn, background: '#f39c12' }}>Import Excel</button>
               <input ref={deletedFileInputRef} type="file" accept=".xlsx,.xls" onChange={handleDeletedImport} style={{ display: 'none' }} />
