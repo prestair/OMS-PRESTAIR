@@ -276,6 +276,16 @@ router.post('/return-requests', async (req, res) => {
   res.json(data[0])
 })
 
+router.post('/return-requests/:id/accept', async (req, res) => {
+  const { data: reqs } = await supabase.from('return_requests').select('*').eq('id', parseInt(req.params.id))
+  if (!reqs?.length) return res.status(404).json({ error: 'Not found' })
+  await supabase.from('return_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString() }).eq('id', parseInt(req.params.id))
+  // Paper wapas aa gaya — saare ACCEPTED paper_requests RETURNED mark karo
+  await supabase.from('paper_requests').update({ status: 'RETURNED' }).eq('order_no', reqs[0].order_no).eq('status', 'ACCEPTED')
+  await supabase.from('orders').update({ or_recvd: 'Paper Received' }).eq('order_no', reqs[0].order_no)
+  res.json({ message: 'Accepted' })
+})
+
 router.post('/return-requests/:id/reject', async (req, res) => {
   const { remarks } = req.body
   await supabase.from('return_requests').update({ status: 'REJECTED', rejected_by: req.user.username, rejected_at: new Date().toISOString(), reject_remarks: remarks || '' }).eq('id', parseInt(req.params.id))
