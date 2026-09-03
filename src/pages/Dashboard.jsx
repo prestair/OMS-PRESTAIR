@@ -756,7 +756,7 @@ function Dashboard() {
         alert('Import failed: ' + (err.response?.data?.error || err.message))
       }
     }
-    reader.readAsBinary(file)
+    reader.readAsBinaryString(file)
     e.target.value = ''
   }
 
