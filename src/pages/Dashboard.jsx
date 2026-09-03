@@ -1601,7 +1601,6 @@ function Dashboard() {
                       <div style={styles.filterDropdownHeader}>
                         <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: {col.label}</span>
                         <button onClick={() => clearFilter(col.key)} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
-                        <button onClick={() => setOpenFilter(null)} style={{ fontSize: '10px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '3px', padding: '2px 8px', cursor: 'pointer', fontWeight: '600' }}>Done</button>
                       </div>
                       <div style={styles.filterOptions}>
                         {getUniqueValues(col.key).map(val => (
@@ -1611,6 +1610,7 @@ function Dashboard() {
                           </label>
                         ))}
                       </div>
+                      <button onClick={() => setOpenFilter(null)} style={styles.filterDoneBtn}>Done</button>
                     </div>
                   )}
                 </th>
@@ -1785,10 +1785,7 @@ function Dashboard() {
                           <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
                             <div style={styles.filterDropdownHeader}>
                               <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: {col.label}</span>
-                              <div style={{ display: 'flex', gap: '6px' }}>
-                                <button onClick={() => { setDeletedColumnFilters(prev => { const { [col.key]: _, ...rest } = prev; return rest }); setDeletedOpenFilter(null) }} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
-                                <button onClick={() => setDeletedOpenFilter(null)} style={{ fontSize: '10px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '3px', padding: '2px 8px', cursor: 'pointer', fontWeight: '600' }}>Done</button>
-                              </div>
+                              <button onClick={() => { setDeletedColumnFilters(prev => { const { [col.key]: _, ...rest } = prev; return rest }); setDeletedOpenFilter(null) }} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
                             </div>
                             <div style={styles.filterOptions}>
                               {uniqueVals.map(val => (
@@ -1805,6 +1802,7 @@ function Dashboard() {
                                 </label>
                               ))}
                             </div>
+                            <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneBtn}>Done</button>
                           </div>
                         )}
                         {deletedOpenFilter === col.key && col.key === 'deletedOn' && (
@@ -2925,7 +2923,10 @@ const styles = {
   thContent: { display: 'flex', alignItems: 'center', gap: '4px' },
   filterBtn: { padding: '2px 5px', border: 'none', borderRadius: '3px', color: '#fff', fontSize: '8px', cursor: 'pointer' },
   filterDropdown: { position: 'absolute', top: '100%', left: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '8px', minWidth: '180px', maxWidth: '250px', zIndex: 100, display: 'flex', flexDirection: 'column', maxHeight: '280px' },
-                  filterDropdownHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', paddingBottom: '4px', borderBottom: '1px solid #eee', flexShrink: 0 },
+  filterDropdownHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', paddingBottom: '4px', borderBottom: '1px solid #eee', flexShrink: 0 },
+  filterOptions: { maxHeight: '180px', minHeight: '40px', overflowY: 'auto', flex: '1' },
+  filterOption: { display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', cursor: 'pointer', color: '#333' },
+  filterDoneBtn: { marginTop: '6px', padding: '6px 12px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', width: '100%', flexShrink: 0, position: 'sticky', bottom: 0 },
   td: { padding: '8px', borderBottom: '1px solid #eee', borderRight: '1px solid #f0f0f0', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' },
   trEven: { background: '#fff' },
   trOdd: { background: '#f8f9fa' },
