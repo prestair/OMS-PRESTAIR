@@ -327,7 +327,8 @@ router.post('/return-requests', async (req, res) => {
   }
 
   const holder = acceptedReqs[0].issue_to
-  if (holder !== req.user.username) {
+  const requester = acceptedReqs[0].requested_by
+  if (holder !== req.user.username && requester !== req.user.username) {
     return res.status(400).json({ error: `Order ${orderNo} paper is with ${holder.toUpperCase()}, only they can submit a return request` })
   }
 

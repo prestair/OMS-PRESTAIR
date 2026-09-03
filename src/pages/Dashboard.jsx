@@ -2406,7 +2406,7 @@ function Dashboard() {
                       errors.push(`${on}: Not currently issued to anyone`)
                       continue
                     }
-                    if (accepted.issueTo !== user.username) {
+                    if (accepted.issueTo !== user.username && accepted.requestedBy !== user.username) {
                       errors.push(`${on}: Paper is with ${(accepted.issueTo || '').toUpperCase()}, only they can return`)
                       continue
                     }
