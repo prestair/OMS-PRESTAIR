@@ -47,6 +47,7 @@ const ALL_COLUMNS = [
   { key: 'akhilSirAudit', label: 'Akhil Sir Audit' },
   { key: 'remarks', label: 'Audit Remarks' },
   { key: 'advanceBill', label: 'Advance Bill' },
+  { key: 'advanceBillRemarks', label: 'Advance Bill Remarks' },
   { key: 'orRecvd', label: 'OR Recvd' }
 ]
 
@@ -574,6 +575,9 @@ function Dashboard() {
       'Total Amount': o.totalAmount || 0,
       'Received': o.receivedAmount || 0,
       'Balance': o.balance || 0,
+      'Akhil Sir Audit': o.akhilSirAudit || '',
+      'Advance Bill': o.advanceBill || '',
+      'Advance Bill Remarks': o.advanceBillRemarks || '',
       'Deleted By': o.deletedBy || '',
       'Deleted On': o.deletedAt ? (() => { const d = new Date(o.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''
     }))
@@ -617,6 +621,7 @@ function Dashboard() {
       { key: 'akhilSirAudit', label: 'Akhil Sir Audit' },
       { key: 'remarks', label: 'Audit Remarks' },
       { key: 'advanceBill', label: 'Advance Bill' },
+      { key: 'advanceBillRemarks', label: 'Advance Bill Remarks' },
       { key: 'orRecvd', label: 'OR Recvd' },
       { key: 'deletedBy', label: 'Deleted By' },
       { key: 'deletedOn', label: 'Deleted On' },
@@ -739,6 +744,7 @@ function Dashboard() {
         remarks: row['Audit Remarks'] || row['Remarks'] || '',
         akhilSirAudit: row['Akhil Sir Audit'] || '',
         advanceBill: row['Advance Bill'] || '',
+        advanceBillRemarks: row['Advance Bill Remarks'] || '',
         orRecvd: row['OR Recvd'] || '',
         deletedBy: row['Deleted By'] || '',
         deletedOn: convertDate(row['Deleted On'] || row['DELETED ON'] || ''),
@@ -817,6 +823,7 @@ function Dashboard() {
         remarks: row['Audit Remarks'] || row['Remarks'] || '',
         akhilSirAudit: row['Akhil Sir Audit'] || row['AKHIL SIR\nAUDIT'] || row['AKHIL SIR AUDIT'] || '',
         advanceBill: row['Advance Bill'] || row['ADVANCE BILL'] || '',
+        advanceBillRemarks: row['Advance Bill Remarks'] || '',
         orRecvd: row['OR Recvd'] || row['OR RECVD /NOT RECVD'] || ''
       }})
       try {
@@ -910,9 +917,9 @@ function Dashboard() {
     }
     if (dailyFilter && dailyFilterValue.length > 0) {
       filtered = filtered.filter(o => {
-        const val = String(o[dailyFilter] || '').trim()
+        const val = String(o[dailyFilter] || '').trim().replace(/\s+/g, ' ')
         if (dailyFilterValue.includes('__blank__') && val === '') return true
-        return dailyFilterValue.includes(val)
+        return dailyFilterValue.some(fv => fv.trim().replace(/\s+/g, ' ') === val)
       })
     }
     if (dailyFilter === 'sectionDrawing' && dailyLopFilter.length > 0) {
@@ -1050,6 +1057,7 @@ function Dashboard() {
       if (dailyFilter === 'sectionDrawing') row['LOP'] = o.lop || ''
       if (dailyFilter === 'sectionDrawing') row['SD Remarks'] = o.sectionDrawingRemarks || ''
       if (dailyFilter === 'advanceBill') row['Akhil Sir Audit'] = o.akhilSirAudit || ''
+      if (dailyFilter === 'advanceBill') row['Advance Bill Remarks'] = o.advanceBillRemarks || ''
       if (dailyFilter === 'akhilSirAudit') row['Audit Remarks'] = o.remarks || ''
       if (dailyFilter === 'percentReceived') { row['Total Amount'] = o.totalAmount || 0; row['Received'] = o.receivedAmount || 0; row['Balance'] = (o.totalAmount || 0) - (o.receivedAmount || 0) }
       if (dailyFilter === 'photography') row['Photo Remarks'] = o.photographyRemarks || ''
@@ -1271,7 +1279,7 @@ function Dashboard() {
     if (dailyFilter === 'installationStatus') html += `<th>Inst. Remarks</th>`
     if (dailyFilter === 'sectionDrawing') html += `<th>LOP</th>`
     if (dailyFilter === 'sectionDrawing') html += `<th>SD Remarks</th>`
-    if (dailyFilter === 'advanceBill') html += `<th>Akhil Sir Audit</th>`
+    if (dailyFilter === 'advanceBill') html += `<th>Akhil Sir Audit</th><th>Advance Bill Remarks</th>`
     if (dailyFilter === 'akhilSirAudit') html += `<th>Audit Remarks</th>`
     if (dailyFilter === 'percentReceived') html += `<th>Total Amount</th><th>Received</th><th>Balance</th>`
     if (dailyFilter === 'photography') html += `<th>Photo Remarks</th>`
@@ -1285,7 +1293,7 @@ function Dashboard() {
       if (dailyFilter === 'installationStatus') html += `<td>${o.installationRemarks || ''}</td>`
       if (dailyFilter === 'sectionDrawing') html += `<td>${o.lop || ''}</td>`
       if (dailyFilter === 'sectionDrawing') html += `<td>${o.sectionDrawingRemarks || ''}</td>`
-      if (dailyFilter === 'advanceBill') html += `<td>${o.akhilSirAudit || ''}</td>`
+      if (dailyFilter === 'advanceBill') html += `<td>${o.akhilSirAudit || ''}</td><td>${o.advanceBillRemarks || ''}</td>`
       if (dailyFilter === 'akhilSirAudit') html += `<td>${o.remarks || ''}</td>`
       if (dailyFilter === 'percentReceived') html += `<td>${(o.totalAmount || 0).toLocaleString('en-IN')}</td><td>${(o.receivedAmount || 0).toLocaleString('en-IN')}</td><td>${((o.totalAmount || 0) - (o.receivedAmount || 0)).toLocaleString('en-IN')}</td>`
       if (dailyFilter === 'photography') html += `<td>${o.photographyRemarks || ''}</td>`

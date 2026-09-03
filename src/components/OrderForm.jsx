@@ -31,6 +31,7 @@ const FIELDS = [
   { key: 'akhilSirAudit', label: 'Akhil Sir Audit' },
   { key: 'remarks', label: 'Audit Remarks' },
   { key: 'advanceBill', label: 'Advance Bill' },
+  { key: 'advanceBillRemarks', label: 'Advance Bill Remarks' },
   { key: 'orRecvd', label: 'OR Recvd' },
   { key: 'photography', label: 'Photography' },
   { key: 'photographyRemarks', label: 'Photography Remarks' },
@@ -215,7 +216,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
               const newOrderDisabledFields = ['installation','photography','photographyRemarks','siteVideo','siteVideoRemarks','review','reviewRemarks','inProduction','akhilSirAudit','remarks','installationStatus','installationRemarks']
               const isNewOrderLocked = !order && newOrderDisabledFields.includes(field.key)
               const editable = !order ? (!isOrderNoLocked && !isDateLocked && !isNewOrderLocked) : (isDeleted ? (isAdmin && !isOrderNoLocked) : (canEditColumn(field.key) && !isOrderNoLocked && !isDateLocked))
-              const isDropdown = field.key === 'photography' || field.key === 'siteVideo' || field.key === 'review' || field.key === 'status' || field.key === 'installation'
+              const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit'].includes(field.key)
               return (
                 <div key={field.key} style={styles.field}>
                   <label style={styles.label}>{field.label}</label>
@@ -238,6 +239,34 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
                           <option value="">-- Select --</option>
                           <option value="YES">YES</option>
                           <option value="NO">NO</option>
+                        </>
+                      ) : field.key === 'inProduction' ? (
+                        <>
+                          <option value="">-- Select --</option>
+                          <option value="DONE">DONE</option>
+                          <option value="ISSUE">ISSUE</option>
+                        </>
+                      ) : field.key === 'akhilSirAudit' ? (
+                        <>
+                          <option value="">-- Select --</option>
+                          <option value="APPROVED">APPROVED</option>
+                          <option value="ISSUE">ISSUE</option>
+                        </>
+                      ) : field.key === 'installationStatus' ? (
+                        <>
+                          <option value="">-- Select --</option>
+                          <option value="DONE">DONE</option>
+                          <option value="ISSUE">ISSUE</option>
+                          <option value="NR">NR</option>
+                          <option value="PENDING">PENDING</option>
+                        </>
+                      ) : ['siteVerification','sectionDrawing','lop'].includes(field.key) ? (
+                        <>
+                          <option value="">-- Select --</option>
+                          <option value="DONE">DONE</option>
+                          <option value="HOLD">HOLD</option>
+                          <option value="RE">RE</option>
+                          <option value="NR">NR</option>
                         </>
                       ) : (
                         <>
