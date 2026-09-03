@@ -209,6 +209,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
             }
           }
         }}>
+          <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
           <div style={styles.grid}>
             {visibleFields.map(field => {
               const isOrderNoLocked = field.key === 'orderNo' && !isAdmin
@@ -311,6 +312,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
             )}
             {proofPreview && <img src={proofPreview} alt="proof" style={{ marginTop: '8px', maxHeight: '80px', borderRadius: '4px', border: '1px solid #ddd' }} />}
           </div>
+          </div>{/* end scrollable */}
           {error && <p style={styles.error}>{error}</p>}
           <div style={styles.actions}>
             <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
@@ -327,19 +329,19 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
 
 const styles = {
   overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-  modal: { background: '#fff', borderRadius: '12px', padding: '24px 28px', width: '100%', maxWidth: '95vw', maxHeight: '95vh', position: 'relative', overflow: 'hidden' },
+  modal: { background: '#fff', borderRadius: '12px', padding: '24px 28px', width: '100%', maxWidth: '95vw', maxHeight: '95vh', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' },
   watermark: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundImage: 'url(https://prestairsystems.com/wp-content/uploads/2023/09/DSC_2608-scaled.jpg)', backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.08, zIndex: 1 },
-  modalInner: { position: 'relative', zIndex: 2 },
-  modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' },
+  modalInner: { position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' },
+  modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexShrink: 0 },
   closeBtn: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', fontWeight: '700' },
-  form: { display: 'flex', flexDirection: 'column', gap: '10px' },
+  form: { display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, overflow: 'hidden' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' },
   field: { display: 'flex', flexDirection: 'column', gap: '2px' },
   label: { fontSize: '10px', fontWeight: '600', color: '#555' },
   input: { padding: '6px 8px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '12px', outline: 'none', textTransform: 'uppercase' },
   inputDisabled: { background: '#f0f0f0', color: '#888', cursor: 'not-allowed' },
-  error: { color: '#e74c3c', fontSize: '12px', margin: 0 },
-  actions: { display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' },
+  error: { color: '#e74c3c', fontSize: '12px', margin: 0, flexShrink: 0 },
+  actions: { display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px', flexShrink: 0, paddingTop: '8px', borderTop: '1px solid #eee', background: '#fff' },
   cancelBtn: { padding: '8px 18px', background: '#eee', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' },
   saveBtn: { padding: '8px 18px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }
 }

@@ -87,6 +87,8 @@ function Dashboard() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [columnFilters, setColumnFilters] = useState({})
   const [openFilter, setOpenFilter] = useState(null)
+  const openFilterRef = React.useRef(null)
+  const setOpenFilterWithRef = (val) => { openFilterRef.current = val; setOpenFilterWithRef(val) }
   const [showReminderForm, setShowReminderForm] = useState(null)
   const [showReminderPopup, setShowReminderPopup] = useState(true)
   const [paperIssuePopup, setPaperIssuePopup] = useState([])
@@ -341,7 +343,7 @@ function Dashboard() {
     }
 
     setFilteredOrders(result)
-    if (!openFilter) setActivePage(1)
+    if (!openFilterRef.current) setActivePage(1)
   }, [searchTerm, selectedOrders, orders, columnFilters, colorFilter])
 
   useEffect(() => {
@@ -1402,7 +1404,7 @@ function Dashboard() {
       const { [colKey]: _, ...rest } = prev
       return rest
     })
-    setOpenFilter(null)
+    setOpenFilterWithRef(null)
   }
 
   const displayedColumns = allowedColumns.filter(c => visibleColumns.includes(c.key))
@@ -1593,7 +1595,7 @@ function Dashboard() {
                 <th key={col.key} style={colStyle}>
                   <div style={styles.thContent}>
                     <span>{col.label}</span>
-                    <button onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: columnFilters[col.key] ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
+                    <button onClick={(e) => { e.stopPropagation(); setOpenFilterWithRef(openFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: columnFilters[col.key] ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
                   </div>
                   <div onMouseDown={(e) => handleColResize(e, col.key)} style={{ position:'absolute', right:0, top:0, bottom:0, width:'4px', cursor:'col-resize', background:'transparent' }} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.5)'} onMouseLeave={e=>e.target.style.background='transparent'} />
                   {openFilter === col.key && (
@@ -1610,7 +1612,7 @@ function Dashboard() {
                           </label>
                         ))}
                       </div>
-                      <button onClick={() => setOpenFilter(null)} style={styles.filterDoneBtn}>Done</button>
+                      <button onClick={() => setOpenFilterWithRef(null)} style={styles.filterDoneBtn}>Done</button>
                     </div>
                   )}
                 </th>
