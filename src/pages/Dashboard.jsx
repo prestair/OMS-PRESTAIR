@@ -2363,9 +2363,9 @@ function Dashboard() {
                 <button onClick={async () => {
                   if (!paperOrderNo.length || !paperIssueTo) { setPaperIssueError(!paperOrderNo.length ? 'Select Order No' : 'Select User'); return }
                   if (paperIssuing) return
-                  // Pre-check: koi order already pending/issued toh nahi hai
+                  // Pre-check: same user ka koi order already pending/issued toh nahi hai
                   const alreadyPending = paperOrderNo.filter(on => {
-                    return paperRequests.some(r => r.orderNo === on && (r.status === 'PENDING' || r.status === 'ACCEPTED'))
+                    return paperRequests.some(r => r.orderNo === on && r.requestedBy === user.username && (r.status === 'PENDING' || r.status === 'ACCEPTED'))
                   })
                   if (alreadyPending.length > 0) {
                     setPaperIssueError(`Already pending/issued: ${alreadyPending.join(', ')} — duplicate request blocked`)
