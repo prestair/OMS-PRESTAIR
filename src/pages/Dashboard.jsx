@@ -341,7 +341,7 @@ function Dashboard() {
     }
 
     setFilteredOrders(result)
-    setActivePage(1)
+    if (!openFilter) setActivePage(1)
   }, [searchTerm, selectedOrders, orders, columnFilters, colorFilter])
 
   useEffect(() => {
@@ -1604,7 +1604,7 @@ function Dashboard() {
                       </div>
                       <div style={styles.filterOptions}>
                         {getUniqueValues(col.key).map(val => (
-                          <label key={val} style={styles.filterOption}>
+                          <label key={val} style={styles.filterOption} onMouseDown={e => e.preventDefault()}>
                             <input type="checkbox" checked={(columnFilters[col.key] || []).includes(val)} onChange={() => toggleFilterValue(col.key, val)} />
                             <span style={{ fontSize: '11px' }}>{val.length > 30 ? val.substring(0, 30) + '...' : val}</span>
                           </label>
@@ -1789,7 +1789,7 @@ function Dashboard() {
                             </div>
                             <div style={styles.filterOptions}>
                               {uniqueVals.map(val => (
-                                <label key={val} style={styles.filterOption}>
+                                <label key={val} style={styles.filterOption} onMouseDown={e => e.preventDefault()}>
                                   <input type="checkbox" checked={(deletedColumnFilters[col.key] || []).includes(val)} onChange={() => {
                                     setDeletedColumnFilters(prev => {
                                       const current = prev[col.key] || []
