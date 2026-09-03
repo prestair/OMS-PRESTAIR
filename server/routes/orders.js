@@ -200,9 +200,11 @@ router.post('/paper-requests', async (req, res) => {
   if (acceptedReqs && acceptedReqs.length > 0) {
     const { data: returnAccepted } = await supabase.from('return_requests').select('*').eq('order_no', orderNo).eq('status', 'ACCEPTED')
     if (!returnAccepted || returnAccepted.length === 0) {
-      const issuedTo = acceptedReqs[0].requested_by || acceptedReqs[0].issue_to
+      const issuedTo = acceptedReqs[0].issue_to
       return res.status(400).json({ error: `Order ${orderNo} is already issued to ${issuedTo.toUpperCase()} (not returned yet)`, issuedTo: issuedTo, canReissue: true })
     }
+    // Return ho chuka hai — purane ACCEPTED records ko RETURNED mark karo
+    await supabase.from('paper_requests').update({ status: 'RETURNED' }).eq('order_no', orderNo).eq('status', 'ACCEPTED')
   }
   const { data: orders } = await supabase.from('orders').select('client').eq('order_no', orderNo)
   const client = orders?.[0]?.client || ''
