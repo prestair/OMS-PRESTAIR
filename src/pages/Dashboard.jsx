@@ -701,14 +701,30 @@ function Dashboard() {
           const d = new Date((val - 25569) * 86400 * 1000)
           return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
         }
-        return String(val)
+        const str = String(val).trim()
+        // DD/MM/YYYY already
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) return str
+        // Try parsing various formats: 11-Jun-26, 11-Jun-2026, 11/06/2026, 2026-06-11 etc
+        const months = { jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12 }
+        const mMatch = str.match(/^(\d{1,2})[-\/]([a-zA-Z]{3})[-\/](\d{2,4})$/)
+        if (mMatch) {
+          const day = mMatch[1].padStart(2,'0')
+          const mon = String(months[mMatch[2].toLowerCase()] || 1).padStart(2,'0')
+          const yr = mMatch[3].length === 2 ? '20' + mMatch[3] : mMatch[3]
+          return `${day}/${mon}/${yr}`
+        }
+        try {
+          const d = new Date(str)
+          if (!isNaN(d)) return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+        } catch {}
+        return str
       }
       const orders = data.map(row => ({
         date: convertDate(row['Date'] || row['DATE']),
         poNo: row['PO No'] || row['PO NO'] || '',
-        client: row['Client'] || row['CLIENT'] || '',
+        client: String(row['Client'] || row['CLIENT'] || '').replace(/\n/g, ' ').trim(),
         orderNo: row['Order No'] || row['ORDER NO'] || '',
-        customerName: row['Customer Name'] || row['CUSTOMER NAME'] || '',
+        customerName: String(row['Customer Name'] || row['CUSTOMER NAME'] || '').replace(/\n/g, ' ').trim(),
         gst: row['GST'] || '',
         photography: row['Photography'] || '',
         siteVideo: row['Site Video'] || '',
@@ -723,7 +739,9 @@ function Dashboard() {
         remarks: row['Audit Remarks'] || row['Remarks'] || '',
         akhilSirAudit: row['Akhil Sir Audit'] || '',
         advanceBill: row['Advance Bill'] || '',
-        orRecvd: row['OR Recvd'] || ''
+        orRecvd: row['OR Recvd'] || '',
+        deletedBy: row['Deleted By'] || '',
+        deletedOn: convertDate(row['Deleted On'] || row['DELETED ON'] || ''),
       }))
       try {
         const res = await axios.post('/api/orders/deleted/import', { orders })
