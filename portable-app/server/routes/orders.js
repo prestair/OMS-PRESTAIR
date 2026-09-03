@@ -282,6 +282,8 @@ router.post('/return-requests/:id/accept', async (req, res) => {
   await supabase.from('return_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString() }).eq('id', parseInt(req.params.id))
   // Paper wapas aa gaya — saare ACCEPTED paper_requests RETURNED mark karo
   await supabase.from('paper_requests').update({ status: 'RETURNED' }).eq('order_no', reqs[0].order_no).eq('status', 'ACCEPTED')
+  // Saari PENDING requests bhi cancel karo — paper ab kisi ke paas nahi hai
+  await supabase.from('paper_requests').update({ status: 'CANCELLED' }).eq('order_no', reqs[0].order_no).eq('status', 'PENDING')
   await supabase.from('orders').update({ or_recvd: 'Paper Received' }).eq('order_no', reqs[0].order_no)
   res.json({ message: 'Accepted' })
 })
