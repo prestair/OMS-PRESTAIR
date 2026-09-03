@@ -88,7 +88,7 @@ function Dashboard() {
   const [columnFilters, setColumnFilters] = useState({})
   const [openFilter, setOpenFilter] = useState(null)
   const openFilterRef = React.useRef(null)
-  const setOpenFilterWithRef = (val) => { openFilterRef.current = val; setOpenFilterWithRef(val) }
+  const setOpenFilterWithRef = (val) => { openFilterRef.current = val; setOpenFilter(val) }
   const [showReminderForm, setShowReminderForm] = useState(null)
   const [showReminderPopup, setShowReminderPopup] = useState(true)
   const [paperIssuePopup, setPaperIssuePopup] = useState([])
