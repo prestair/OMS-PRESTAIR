@@ -174,11 +174,12 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
   // Filter fields based on edit permission (for editing existing orders)
   // For new orders, admin can fill all; non-admin can fill only editable columns
   const getVisibleFields = () => {
-    if (isAdmin) return FIELDS
+    const newOrderDisabledFields = ['installation','photography','photographyRemarks','siteVideo','siteVideoRemarks','review','reviewRemarks','inProduction','akhilSirAudit','remarks','installationStatus','installationRemarks','advanceBill','advanceBillRemarks','siteVerification','siteVerificationRemarks','orRecvd','lop','sectionDrawing','sectionDrawingRemarks']
     if (!order) {
-      // New order: show all fields (user with Create Order right can fill everything)
-      return FIELDS
+      // New order: hide fields that should not be filled at entry time
+      return FIELDS.filter(f => !newOrderDisabledFields.includes(f.key))
     }
+    if (isAdmin) return FIELDS
     // Edit existing: show only fields user can edit
     return FIELDS.filter(f => canEditColumn(f.key))
   }
