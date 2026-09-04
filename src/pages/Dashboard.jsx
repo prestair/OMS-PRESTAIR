@@ -1276,7 +1276,7 @@ function Dashboard() {
     html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span id="pageInfo" style="margin-left:16px;font-size:13px;font-weight:600;color:#555"></span></div>`
     html += `<h2>OMS - Prestair Systems LLP</h2>`
     html += `<p class="subtitle">Daily Report | Filter: <strong>${filterLabel || 'None'}</strong> | Values: <strong>${selectedValues}</strong> | Date: ${new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric' })} | Layout: ${orientation.toUpperCase()}</p>`
-    html += `<table><thead><tr><th style="width:20px">#</th><th style="width:55px">Date</th><th>PO No</th><th>Client</th><th style="width:80px">Order No</th><th>GST</th><th style="width:50px">Follow Up</th>`
+    html += `<table><thead><tr><th style="width:20px">#</th><th style="width:55px">Date</th><th style="width:40px">PO No</th><th style="width:120px">Client</th><th style="width:80px">Order No</th><th style="width:35px">GST</th><th style="width:45px">Follow Up</th>`
     if (dailyFilter) html += `<th>${filterLabel}</th>`
     if (dailyFilter === 'siteVerification') html += `<th>SV Remarks</th>`
     if (dailyFilter === 'installationStatus') html += `<th>Inst. Remarks</th>`
