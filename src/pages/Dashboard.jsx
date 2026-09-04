@@ -1060,6 +1060,7 @@ function Dashboard() {
       if (dailyFilter === 'sectionDrawing') row['SD Remarks'] = o.sectionDrawingRemarks || ''
       if (dailyFilter === 'advanceBill') row['Akhil Sir Audit'] = o.akhilSirAudit || ''
       if (dailyFilter === 'advanceBill') row['Advance Bill Remarks'] = o.advanceBillRemarks || ''
+      if (dailyFilter === 'advanceBill') row['Audit Remarks'] = o.remarks || ''
       if (dailyFilter === 'akhilSirAudit') row['Audit Remarks'] = o.remarks || ''
       if (dailyFilter === 'percentReceived') { row['Total Amount'] = o.totalAmount || 0; row['Received'] = o.receivedAmount || 0; row['Balance'] = (o.totalAmount || 0) - (o.receivedAmount || 0) }
       if (dailyFilter === 'photography') row['Photo Remarks'] = o.photographyRemarks || ''
@@ -1281,7 +1282,7 @@ function Dashboard() {
     if (dailyFilter === 'installationStatus') html += `<th>Inst. Remarks</th>`
     if (dailyFilter === 'sectionDrawing') html += `<th>LOP</th>`
     if (dailyFilter === 'sectionDrawing') html += `<th>SD Remarks</th>`
-    if (dailyFilter === 'advanceBill') html += `<th>Akhil Sir Audit</th><th>Advance Bill Remarks</th>`
+    if (dailyFilter === 'advanceBill') html += `<th>Akhil Sir Audit</th><th>Advance Bill Remarks</th><th>Audit Remarks</th>`
     if (dailyFilter === 'akhilSirAudit') html += `<th>Audit Remarks</th>`
     if (dailyFilter === 'percentReceived') html += `<th>Total Amount</th><th>Received</th><th>Balance</th>`
     if (dailyFilter === 'photography') html += `<th>Photo Remarks</th>`
@@ -1295,7 +1296,7 @@ function Dashboard() {
       if (dailyFilter === 'installationStatus') html += `<td>${o.installationRemarks || ''}</td>`
       if (dailyFilter === 'sectionDrawing') html += `<td>${o.lop || ''}</td>`
       if (dailyFilter === 'sectionDrawing') html += `<td>${o.sectionDrawingRemarks || ''}</td>`
-      if (dailyFilter === 'advanceBill') html += `<td>${o.akhilSirAudit || ''}</td><td>${o.advanceBillRemarks || ''}</td>`
+      if (dailyFilter === 'advanceBill') html += `<td>${o.akhilSirAudit || ''}</td><td>${o.advanceBillRemarks || ''}</td><td>${o.remarks || ''}</td>`
       if (dailyFilter === 'akhilSirAudit') html += `<td>${o.remarks || ''}</td>`
       if (dailyFilter === 'percentReceived') html += `<td>${(o.totalAmount || 0).toLocaleString('en-IN')}</td><td>${(o.receivedAmount || 0).toLocaleString('en-IN')}</td><td>${((o.totalAmount || 0) - (o.receivedAmount || 0)).toLocaleString('en-IN')}</td>`
       if (dailyFilter === 'photography') html += `<td>${o.photographyRemarks || ''}</td>`
@@ -2409,6 +2410,8 @@ function Dashboard() {
                   {dailyFilter === 'sectionDrawing' && <th style={styles.th}>LOP</th>}
                   {dailyFilter === 'sectionDrawing' && <th style={styles.th}>SD Remarks</th>}
                   {dailyFilter === 'advanceBill' && <th style={styles.th}>Akhil Sir Audit</th>}
+                  {dailyFilter === 'advanceBill' && <th style={styles.th}>Advance Bill Remarks</th>}
+                  {dailyFilter === 'advanceBill' && <th style={styles.th}>Audit Remarks</th>}
                   {dailyFilter === 'akhilSirAudit' && <th style={styles.th}>Audit Remarks</th>}
                   {dailyFilter === 'percentReceived' && <th style={styles.th}>Total Amount</th>}
                   {dailyFilter === 'percentReceived' && <th style={styles.th}>Received</th>}
@@ -2440,6 +2443,8 @@ function Dashboard() {
                       {dailyFilter === 'sectionDrawing' && <td style={styles.td}>{o.lop}</td>}
                       {dailyFilter === 'sectionDrawing' && <td style={styles.td}>{o.sectionDrawingRemarks}</td>}
                       {dailyFilter === 'advanceBill' && <td style={styles.td}>{o.akhilSirAudit}</td>}
+                      {dailyFilter === 'advanceBill' && <td style={styles.td}>{o.advanceBillRemarks}</td>}
+                      {dailyFilter === 'advanceBill' && <td style={styles.td}>{o.remarks}</td>}
                       {dailyFilter === 'akhilSirAudit' && <td style={styles.td}>{o.remarks}</td>}
                       {dailyFilter === 'percentReceived' && <td style={styles.td}>{formatCurrency(o.totalAmount)}</td>}
                       {dailyFilter === 'percentReceived' && <td style={styles.td}>{formatCurrency(o.receivedAmount)}</td>}
