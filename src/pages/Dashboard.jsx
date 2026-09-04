@@ -1276,7 +1276,7 @@ function Dashboard() {
     html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span id="pageInfo" style="margin-left:16px;font-size:13px;font-weight:600;color:#555"></span></div>`
     html += `<h2>OMS - Prestair Systems LLP</h2>`
     html += `<p class="subtitle">Daily Report | Filter: <strong>${filterLabel || 'None'}</strong> | Values: <strong>${selectedValues}</strong> | Date: ${new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric' })} | Layout: ${orientation.toUpperCase()}</p>`
-    html += `<table><thead><tr><th style="width:20px">#</th><th style="width:55px">Date</th><th style="width:40px">PO No</th><th style="width:120px">Client</th><th style="width:80px">Order No</th><th style="width:35px">GST</th><th style="width:45px">Follow Up</th>`
+    html += `<table><thead><tr><th style="width:18px">#</th><th style="width:52px">Date</th><th style="width:32px">PO No</th><th style="min-width:110px">Client</th><th style="width:75px">Order No</th><th style="width:85px">GST</th><th style="width:42px">Follow Up</th>`
     if (dailyFilter) html += `<th>${filterLabel}</th>`
     if (dailyFilter === 'siteVerification') html += `<th>SV Remarks</th>`
     if (dailyFilter === 'installationStatus') html += `<th>Inst. Remarks</th>`
@@ -2397,13 +2397,13 @@ function Dashboard() {
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th style={{...styles.th, width:'30px', minWidth:'30px'}}>#</th>
-                  <th style={{...styles.th, width:'60px', minWidth:'60px'}}>Date</th>
-                  <th style={{...styles.th, width:'45px', minWidth:'45px'}}>PO No</th>
-                  <th style={{...styles.th, minWidth:'160px'}}>Client</th>
-                  <th style={{...styles.th, width:'90px', minWidth:'90px'}}>Order No</th>
-                  <th style={{...styles.th, width:'40px', minWidth:'40px'}}>GST</th>
-                  <th style={{...styles.th, width:'55px', minWidth:'55px'}}>Follow Up</th>
+                  <th style={{...styles.th, width:'25px', minWidth:'25px'}}>#</th>
+                  <th style={{...styles.th, width:'58px', minWidth:'58px'}}>Date</th>
+                  <th style={{...styles.th, width:'38px', minWidth:'38px'}}>PO No</th>
+                  <th style={{...styles.th, minWidth:'150px'}}>Client</th>
+                  <th style={{...styles.th, width:'85px', minWidth:'85px'}}>Order No</th>
+                  <th style={{...styles.th, width:'90px', minWidth:'90px'}}>GST</th>
+                  <th style={{...styles.th, width:'50px', minWidth:'50px'}}>Follow Up</th>
                   {dailyFilter && <th style={{...styles.th, ...(dailyFilter === 'photography' || dailyFilter === 'siteVideo' || dailyFilter === 'review' ? {width:'70px', minWidth:'70px'} : {})}}>{ALL_COLUMNS.find(c => c.key === dailyFilter)?.label}</th>}
                   {dailyFilter === 'siteVerification' && <th style={styles.th}>Site Verification Remarks</th>}
                   {dailyFilter === 'installationStatus' && <th style={styles.th}>Installation Remarks</th>}
