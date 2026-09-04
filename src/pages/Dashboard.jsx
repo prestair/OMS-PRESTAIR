@@ -2397,14 +2397,14 @@ function Dashboard() {
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th style={styles.th}>#</th>
-                  <th style={styles.th}>Date</th>
-                  <th style={styles.th}>PO No</th>
-                  <th style={styles.th}>Client</th>
-                  <th style={styles.th}>Order No</th>
-                  <th style={styles.th}>GST</th>
-                  <th style={styles.th}>Follow Up</th>
-                  {dailyFilter && <th style={styles.th}>{ALL_COLUMNS.find(c => c.key === dailyFilter)?.label}</th>}
+                  <th style={{...styles.th, width:'30px', minWidth:'30px'}}>#</th>
+                  <th style={{...styles.th, width:'60px', minWidth:'60px'}}>Date</th>
+                  <th style={{...styles.th, width:'45px', minWidth:'45px'}}>PO No</th>
+                  <th style={{...styles.th, minWidth:'160px'}}>Client</th>
+                  <th style={{...styles.th, width:'90px', minWidth:'90px'}}>Order No</th>
+                  <th style={{...styles.th, width:'40px', minWidth:'40px'}}>GST</th>
+                  <th style={{...styles.th, width:'55px', minWidth:'55px'}}>Follow Up</th>
+                  {dailyFilter && <th style={{...styles.th, ...(dailyFilter === 'photography' || dailyFilter === 'siteVideo' || dailyFilter === 'review' ? {width:'70px', minWidth:'70px'} : {})}}>{ALL_COLUMNS.find(c => c.key === dailyFilter)?.label}</th>}
                   {dailyFilter === 'siteVerification' && <th style={styles.th}>Site Verification Remarks</th>}
                   {dailyFilter === 'installationStatus' && <th style={styles.th}>Installation Remarks</th>}
                   {dailyFilter === 'sectionDrawing' && <th style={styles.th}>LOP</th>}
