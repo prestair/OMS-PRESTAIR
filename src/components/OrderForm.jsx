@@ -216,6 +216,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
               const isDateLocked = field.key === 'date' && !isAdmin && !order
               const newOrderDisabledFields = ['installation','photography','photographyRemarks','siteVideo','siteVideoRemarks','review','reviewRemarks','inProduction','akhilSirAudit','remarks','installationStatus','installationRemarks','advanceBill','advanceBillRemarks','siteVerification','siteVerificationRemarks','orRecvd','lop','sectionDrawing','sectionDrawingRemarks']
               const isNewOrderLocked = !order && newOrderDisabledFields.includes(field.key)
+              if (!order && isNewOrderLocked) return null
               const editable = !order ? (!isOrderNoLocked && !isDateLocked && !isNewOrderLocked) : (isDeleted ? (isAdmin && !isOrderNoLocked) : (canEditColumn(field.key) && !isOrderNoLocked && !isDateLocked))
               const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit','advanceBill'].includes(field.key)
               return (
