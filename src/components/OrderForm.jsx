@@ -214,10 +214,10 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
             {visibleFields.map(field => {
               const isOrderNoLocked = field.key === 'orderNo' && !isAdmin
               const isDateLocked = field.key === 'date' && !isAdmin && !order
-              const newOrderDisabledFields = ['installation','photography','photographyRemarks','siteVideo','siteVideoRemarks','review','reviewRemarks','inProduction','akhilSirAudit','remarks','installationStatus','installationRemarks']
+              const newOrderDisabledFields = ['installation','photography','photographyRemarks','siteVideo','siteVideoRemarks','review','reviewRemarks','inProduction','akhilSirAudit','remarks','installationStatus','installationRemarks','advanceBill','advanceBillRemarks','siteVerification','siteVerificationRemarks','orRecvd']
               const isNewOrderLocked = !order && newOrderDisabledFields.includes(field.key)
               const editable = !order ? (!isOrderNoLocked && !isDateLocked && !isNewOrderLocked) : (isDeleted ? (isAdmin && !isOrderNoLocked) : (canEditColumn(field.key) && !isOrderNoLocked && !isDateLocked))
-              const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit'].includes(field.key)
+              const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit','advanceBill'].includes(field.key)
               return (
                 <div key={field.key} style={styles.field}>
                   <label style={styles.label}>{field.label}</label>
@@ -252,6 +252,15 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
                           <option value="">-- Select --</option>
                           <option value="APPROVED">APPROVED</option>
                           <option value="ISSUE">ISSUE</option>
+                        </>
+                      ) : field.key === 'advanceBill' ? (
+                        <>
+                          <option value="">-- Select --</option>
+                          <option value="DONE">DONE</option>
+                          <option value="ISSUE">ISSUE</option>
+                          <option value="NAME">NAME</option>
+                          <option value="NR">NR</option>
+                          <option value="RE">RE</option>
                         </>
                       ) : field.key === 'installationStatus' ? (
                         <>
