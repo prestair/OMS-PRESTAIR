@@ -190,7 +190,7 @@ router.post('/paper-requests', async (req, res) => {
       // Check karo koi bhi return ACCEPTED hai
       const { data: returnAccepted } = await supabase.from('return_requests').select('*').eq('order_no', orderNo).eq('status', 'ACCEPTED')
       if (!returnAccepted || returnAccepted.length === 0) {
-        const issuedTo = accepted.issue_to
+        const issuedTo = accepted.requested_by || accepted.issue_to
         return res.status(400).json({ error: `Order ${orderNo} is already issued to ${issuedTo.toUpperCase()} (not returned yet)`, issuedTo, canReissue: true })
       }
       // Return ho chuka hai — purane ACCEPTED records ko RETURNED mark karo
@@ -291,7 +291,7 @@ router.post('/return-requests', async (req, res) => {
     return res.status(400).json({ error: `Order ${orderNo} is not currently issued to anyone` })
   }
 
-  const holder = acceptedReqs[0].issue_to
+  const holder = acceptedReqs[0].requested_by || acceptedReqs[0].issue_to
   const requester = acceptedReqs[0].requested_by
   if (holder !== req.user.username && requester !== req.user.username) {
     return res.status(400).json({ error: `Order ${orderNo} paper is with ${holder.toUpperCase()}, only they can submit a return request` })
