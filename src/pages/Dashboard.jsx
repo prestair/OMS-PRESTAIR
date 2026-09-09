@@ -2724,7 +2724,7 @@ function Dashboard() {
         rrs.forEach(r => {
           events.push({ type: 'RETURN', status: r.status, by: r.requestedBy || r.requested_by, to: r.returnTo || r.return_to, acceptedBy: r.acceptedBy || r.accepted_by, createdAt: r.createdAt || r.created_at, acceptedAt: r.acceptedAt || r.accepted_at, rejectRemarks: r.rejectRemarks || r.reject_remarks })
         })
-        events.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0))
+        events.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
         const fmt = (d) => d ? new Date(d).toLocaleString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '-'
         return (
         <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:1000}} onClick={()=>setOrHistoryPopup(null)}>
