@@ -143,6 +143,7 @@ function Dashboard() {
   const [paymentDateTo, setPaymentDateTo] = useState('')
   const [receiptDrillDown, setReceiptDrillDown] = useState(null)
   const [editHistoryPopup, setEditHistoryPopup] = useState(null)
+  const [orHistoryPopup, setOrHistoryPopup] = useState(null)
   const [showPrintDialog, setShowPrintDialog] = useState(false)
   const [allReminders, setAllReminders] = useState([])
   const [reassignId, setReassignId] = useState(null)
@@ -2458,7 +2459,7 @@ function Dashboard() {
                     <tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
                       <td style={styles.td}>{idx + 1}</td>
                       <td style={styles.td}>{formatDate(o.date)}</td>
-                      <td style={styles.td}>{o.orderNo}</td>
+                      <td style={styles.td}><span onClick={() => setOrHistoryPopup(o)} style={{ cursor: 'pointer', color: '#2980b9', fontWeight: '600', textDecoration: 'underline' }}>{o.orderNo}</span></td>
                       <td style={{...styles.td, textAlign:'left'}}>{o.client}</td>
                       <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-' })()}</td>
                       <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.requestedBy || pr.requested_by) : '-' })()}</td>
@@ -2709,6 +2710,63 @@ function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* OR Issue/Return History Popup */}
+      {orHistoryPopup && (() => {
+        const on = orHistoryPopup.orderNo
+        const prs = (paperRequests || []).filter(r => r.orderNo === on)
+        const rrs = (returnRequests || []).filter(r => r.orderNo === on)
+        // Build combined timeline
+        const events = []
+        prs.forEach(r => {
+          events.push({ type: 'ISSUE', status: r.status, by: r.requestedBy || r.requested_by, to: r.issueTo || r.issue_to, acceptedBy: r.acceptedBy || r.accepted_by, createdAt: r.createdAt || r.created_at, acceptedAt: r.acceptedAt || r.accepted_at, rejectRemarks: r.rejectRemarks || r.reject_remarks })
+        })
+        rrs.forEach(r => {
+          events.push({ type: 'RETURN', status: r.status, by: r.requestedBy || r.requested_by, to: r.returnTo || r.return_to, acceptedBy: r.acceptedBy || r.accepted_by, createdAt: r.createdAt || r.created_at, acceptedAt: r.acceptedAt || r.accepted_at, rejectRemarks: r.rejectRemarks || r.reject_remarks })
+        })
+        events.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0))
+        const fmt = (d) => d ? new Date(d).toLocaleString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '-'
+        return (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:1000}} onClick={()=>setOrHistoryPopup(null)}>
+          <div style={{background:'#fff',borderRadius:'10px',padding:'20px',maxWidth:'700px',width:'92%',maxHeight:'80vh',overflow:'auto'}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
+              <h3 style={{margin:0,fontSize:'14px'}}>OR History: {on}</h3>
+              <button onClick={()=>setOrHistoryPopup(null)} style={{background:'none',border:'none',fontSize:'18px',cursor:'pointer',fontWeight:'700'}}>X</button>
+            </div>
+            <p style={{fontSize:'11px',color:'#555',margin:'0 0 12px'}}>{orHistoryPopup.client}</p>
+            {events.length > 0 ? (
+              <div style={{fontSize:'11px'}}>
+                {events.map((ev, idx) => (
+                  <div key={idx} style={{padding:'8px 10px',marginBottom:'6px',background:ev.type==='RETURN'?'#eafaf1':'#f0f8ff',borderRadius:'6px',border:'1px solid #eee',borderLeft:`4px solid ${ev.type==='RETURN'?'#27ae60':'#2980b9'}`}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
+                      <span style={{fontWeight:'700',color:ev.type==='RETURN'?'#27ae60':'#2980b9'}}>{ev.type==='ISSUE'?'📤 ISSUED':'📥 RETURN'}</span>
+                      <span style={{padding:'1px 8px',borderRadius:'10px',fontSize:'9px',fontWeight:'600',background:ev.status==='ACCEPTED'?'#d4efdf':ev.status==='PENDING'?'#fcf3cf':'#fadbd8',color:ev.status==='ACCEPTED'?'#27ae60':ev.status==='PENDING'?'#f39c12':'#e74c3c'}}>{ev.status}</span>
+                    </div>
+                    {ev.type==='ISSUE' ? (
+                      <div style={{fontSize:'10px',color:'#333',lineHeight:'1.6'}}>
+                        <div>Requested by: <strong>{getFullName(ev.by)}</strong> → Issue to: <strong>{getFullName(ev.to)}</strong></div>
+                        <div>Requested on: {fmt(ev.createdAt)}</div>
+                        {ev.acceptedAt && <div>Issued/Accepted on: <strong>{fmt(ev.acceptedAt)}</strong> {ev.acceptedBy?`by ${getFullName(ev.acceptedBy)}`:''}</div>}
+                        {ev.rejectRemarks && ev.rejectRemarks !== 'REISSUE' && <div style={{color:'#e74c3c'}}>Remark: {ev.rejectRemarks}</div>}
+                      </div>
+                    ) : (
+                      <div style={{fontSize:'10px',color:'#333',lineHeight:'1.6'}}>
+                        <div>Returned by: <strong>{getFullName(ev.by)}</strong> → Return to: <strong>{getFullName(ev.to)}</strong></div>
+                        <div>Requested on: {fmt(ev.createdAt)}</div>
+                        {ev.acceptedAt && <div>Received on: <strong>{fmt(ev.acceptedAt)}</strong> {ev.acceptedBy?`by ${getFullName(ev.acceptedBy)}`:''}</div>}
+                        {ev.rejectRemarks && <div style={{color:'#e74c3c'}}>Remark: {ev.rejectRemarks}</div>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{textAlign:'center',color:'#888',padding:'20px',fontSize:'12px'}}>No issue/return history for this order</p>
+            )}
+          </div>
+        </div>
+        )
+      })()}
 
 
             {/* Paper Issue Pending Popup */}
