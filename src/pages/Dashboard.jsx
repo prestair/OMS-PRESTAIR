@@ -482,7 +482,7 @@ function Dashboard() {
       })
       const range = XLSX.utils.decode_range(ws['!ref'])
       const centerKeys = ['date','orderNo','photography','siteVideo','review','status','deliveryDate','customerName','gst','followUp','salesRep','deliveryAddress','phoneNo','siteVerification','installationStatus','installationRemarks','lop','sectionDrawing','inProduction','installation','totalAmount','receivedAmount','balance','percentReceived','daysToOrder','akhilSirAudit','advanceBill','orRecvd']
-      const centerCols = cols.map((col, idx) => centerKeys.includes(col.key) ? idx : -1).filter(i => i >= 0)
+      const clientColIdx = cols.map((col, idx) => col.key === 'client' ? idx : -1).filter(i => i >= 0)
       for (let r = range.s.r; r <= range.e.r; r++) {
         for (let c = range.s.c; c <= range.e.c; c++) {
           const addr = XLSX.utils.encode_cell({ r, c })
@@ -494,8 +494,9 @@ function Dashboard() {
             ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } }
             ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }
           } else {
-            ws[addr].s.alignment = { vertical: 'center', wrapText: true }
-            if (centerCols.includes(c)) ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }
+            // Client left-aligned, everything else centered
+            if (clientColIdx.includes(c)) ws[addr].s.alignment = { horizontal: 'left', vertical: 'center', wrapText: true }
+            else ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }
           }
         }
       }
@@ -703,7 +704,8 @@ function Dashboard() {
           if (!ws[addr]) ws[addr] = { v: '', t: 's' }
           if (!ws[addr].s) ws[addr].s = {}
           ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
-          ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }
+          const isClientCol = headers[c] === 'Client'
+          ws[addr].s.alignment = { horizontal: (r !== 0 && isClientCol) ? 'left' : 'center', vertical: 'center', wrapText: true }
           if (r === 0) {
             ws[addr].s.font = { bold: true, sz: 11 }
             ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } }
@@ -1333,8 +1335,9 @@ function Dashboard() {
       h2 { color: #1a1a2e; margin: 0 0 4px; font-size: 14px; }
       .subtitle { color: #555; font-size: 10px; margin: 2px 0 8px; }
       table { width: 100%; border-collapse: collapse; font-size: ${orientation === 'portrait' ? '8px' : '9px'}; border: 1px solid #333; table-layout: fixed; }
-      th { background: #FFD700; color: #000; padding: 4px 3px; text-align: left; font-weight: bold; border: 1px solid #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      td { padding: 3px 4px; border: 1px solid #999; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis; }
+      th { background: #FFD700; color: #000; padding: 4px 3px; text-align: center; font-weight: bold; border: 1px solid #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      td { padding: 3px 4px; border: 1px solid #999; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+      td.client-cell { text-align: left; }
       tr:nth-child(even) { background: #f5f5f5; }
       .footer { margin-top: 8px; font-size: 8px; color: #888; text-align: right; }
       .no-print { margin: 10px 0; text-align: center; }
@@ -1364,7 +1367,7 @@ function Dashboard() {
     filtered.forEach((o, idx) => {
       const isDel = printColorable && printDeletedIds.has(o.id)
       const rowBg = isDel ? ' style="background:#ffcccc"' : ''
-      html += `<tr${rowBg}><td>${idx + 1}</td><td>${formatDate(o.date)}</td><td>${o.poNo || ''}</td><td>${o.client || ''}</td><td>${o.orderNo || ''}</td><td>${o.gst || ''}</td><td>${o.followUp || ''}</td>`
+      html += `<tr${rowBg}><td>${idx + 1}</td><td>${formatDate(o.date)}</td><td>${o.poNo || ''}</td><td class="client-cell">${o.client || ''}</td><td>${o.orderNo || ''}</td><td>${o.gst || ''}</td><td>${o.followUp || ''}</td>`
       if (dailyFilter) html += `<td>${o[dailyFilter] || ''}</td>`
       if (dailyFilter === 'siteVerification') html += `<td>${o.siteVerificationRemarks || ''}</td>`
       if (dailyFilter === 'installationStatus') html += `<td>${o.installationRemarks || ''}</td>`
