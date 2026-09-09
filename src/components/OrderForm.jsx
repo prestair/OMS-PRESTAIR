@@ -228,7 +228,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
               const isNewOrderLocked = !order && newOrderDisabledFields.includes(field.key)
               if (!order && isNewOrderLocked) return null
               const editable = !order ? (!isOrderNoLocked && !isDateLocked && !isNewOrderLocked) : (isDeleted ? (isAdmin && !isOrderNoLocked) : (canEditColumn(field.key) && !isOrderNoLocked && !isDateLocked))
-              const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit','advanceBill'].includes(field.key)
+              const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit','advanceBill','orRecvd'].includes(field.key)
               return (
                 <div key={field.key} style={styles.field}>
                   <label style={styles.label}>{field.label}</label>
@@ -272,6 +272,12 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
                           <option value="NAME">NAME</option>
                           <option value="NR">NR</option>
                           <option value="RE">RE</option>
+                        </>
+                      ) : field.key === 'orRecvd' ? (
+                        <>
+                          <option value="">-- Select --</option>
+                          <option value="RECEIVED">RECEIVED</option>
+                          <option value="NOT RECEIVED">NOT RECEIVED</option>
                         </>
                       ) : field.key === 'installationStatus' ? (
                         <>
