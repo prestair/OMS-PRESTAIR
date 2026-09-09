@@ -112,12 +112,20 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
   const handleChange = (key, value) => {
     setForm(prev => {
       const updated = { ...prev, [key]: value }
-      // Update order number initials when sales rep changes
-      if (key === 'salesRep' && !order) {
-        const { fyStr, initials } = generateOrderNo(value)
+      // Update order number initials when sales rep changes (new order + edit)
+      if (key === 'salesRep') {
+        const rep = (value || '').trim().split(/\s+/)[0]
+        const initials = rep.substring(0, 2).toUpperCase()
         const currentNo = updated.orderNo || ''
-        const numPart = currentNo.replace(/OR\/\d{4}-\d{2}\//, '').split(' ')[0]
-        if (numPart) updated.orderNo = `OR/${fyStr}/${numPart} ${initials}`
+        // Preserve existing FY and number, only swap initials
+        const m = currentNo.match(/^(OR\/\d{4}-\d{2}\/)(\d+)/)
+        if (m) {
+          updated.orderNo = `${m[1]}${m[2]}${initials ? ' ' + initials : ''}`
+        } else if (!order) {
+          const { fyStr } = generateOrderNo(value)
+          const numPart = currentNo.replace(/OR\/\d{4}-\d{2}\//, '').split(' ')[0]
+          if (numPart) updated.orderNo = `OR/${fyStr}/${numPart}${initials ? ' ' + initials : ''}`
+        }
       }
       return updated
     })
