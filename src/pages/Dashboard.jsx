@@ -475,6 +475,7 @@ function Dashboard() {
     previewWin.document.getElementById('dlBtn').onclick = () => {
       const ws = XLSX.utils.json_to_sheet(exportData)
       ws['!cols'] = headers.map(key => {
+        if (key === 'Akhil Points') return { wch: 25 }
         let maxLen = key.length
         exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length })
         return { wch: Math.min(Math.max(maxLen + 2, 10), 40) }
@@ -690,6 +691,7 @@ function Dashboard() {
     previewWin.document.getElementById('dlBtn').onclick = () => {
       const ws = XLSX.utils.json_to_sheet(exportData)
       ws['!cols'] = headers.map(key => {
+        if (key === 'Akhil Points') return { wch: 25 }
         let maxLen = key.length
         exportData.forEach(row => { const val = String(row[key] ?? ''); if (val.length > maxLen) maxLen = val.length })
         return { wch: Math.min(Math.max(maxLen + 2, 10), 40) }
