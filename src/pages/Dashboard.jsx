@@ -1822,10 +1822,10 @@ function Dashboard() {
             <table style={styles.table}>
               <thead>
                 <tr onClick={() => setDeletedOpenFilter(null)}>
-                  <th style={{...styles.th, position:'sticky', left:0, zIndex:20, minWidth:'40px', background:'#1a1a2e'}}>#</th>
-                  <th style={{...styles.th, position:'sticky', left:'40px', zIndex:20, minWidth:'85px', background:'#1a1a2e'}}>Date</th>
-                  <th style={{...styles.th, position:'sticky', left:'125px', zIndex:20, minWidth:'85px', background:'#1a1a2e'}}>PO No</th>
-                  <th style={{...styles.th, position:'sticky', left:'210px', zIndex:20, minWidth:'160px', background:'#1a1a2e'}}>Order No</th>
+                  <th style={{...styles.th, position:'sticky', top:0, left:0, zIndex:25, minWidth:'40px', background:'#1a1a2e'}}>#</th>
+                  <th style={{...styles.th, position:'sticky', top:0, left:'40px', zIndex:25, minWidth:'85px', background:'#1a1a2e'}}>Date</th>
+                  <th style={{...styles.th, position:'sticky', top:0, left:'125px', zIndex:25, minWidth:'85px', background:'#1a1a2e'}}>PO No</th>
+                  <th style={{...styles.th, position:'sticky', top:0, left:'210px', zIndex:25, minWidth:'160px', background:'#1a1a2e'}}>Order No</th>
                   {[
                     { key: 'client', label: 'Client' },
                     { key: 'customerName', label: 'Customer' },
@@ -1849,7 +1849,7 @@ function Dashboard() {
                       return String(o[col.key] || '')
                     }).filter(Boolean))].sort() : []
                     return (
-                      <th key={col.key} style={{ ...styles.th, position: 'relative' }} onClick={e => e.stopPropagation()}>
+                      <th key={col.key} style={{ ...styles.th, position: 'sticky', top: 0, zIndex: 10 }} onClick={e => e.stopPropagation()}>
                         <div style={styles.thContent}>
                           <span>{col.label}</span>
                           {filterable && (
@@ -1902,7 +1902,7 @@ function Dashboard() {
                       </th>
                     )
                   })}
-                  {isAdmin && <th style={{...styles.th, position:'sticky', right:0, zIndex:20, minWidth:'220px', background:'#1a1a2e'}}>Action</th>}
+                  {isAdmin && <th style={{...styles.th, position:'sticky', top:0, right:0, zIndex:25, minWidth:'220px', background:'#1a1a2e'}}>Action</th>}
                 </tr>
               </thead>
               <tbody>
