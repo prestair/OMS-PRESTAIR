@@ -1090,7 +1090,9 @@ function Dashboard() {
       const exportData = orFiltered.map((o, idx) => {
         const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
         const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
-        return { '#': idx + 1, 'Date': formatDate(o.date), 'Order No': o.orderNo || '', 'Client': o.client || '', 'Issue Date': pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-', 'Issue To': pr ? getFullName(pr.requestedBy || pr.requested_by) : '-', 'Status': getRequestStatus(o.orderNo), 'Collected By': rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-', 'Return Date': rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' }
+        const stat = getRequestStatus(o.orderNo)
+        const isRecv = stat.toUpperCase() === 'RECEIVED'
+        return { '#': idx + 1, 'Date': formatDate(o.date), 'Order No': o.orderNo || '', 'Client': o.client || '', 'Issue Date': pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-', 'Issue To': pr ? getFullName(pr.requestedBy || pr.requested_by) : '-', 'Status': stat, 'Collected By': isRecv && rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-', 'Return Date': isRecv && rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' }
       })
       const headers = Object.keys(exportData[0] || {})
       let html = `<html><head><title>Excel Preview - OR Report</title><style>body{font-family:Arial,sans-serif;margin:10px;font-size:9px}h2{text-align:center;font-size:14px;margin-bottom:4px}.subtitle{text-align:center;font-size:11px;color:#555;margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:3px 5px;text-align:center;font-size:8px;word-wrap:break-word}th{background:#FFD700;font-weight:bold;font-size:9px}tr:nth-child(even){background:#f9f9f9}.no-print{text-align:center;margin:12px 0}.no-print button{padding:10px 24px;font-size:14px;font-weight:700;border:none;border-radius:6px;cursor:pointer;margin:0 8px}.dl-btn{background:#27ae60;color:#fff}.cancel-btn{background:#eee;color:#333}</style></head><body>`
@@ -1316,7 +1318,8 @@ function Dashboard() {
         const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
         const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
         const status = getRequestStatus(o.orderNo)
-        html += `<tr><td>${idx+1}</td><td>${formatDate(o.date)}</td><td>${o.orderNo||''}</td><td>${o.client||''}</td><td>${pr&&pr.acceptedAt?formatDate(pr.acceptedAt.split('T')[0]):pr&&pr.createdAt?formatDate(pr.createdAt.split('T')[0]):'-'}</td><td>${pr?getFullName(pr.requestedBy||pr.requested_by):'-'}</td><td>${status}</td><td>${rt?getFullName(rt.acceptedBy||rt.accepted_by):'-'}</td><td>${rt&&rt.acceptedAt?formatDate(rt.acceptedAt.split('T')[0]):'-'}</td></tr>`
+        const isReceived = status.toUpperCase() === 'RECEIVED'
+        html += `<tr><td>${idx+1}</td><td>${formatDate(o.date)}</td><td>${o.orderNo||''}</td><td>${o.client||''}</td><td>${pr&&pr.acceptedAt?formatDate(pr.acceptedAt.split('T')[0]):pr&&pr.createdAt?formatDate(pr.createdAt.split('T')[0]):'-'}</td><td>${pr?getFullName(pr.requestedBy||pr.requested_by):'-'}</td><td>${status}</td><td>${isReceived&&rt?getFullName(rt.acceptedBy||rt.accepted_by):'-'}</td><td>${isReceived&&rt&&rt.acceptedAt?formatDate(rt.acceptedAt.split('T')[0]):'-'}</td></tr>`
       })
       html += `</tbody></table></body></html>`
       const printWindow = window.open('', '_blank')
@@ -2460,8 +2463,8 @@ function Dashboard() {
                       <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-' })()}</td>
                       <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.requestedBy || pr.requested_by) : '-' })()}</td>
                       <td style={{ ...styles.td, fontWeight: '600', color: statusColor }}>{status}</td>
-                      <td style={styles.td}>{(() => { const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-' })()}</td>
-                      <td style={styles.td}>{(() => { const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' })()}</td>
+                      <td style={styles.td}>{(() => { if (status.toUpperCase() !== 'RECEIVED') return '-'; const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-' })()}</td>
+                      <td style={styles.td}>{(() => { if (status.toUpperCase() !== 'RECEIVED') return '-'; const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' })()}</td>
                     </tr>
                     )
                   })
