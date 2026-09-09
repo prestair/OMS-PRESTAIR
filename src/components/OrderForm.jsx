@@ -26,6 +26,7 @@ const FIELDS = [
   { key: 'sectionDrawingRemarks', label: 'SD Remarks' },
   { key: 'inProduction', label: 'In Production' },
   { key: 'installation', label: 'Seasonal Discount' },
+  { key: 'akhilPoints', label: 'Akhil Points' },
   { key: 'totalAmount', label: 'Total Amount', type: 'number' },
   { key: 'paymentRemarks', label: 'Payment Remarks' },
   { key: 'akhilSirAudit', label: 'Akhil Sir Audit' },
@@ -174,7 +175,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
   // Filter fields based on edit permission (for editing existing orders)
   // For new orders, admin can fill all; non-admin can fill only editable columns
   const getVisibleFields = () => {
-    const newOrderDisabledFields = ['installation','photography','photographyRemarks','siteVideo','siteVideoRemarks','review','reviewRemarks','inProduction','akhilSirAudit','remarks','installationStatus','installationRemarks','advanceBill','advanceBillRemarks','siteVerification','siteVerificationRemarks','orRecvd','lop','sectionDrawing','sectionDrawingRemarks']
+    const newOrderDisabledFields = ['installation','photography','photographyRemarks','siteVideo','siteVideoRemarks','review','reviewRemarks','inProduction','akhilSirAudit','remarks','installationStatus','installationRemarks','advanceBill','advanceBillRemarks','siteVerification','siteVerificationRemarks','orRecvd','lop','sectionDrawing','sectionDrawingRemarks','akhilPoints']
     if (!order) {
       // New order: hide fields that should not be filled at entry time
       return FIELDS.filter(f => !newOrderDisabledFields.includes(f.key))
@@ -215,7 +216,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
             {visibleFields.map(field => {
               const isOrderNoLocked = field.key === 'orderNo' && !isAdmin
               const isDateLocked = field.key === 'date' && !isAdmin && !order
-              const newOrderDisabledFields = ['installation','photography','photographyRemarks','siteVideo','siteVideoRemarks','review','reviewRemarks','inProduction','akhilSirAudit','remarks','installationStatus','installationRemarks','advanceBill','advanceBillRemarks','siteVerification','siteVerificationRemarks','orRecvd','lop','sectionDrawing','sectionDrawingRemarks']
+              const newOrderDisabledFields = ['installation','photography','photographyRemarks','siteVideo','siteVideoRemarks','review','reviewRemarks','inProduction','akhilSirAudit','remarks','installationStatus','installationRemarks','advanceBill','advanceBillRemarks','siteVerification','siteVerificationRemarks','orRecvd','lop','sectionDrawing','sectionDrawingRemarks','akhilPoints']
               const isNewOrderLocked = !order && newOrderDisabledFields.includes(field.key)
               if (!order && isNewOrderLocked) return null
               const editable = !order ? (!isOrderNoLocked && !isDateLocked && !isNewOrderLocked) : (isDeleted ? (isAdmin && !isOrderNoLocked) : (canEditColumn(field.key) && !isOrderNoLocked && !isDateLocked))

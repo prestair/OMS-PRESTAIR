@@ -113,7 +113,7 @@ router.post('/deleted/import', adminOnly, async (req, res) => {
       deliveryAddress: o.deliveryAddress || '', phoneNo: o.phoneNo || '',
       totalAmount: o.totalAmount || 0, receivedAmount: o.receivedAmount || 0, balance: o.balance || 0,
       paymentRemarks: o.paymentRemarks || '', remarks: o.remarks || '',
-      akhilSirAudit: o.akhilSirAudit || '', advanceBill: o.advanceBill || '', orRecvd: o.orRecvd || ''
+      akhilSirAudit: o.akhilSirAudit || '', advanceBill: o.advanceBill || '', akhilPoints: o.akhilPoints || '', orRecvd: o.orRecvd || ''
     }
     const { error } = await supabase.from('deleted_orders').insert({
       original_id: nextId + added,
@@ -561,7 +561,7 @@ function mapOrder(o) {
   const receivedAmt = parseFloat(o.received_amount) || 0
   const balance = totalAmt - receivedAmt
   const percentReceived = totalAmt ? parseFloat(((receivedAmt / totalAmt) * 100).toFixed(2)) : 0
-  return { id: o.id, date: o.date, poNo: o.po_no, client: o.client, orderNo: o.order_no, status: o.status, deliveryDate: o.delivery_date, deliveryRemarks: o.delivery_remarks, customerName: o.customer_name, gst: o.gst, billingAddress: o.billing_address, followUp: o.follow_up, salesRep: o.sales_rep, deliveryAddress: o.delivery_address, phoneNo: o.phone_no, siteVerification: o.site_verification, siteVerificationRemarks: o.site_verification_remarks, installationStatus: o.installation_status, installationRemarks: o.installation_remarks, lop: o.lop, sectionDrawing: o.section_drawing, sectionDrawingRemarks: o.section_drawing_remarks, inProduction: o.in_production, billing: o.billing, installation: o.installation, totalAmount: totalAmt, receivedAmount: receivedAmt, balance: balance, percentReceived: percentReceived, paymentRemarks: o.payment_remarks, paymentProofUrl: o.payment_proof_url, daysToOrder: o.days_to_order, remarks: o.remarks, akhilSirAudit: o.akhil_sir_audit, advanceBill: o.advance_bill, advanceBillRemarks: o.advance_bill_remarks, orRecvd: o.or_recvd, photography: o.photography, photographyRemarks: o.photography_remarks, siteVideo: o.site_video, siteVideoRemarks: o.site_video_remarks, review: o.review, reviewRemarks: o.review_remarks, rowColor: o.row_color || '', createdAt: o.created_at }
+  return { id: o.id, date: o.date, poNo: o.po_no, client: o.client, orderNo: o.order_no, status: o.status, deliveryDate: o.delivery_date, deliveryRemarks: o.delivery_remarks, customerName: o.customer_name, gst: o.gst, billingAddress: o.billing_address, followUp: o.follow_up, salesRep: o.sales_rep, deliveryAddress: o.delivery_address, phoneNo: o.phone_no, siteVerification: o.site_verification, siteVerificationRemarks: o.site_verification_remarks, installationStatus: o.installation_status, installationRemarks: o.installation_remarks, lop: o.lop, sectionDrawing: o.section_drawing, sectionDrawingRemarks: o.section_drawing_remarks, inProduction: o.in_production, billing: o.billing, installation: o.installation, akhilPoints: o.akhil_points, totalAmount: totalAmt, receivedAmount: receivedAmt, balance: balance, percentReceived: percentReceived, paymentRemarks: o.payment_remarks, paymentProofUrl: o.payment_proof_url, daysToOrder: o.days_to_order, remarks: o.remarks, akhilSirAudit: o.akhil_sir_audit, advanceBill: o.advance_bill, advanceBillRemarks: o.advance_bill_remarks, orRecvd: o.or_recvd, photography: o.photography, photographyRemarks: o.photography_remarks, siteVideo: o.site_video, siteVideoRemarks: o.site_video_remarks, review: o.review, reviewRemarks: o.review_remarks, rowColor: o.row_color || '', createdAt: o.created_at }
 }
 
 // Helper: map camelCase frontend data to snake_case for DB
@@ -592,6 +592,7 @@ function snakeOrder(o) {
   if (o.inProduction !== undefined) s.in_production = o.inProduction
   if (o.billing !== undefined) s.billing = o.billing
   if (o.installation !== undefined) s.installation = o.installation
+  if (o.akhilPoints !== undefined) s.akhil_points = o.akhilPoints
   if (o.totalAmount !== undefined) s.total_amount = parseFloat(o.totalAmount) || 0
   if (o.receivedAmount !== undefined) s.received_amount = parseFloat(o.receivedAmount) || 0
   if (o.balance !== undefined) s.balance = parseFloat(o.balance) || 0
