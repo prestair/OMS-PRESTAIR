@@ -170,7 +170,7 @@ router.post('/paper-requests', async (req, res) => {
   const { orderNo, issueTo } = req.body
   if (!orderNo || !issueTo) return res.status(400).json({ error: 'Order No and Issue To required' })
   const { data: pendingReturn } = await supabase.from('return_requests').select('*').eq('order_no', orderNo).eq('status', 'PENDING')
-  if (pendingReturn && pendingReturn.length > 0) return res.status(400).json({ error: `Order ${orderNo} has a PENDING return request. Please close (accept/reject) the return first.` })
+  if (pendingReturn && pendingReturn.length > 0) return res.status(400).json({ error: `${(pendingReturn[0].requested_by||'').toUpperCase()}'s return request is pending for ${orderNo}. Please close it first.` })
 
   // Single query — check PENDING or ACCEPTED in one shot to reduce race window
   const { data: existingReqs } = await supabase
@@ -211,7 +211,7 @@ router.post('/paper-requests/:id/accept', async (req, res) => {
   const { data: reqs } = await supabase.from('paper_requests').select('*').eq('id', parseInt(req.params.id))
   if (!reqs?.length) return res.status(404).json({ error: 'Not found' })
   const { data: pendRet } = await supabase.from('return_requests').select('*').eq('order_no', reqs[0].order_no).eq('status', 'PENDING')
-  if (pendRet && pendRet.length > 0) return res.status(400).json({ error: `Order ${reqs[0].order_no} has a PENDING return request. Close the return first.` })
+  if (pendRet && pendRet.length > 0) return res.status(400).json({ error: `${(pendRet[0].requested_by||'').toUpperCase()}'s return request is pending for ${reqs[0].order_no}. Please close it first.` })
   const request = reqs[0]
   if (request.reject_remarks === 'REISSUE') {
     await supabase.from('paper_requests').update({ status: `REISSUED TO ${request.requested_by.toUpperCase()}` }).eq('order_no', request.order_no).eq('status', 'ACCEPTED')
