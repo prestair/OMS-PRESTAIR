@@ -853,6 +853,25 @@ function Dashboard() {
         advanceBillRemarks: row['Advance Bill Remarks'] || '',
         orRecvd: row['OR Recvd'] || row['OR RECVD /NOT RECVD'] || ''
       }})
+      // Auto-assign sequential order numbers based on current FY (ignore Excel's order no)
+      const now = new Date()
+      const mm = now.getMonth() + 1
+      const fyStart = mm >= 4 ? now.getFullYear() : now.getFullYear() - 1
+      const fyStr = `${fyStart}-${String(fyStart + 1).slice(2)}`
+      const prefix = `OR/${fyStr}/`
+      let maxNum = 242
+      orders.forEach(o => {
+        if (o.orderNo && o.orderNo.startsWith(prefix)) {
+          const num = parseInt(o.orderNo.replace(prefix, '').split(' ')[0])
+          if (!isNaN(num) && num > maxNum) maxNum = num
+        }
+      })
+      mapped.forEach(o => {
+        maxNum++
+        const rep = (o.salesRep || '').trim().split(/\s+/)[0]
+        const initials = rep.substring(0, 2).toUpperCase()
+        o.orderNo = `${prefix}${maxNum}${initials ? ' ' + initials : ''}`
+      })
       try {
         const res = await axios.post('/api/orders/import', { orders: mapped, overwrite: false })
         if (res.data.duplicates && res.data.duplicates.length > 0) {
