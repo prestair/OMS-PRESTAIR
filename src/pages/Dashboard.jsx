@@ -343,6 +343,26 @@ function Dashboard() {
       result = result.filter(o => colorFilter.includes(o.rowColor))
     }
 
+    // Sort by financial year desc, then order number desc (keeps display sorted after import)
+    const getOrderParts = (orderNo) => {
+      if (!orderNo) return { fy: 0, num: 0 }
+      const parts = String(orderNo).split('/')
+      let fy = 0, num = 0
+      if (parts.length >= 3) {
+        const fyDigits = parts[1].match(/^(\d{4})/)
+        if (fyDigits) fy = parseInt(fyDigits[1])
+        const numDigits = parts[2].match(/^(\d+)/)
+        if (numDigits) num = parseInt(numDigits[1])
+      }
+      return { fy, num }
+    }
+    result = [...result].sort((a, b) => {
+      const pa = getOrderParts(a.orderNo)
+      const pb = getOrderParts(b.orderNo)
+      if (pb.fy !== pa.fy) return pb.fy - pa.fy
+      return pb.num - pa.num
+    })
+
     setFilteredOrders(result)
     if (!openFilterRef.current) setActivePage(1)
   }, [searchTerm, selectedOrders, orders, columnFilters, colorFilter])
