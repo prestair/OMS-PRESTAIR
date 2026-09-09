@@ -2728,7 +2728,7 @@ function Dashboard() {
                     </div>
                     {ev.type==='ISSUE' ? (
                       <div style={{fontSize:'10px',color:'#333',lineHeight:'1.6'}}>
-                        <div>Requested by: <strong>{getFullName(ev.by)}</strong> → Issued by: <strong>{getFullName(ev.to)}</strong></div>
+                        <div>Issued by: <strong>{getFullName(ev.to)}</strong> → Requested by: <strong>{getFullName(ev.by)}</strong></div>
                         <div>Requested on: {fmt(ev.createdAt)}</div>
                         {ev.acceptedAt && <div>Issued/Accepted on: <strong>{fmt(ev.acceptedAt)}</strong> {ev.acceptedBy?`by ${getFullName(ev.acceptedBy)}`:''}</div>}
                         {ev.rejectRemarks && ev.rejectRemarks !== 'REISSUE' && <div style={{color:'#e74c3c'}}>Remark: {ev.rejectRemarks}</div>}
