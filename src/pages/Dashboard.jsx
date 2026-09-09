@@ -1710,7 +1710,7 @@ function Dashboard() {
                   const isCenter = centerCols.includes(col.key)
                   const userW = colWidthOverrides[col.key]
                   return (
-                  <td key={col.key} style={{...styles.td, ...(isCenter?{textAlign:'center'}:{}), ...(userW ? {width: userW+'px', minWidth: userW+'px'} : {})}}>{getCellValue(order, col.key)}</td>
+                  <td key={col.key} style={{...styles.td, ...(col.key === 'client' || col.key === 'customerName' ? {textAlign:'left'} : {}), ...(userW ? {width: userW+'px', minWidth: userW+'px'} : {})}}>{getCellValue(order, col.key)}</td>
                   )
                 })}
                 <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: rowBg, minWidth:'260px', boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' }}>
@@ -1933,8 +1933,8 @@ function Dashboard() {
                     <td style={{...styles.td, position:'sticky', left:'40px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'85px'}}>{formatDate(order.date)}</td>
                     <td style={{...styles.td, position:'sticky', left:'125px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'85px'}}>{order.poNo}</td>
                     <td style={{...styles.td, position:'sticky', left:'210px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'160px'}}>{order.orderNo}</td>
-                    <td style={styles.td}>{order.client}</td>
-                    <td style={styles.td}>{order.customerName}</td>
+                    <td style={{...styles.td, textAlign:'left'}}>{order.client}</td>
+                    <td style={{...styles.td, textAlign:'left'}}>{order.customerName}</td>
                     <td style={styles.td}>{order.gst}</td>
                     <td style={styles.td}>{order.photography}</td>
                     <td style={styles.td}>{order.siteVideo}</td>
@@ -2007,13 +2007,13 @@ function Dashboard() {
               return (<>
                 {dueOrders.length > 0 ? (<><h4 style={{ margin: '0 0 6px', fontSize: '12px', color: '#f39c12' }}>Due in Next 2 Days ({dueOrders.length})</h4>
                 <div style={{ ...styles.tableWrap, marginBottom: '12px' }}><table style={styles.table}><thead><tr><th style={styles.th}>#</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th><th style={styles.th}>Customer</th><th style={styles.th}>Delivery Date</th><th style={styles.th}>Sales Rep</th><th style={styles.th}>Phone</th><th style={styles.th}>Delivery Address</th></tr></thead><tbody>
-                  {dueOrders.map((o, idx) => (<tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}><td style={styles.td}>{idx+1}</td><td style={styles.td}>{o.orderNo}</td><td style={styles.td}>{o.client}</td><td style={styles.td}>{o.customerName}</td><td style={styles.td}>{o.deliveryDate}</td><td style={styles.td}>{o.salesRep}</td><td style={styles.td}>{o.phoneNo}</td><td style={styles.td}>{o.deliveryAddress}</td></tr>))}
+                  {dueOrders.map((o, idx) => (<tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}><td style={styles.td}>{idx+1}</td><td style={styles.td}>{o.orderNo}</td><td style={{...styles.td, textAlign:'left'}}>{o.client}</td><td style={{...styles.td, textAlign:'left'}}>{o.customerName}</td><td style={styles.td}>{o.deliveryDate}</td><td style={styles.td}>{o.salesRep}</td><td style={styles.td}>{o.phoneNo}</td><td style={styles.td}>{o.deliveryAddress}</td></tr>))}
                 </tbody></table></div></>) : (!overdueOrders.length && <p style={{ color: '#888', fontSize: '13px' }}>No deliveries due in next 2 days</p>)}
                 {overdueOrders.length > 0 && (<><h4 style={{ margin: '0 0 6px', fontSize: '12px', color: '#e74c3c' }}>Overdue ({overdueOrders.length})</h4>
                 <div style={styles.tableWrap}><table style={styles.table}><thead><tr><th style={styles.th}>#</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th><th style={styles.th}>Delivery Date</th><th style={styles.th}>Days Overdue</th><th style={styles.th}>Sales Rep</th><th style={styles.th}>Phone</th></tr></thead><tbody>
                   {overdueOrders.sort((a,b) => parseDelDate(a.deliveryDate) - parseDelDate(b.deliveryDate)).map((o, idx) => {
                     const days = Math.ceil((today - parseDelDate(o.deliveryDate)) / (1000*60*60*24))
-                    return (<tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}><td style={styles.td}>{idx+1}</td><td style={styles.td}>{o.orderNo}</td><td style={styles.td}>{o.client}</td><td style={styles.td}>{o.deliveryDate}</td><td style={{...styles.td, color:'#e74c3c', fontWeight:'700'}}>{days} days</td><td style={styles.td}>{o.salesRep}</td><td style={styles.td}>{o.phoneNo}</td></tr>)
+                    return (<tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}><td style={styles.td}>{idx+1}</td><td style={styles.td}>{o.orderNo}</td><td style={{...styles.td, textAlign:'left'}}>{o.client}</td><td style={styles.td}>{o.deliveryDate}</td><td style={{...styles.td, color:'#e74c3c', fontWeight:'700'}}>{days} days</td><td style={styles.td}>{o.salesRep}</td><td style={styles.td}>{o.phoneNo}</td></tr>)
                   })}
                 </tbody></table></div></>)}
               </>)
@@ -2076,8 +2076,8 @@ function Dashboard() {
                         <td style={styles.td}>{idx + 1}</td>
                         <td style={styles.td}>{formatDate(o.date)}</td>
                         <td style={styles.td}>{o.orderNo}</td>
-                        <td style={styles.td}>{o.client}</td>
-                        <td style={styles.td}>{o.customerName}</td>
+                        <td style={{...styles.td, textAlign:'left'}}>{o.client}</td>
+                        <td style={{...styles.td, textAlign:'left'}}>{o.customerName}</td>
                         <td style={styles.td}>{o.deliveryDate}</td>
                         <td style={styles.td}>{formatCurrency(o.totalAmount)}</td>
                         <td style={styles.td}>{formatCurrency(o.receivedAmount)}</td>
@@ -2146,8 +2146,8 @@ function Dashboard() {
                           <td style={styles.td}>{idx + 1}</td>
                           <td style={styles.td}>{formatDate(o.date)}</td>
                           <td style={styles.td}>{o.orderNo}</td>
-                          <td style={styles.td}>{o.client}</td>
-                          <td style={styles.td}>{o.customerName}</td>
+                          <td style={{...styles.td, textAlign:'left'}}>{o.client}</td>
+                          <td style={{...styles.td, textAlign:'left'}}>{o.customerName}</td>
                           <td style={styles.td}>{o.salesRep}</td>
                           <td style={styles.td}>{formatCurrency(o.totalAmount)}</td>
                           <td style={styles.td}>{formatCurrency(o.receivedAmount)}</td>
@@ -2183,7 +2183,7 @@ function Dashboard() {
                     <tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
                       <td style={styles.td}>{idx + 1}</td>
                       <td style={styles.td}>{o.orderNo}</td>
-                      <td style={styles.td}>{o.client}</td>
+                      <td style={{...styles.td, textAlign:'left'}}>{o.client}</td>
                       <td style={styles.td}>{formatCurrency(o.totalAmount)}</td>
                       <td style={styles.td}>{formatCurrency(o.receivedAmount)}</td>
                       <td style={styles.td}>{formatCurrency(o.balance)}</td>
@@ -2456,7 +2456,7 @@ function Dashboard() {
                       <td style={styles.td}>{idx + 1}</td>
                       <td style={styles.td}>{formatDate(o.date)}</td>
                       <td style={styles.td}>{o.orderNo}</td>
-                      <td style={styles.td}>{o.client}</td>
+                      <td style={{...styles.td, textAlign:'left'}}>{o.client}</td>
                       <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-' })()}</td>
                       <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.requestedBy || pr.requested_by) : '-' })()}</td>
                       <td style={{ ...styles.td, fontWeight: '600', color: statusColor }}>{status}</td>
@@ -2511,7 +2511,7 @@ function Dashboard() {
                       <td style={styles.td}>{idx + 1}</td>
                       <td style={styles.td}>{formatDate(o.date)}</td>
                       <td style={styles.td}>{o.poNo}</td>
-                      <td style={styles.td}>{o.client}</td>
+                      <td style={{...styles.td, textAlign:'left'}}>{o.client}</td>
                       <td style={styles.td}>{o.orderNo}</td>
                       <td style={styles.td}>{o.gst}</td>
                       <td style={styles.td}>{o.followUp}</td>
@@ -3012,7 +3012,7 @@ const styles = {
   filterOptions: { maxHeight: '180px', minHeight: '40px', overflowY: 'auto', flex: '1' },
   filterOption: { display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', cursor: 'pointer', color: '#333' },
   filterDoneBtn: { marginTop: '6px', padding: '6px 12px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', width: '100%', flexShrink: 0, position: 'sticky', bottom: 0 },
-  td: { padding: '8px', borderBottom: '1px solid #eee', borderRight: '1px solid #f0f0f0', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' },
+  td: { padding: '8px', borderBottom: '1px solid #eee', borderRight: '1px solid #f0f0f0', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' },
   trEven: { background: '#fff' },
   trOdd: { background: '#f8f9fa' },
   tblBtn: { padding: '3px 6px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '3px', fontSize: '10px', cursor: 'pointer', marginRight: '3px' },
