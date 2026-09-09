@@ -2708,6 +2708,7 @@ function Dashboard() {
           events.push({ type: 'RETURN', status: r.status, by: r.requestedBy || r.requested_by, to: r.returnTo || r.return_to, acceptedBy: r.acceptedBy || r.accepted_by, createdAt: r.createdAt || r.created_at, acceptedAt: r.acceptedAt || r.accepted_at, rejectRemarks: r.rejectRemarks || r.reject_remarks })
         })
         events.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+        const trimmedEvents = events.slice(0, 12)
         const fmt = (d) => d ? new Date(d).toLocaleString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '-'
         return (
         <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:1000}} onClick={()=>setOrHistoryPopup(null)}>
@@ -2717,9 +2718,9 @@ function Dashboard() {
               <button onClick={()=>setOrHistoryPopup(null)} style={{background:'none',border:'none',fontSize:'18px',cursor:'pointer',fontWeight:'700'}}>X</button>
             </div>
             <p style={{fontSize:'11px',color:'#555',margin:'0 0 12px'}}>{orHistoryPopup.client}</p>
-            {events.length > 0 ? (
+            {trimmedEvents.length > 0 ? (
               <div style={{fontSize:'11px'}}>
-                {events.map((ev, idx) => (
+                {trimmedEvents.map((ev, idx) => (
                   <div key={idx} style={{padding:'8px 10px',marginBottom:'6px',background:ev.type==='RETURN'?'#eafaf1':'#f0f8ff',borderRadius:'6px',border:'1px solid #eee',borderLeft:`4px solid ${ev.type==='RETURN'?'#27ae60':'#2980b9'}`}}>
                     <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
                       <span style={{fontWeight:'700',color:ev.type==='RETURN'?'#27ae60':'#2980b9'}}>{ev.type==='ISSUE'?'📤 ISSUED':'📥 RETURN'}</span>
