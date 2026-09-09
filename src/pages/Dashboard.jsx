@@ -1071,7 +1071,8 @@ function Dashboard() {
     const filtered = getDailyFilteredData()
     const filterLabel = dailyFilter ? ALL_COLUMNS.find(c => c.key === dailyFilter)?.label : ''
     const excelDeletedIds = new Set(deletedOrders.map(d => d.id))
-    const deletedRowFlags = filtered.map(o => excelDeletedIds.has(o.id) || (o.deletedBy !== undefined))
+    const excelColorable = dailyFilter === 'photography' || dailyFilter === 'siteVideo' || dailyFilter === 'review'
+    const deletedRowFlags = filtered.map(o => excelColorable && excelDeletedIds.has(o.id))
     const exportData = filtered.map((o, idx) => {
       const row = { '#': idx + 1, 'Date': formatDate(o.date), 'PO No': o.poNo || '', 'Client': o.client || '', 'Order No': o.orderNo || '', 'GST': o.gst || '', 'Follow Up': o.followUp || '' }
       if (dailyFilter) row[filterLabel] = o[dailyFilter] || ''
@@ -1313,8 +1314,9 @@ function Dashboard() {
     if (dailyFilter === 'review') html += `<th>Review Remarks</th>`
     html += `</tr></thead><tbody>`
     const printDeletedIds = new Set(deletedOrders.map(d => d.id))
+    const printColorable = dailyFilter === 'photography' || dailyFilter === 'siteVideo' || dailyFilter === 'review'
     filtered.forEach((o, idx) => {
-      const isDel = printDeletedIds.has(o.id) || (o.deletedBy !== undefined)
+      const isDel = printColorable && printDeletedIds.has(o.id)
       const rowBg = isDel ? ' style="background:#ffcccc"' : ''
       html += `<tr${rowBg}><td>${idx + 1}</td><td>${formatDate(o.date)}</td><td>${o.poNo || ''}</td><td>${o.client || ''}</td><td>${o.orderNo || ''}</td><td>${o.gst || ''}</td><td>${o.followUp || ''}</td>`
       if (dailyFilter) html += `<td>${o[dailyFilter] || ''}</td>`
@@ -2451,8 +2453,9 @@ function Dashboard() {
                 {(() => {
                   const filtered = getDailyFilteredData()
                   const deletedIds = new Set(deletedOrders.map(d => d.id))
+                  const colorableFilters = dailyFilter === 'photography' || dailyFilter === 'siteVideo' || dailyFilter === 'review'
                   return filtered.map((o, idx) => {
-                    const isFromDeleted = deletedIds.has(o.id) || (o.deletedBy !== undefined)
+                    const isFromDeleted = colorableFilters && deletedIds.has(o.id)
                     const rowStyle = isFromDeleted ? { background: '#ffcccc', color: '#000000' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd)
                     return (
                     <tr key={`${o.id}-${idx}`} style={rowStyle}>
