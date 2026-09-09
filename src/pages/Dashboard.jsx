@@ -1070,6 +1070,8 @@ function Dashboard() {
 
     const filtered = getDailyFilteredData()
     const filterLabel = dailyFilter ? ALL_COLUMNS.find(c => c.key === dailyFilter)?.label : ''
+    const excelDeletedIds = new Set(deletedOrders.map(d => d.id))
+    const deletedRowFlags = filtered.map(o => excelDeletedIds.has(o.id) || (o.deletedBy !== undefined))
     const exportData = filtered.map((o, idx) => {
       const row = { '#': idx + 1, 'Date': formatDate(o.date), 'PO No': o.poNo || '', 'Client': o.client || '', 'Order No': o.orderNo || '', 'GST': o.gst || '', 'Follow Up': o.followUp || '' }
       if (dailyFilter) row[filterLabel] = o[dailyFilter] || ''
@@ -1107,8 +1109,9 @@ function Dashboard() {
     html += `<h2>OMS - Prestair Systems LLP</h2>`
     html += `<p class="subtitle">Daily Report - ${filterLabel || 'All'} | ${exportData.length} records | ${new Date().toLocaleDateString('en-IN')}</p>`
     html += `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
-    exportData.forEach(row => {
-      html += `<tr>${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>`
+    exportData.forEach((row, ri) => {
+      const rowBg = deletedRowFlags[ri] ? ' style="background:#ffcccc"' : ''
+      html += `<tr${rowBg}>${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>`
     })
     html += `</tbody></table></body></html>`
     const previewWin = window.open('', '_blank')
@@ -1142,6 +1145,7 @@ function Dashboard() {
             ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } }
           } else {
             ws[addr].s.font = { sz: 10 }
+            if (deletedRowFlags[r - 1]) ws[addr].s.fill = { fgColor: { rgb: 'FFCCCC' } }
             if (headers[c] === 'Client') ws[addr].s.alignment = { horizontal: 'left', vertical: 'center', wrapText: true }
           }
         }
@@ -1308,8 +1312,11 @@ function Dashboard() {
     if (dailyFilter === 'siteVideo') html += `<th>Video Remarks</th>`
     if (dailyFilter === 'review') html += `<th>Review Remarks</th>`
     html += `</tr></thead><tbody>`
+    const printDeletedIds = new Set(deletedOrders.map(d => d.id))
     filtered.forEach((o, idx) => {
-      html += `<tr><td>${idx + 1}</td><td>${formatDate(o.date)}</td><td>${o.poNo || ''}</td><td>${o.client || ''}</td><td>${o.orderNo || ''}</td><td>${o.gst || ''}</td><td>${o.followUp || ''}</td>`
+      const isDel = printDeletedIds.has(o.id) || (o.deletedBy !== undefined)
+      const rowBg = isDel ? ' style="background:#ffcccc"' : ''
+      html += `<tr${rowBg}><td>${idx + 1}</td><td>${formatDate(o.date)}</td><td>${o.poNo || ''}</td><td>${o.client || ''}</td><td>${o.orderNo || ''}</td><td>${o.gst || ''}</td><td>${o.followUp || ''}</td>`
       if (dailyFilter) html += `<td>${o[dailyFilter] || ''}</td>`
       if (dailyFilter === 'siteVerification') html += `<td>${o.siteVerificationRemarks || ''}</td>`
       if (dailyFilter === 'installationStatus') html += `<td>${o.installationRemarks || ''}</td>`
