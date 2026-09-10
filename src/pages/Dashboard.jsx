@@ -2502,19 +2502,18 @@ function Dashboard() {
                   return filtered.map((o, idx) => {
                     const status = getRequestStatus(o.orderNo)
                     const statusColor = status === 'RECEIVED' ? '#27ae60' : status.startsWith('ISSUED TO') ? '#8e44ad' : status === 'PENDING' || status === 'RETURN PENDING' ? '#f39c12' : status === 'ISSUE' ? '#e74c3c' : status === 'REJECTED' ? '#e74c3c' : '#888'
-                    const completedStyle = o._isCompleted ? { color: '#e74c3c' } : {}
                     return (
-                    <tr key={o.id} style={{ ...(idx % 2 === 0 ? styles.trEven : styles.trOdd), ...completedStyle }}>
-                      <td style={{ ...styles.td, ...completedStyle }}>{idx + 1}</td>
-                      <td style={{ ...styles.td, ...completedStyle }}>{formatDate(o.date)}</td>
-                      <td style={{ ...styles.td, ...completedStyle }}><span onClick={() => setOrHistoryPopup(o)} style={{ cursor: 'pointer', color: o._isCompleted ? '#e74c3c' : '#2980b9', fontWeight: '600', textDecoration: 'underline' }}>{o.orderNo}{o._isCompleted ? ' (COMPLETED)' : ''}</span></td>
-                      <td style={{...styles.td, textAlign:'left', ...completedStyle}}>{o.client}</td>
-                      <td style={{ ...styles.td, ...completedStyle }}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-' })()}</td>
-                      <td style={{ ...styles.td, ...completedStyle }}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.requestedBy || pr.requested_by) : '-' })()}</td>
-                      <td style={{ ...styles.td, ...completedStyle }}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.issueTo || pr.issue_to) : '-' })()}</td>
+                    <tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                      <td style={styles.td}>{idx + 1}</td>
+                      <td style={styles.td}>{formatDate(o.date)}</td>
+                      <td style={styles.td}><span onClick={() => setOrHistoryPopup(o)} style={{ cursor: 'pointer', color: '#2980b9', fontWeight: '600', textDecoration: 'underline' }}>{o.orderNo}{o._isCompleted ? ' (COMPLETED)' : ''}</span></td>
+                      <td style={{...styles.td, textAlign:'left'}}>{o.client}</td>
+                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-' })()}</td>
+                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.requestedBy || pr.requested_by) : '-' })()}</td>
+                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.issueTo || pr.issue_to) : '-' })()}</td>
                       <td style={{ ...styles.td, fontWeight: '600', color: statusColor }}>{status}</td>
-                      <td style={{ ...styles.td, ...completedStyle }}>{(() => { if (status.toUpperCase() !== 'RECEIVED') return '-'; const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-' })()}</td>
-                      <td style={{ ...styles.td, ...completedStyle }}>{(() => { if (status.toUpperCase() !== 'RECEIVED') return '-'; const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' })()}</td>
+                      <td style={styles.td}>{(() => { if (status.toUpperCase() !== 'RECEIVED') return '-'; const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-' })()}</td>
+                      <td style={styles.td}>{(() => { if (status.toUpperCase() !== 'RECEIVED') return '-'; const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' })()}</td>
                     </tr>
                     )
                   })
@@ -2761,7 +2760,7 @@ function Dashboard() {
         <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:1000}} onClick={()=>setOrHistoryPopup(null)}>
           <div style={{background:'#fff',borderRadius:'10px',padding:'20px',maxWidth:'700px',width:'92%',maxHeight:'80vh',overflow:'auto'}} onClick={e=>e.stopPropagation()}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
-              <h3 style={{margin:0,fontSize:'14px'}}>OR History: {on}</h3>
+              <h3 style={{margin:0,fontSize:'14px'}}>OR History: {on}{orHistoryPopup._isCompleted ? ' (COMPLETED)' : ''}</h3>
               <button onClick={()=>setOrHistoryPopup(null)} style={{background:'none',border:'none',fontSize:'18px',cursor:'pointer',fontWeight:'700'}}>X</button>
             </div>
             <p style={{fontSize:'11px',color:'#555',margin:'0 0 12px'}}>{orHistoryPopup.client}</p>
