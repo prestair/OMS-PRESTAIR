@@ -208,6 +208,19 @@ function Dashboard() {
 
   const allowedColumns = getAllowedColumns()
 
+  // Combined order list for paper issue/return (active + completed/deleted), de-duplicated by orderNo
+  const getIssueReturnOrders = () => {
+    const seen = new Set()
+    const combined = []
+    ;[...(orders || []), ...(deletedOrders || [])].forEach(o => {
+      if (!o || !o.orderNo) return
+      if (seen.has(o.orderNo)) return
+      seen.add(o.orderNo)
+      combined.push(o)
+    })
+    return combined
+  }
+
   useEffect(() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests() }, [])
 
   // Auto-refresh every 2 minutes
@@ -1084,7 +1097,7 @@ function Dashboard() {
         }
         return '-'
       }
-      let orFiltered = orders
+      let orFiltered = getIssueReturnOrders()
       if (orTabSearch.trim()) { const term = orTabSearch.toLowerCase(); orFiltered = orFiltered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) }
       if (orTabUserSearch.trim()) { const uTerm = orTabUserSearch.toLowerCase(); orFiltered = orFiltered.filter(o => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING')); if (!pr) return false; const n1 = getFullName(pr.requested_by || pr.requestedBy).toLowerCase(); const n2 = getFullName(pr.issue_to || pr.issueTo).toLowerCase(); return n1.includes(uTerm) || n2.includes(uTerm) }) }
       if (orTabStatusFilter.length > 0) { orFiltered = orFiltered.filter(o => { const status = getRequestStatus(o.orderNo).toUpperCase(); return orTabStatusFilter.some(f => { if (f === 'ISSUED') return status.startsWith('ISSUED TO'); if (f === 'NO REQUEST') return status === '-'; return status === f }) }) }
@@ -1292,7 +1305,7 @@ function Dashboard() {
         }
         return '-'
       }
-      let orFiltered = orders
+      let orFiltered = getIssueReturnOrders()
       if (orTabSearch.trim()) { const term = orTabSearch.toLowerCase(); orFiltered = orFiltered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) }
       if (orTabUserSearch.trim()) { const uTerm = orTabUserSearch.toLowerCase(); orFiltered = orFiltered.filter(o => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING')); if (!pr) return false; const n1 = getFullName(pr.requested_by || pr.requestedBy).toLowerCase(); const n2 = getFullName(pr.issue_to || pr.issueTo).toLowerCase(); return n1.includes(uTerm) || n2.includes(uTerm) }) }
       if (orTabStatusFilter.length > 0) { orFiltered = orFiltered.filter(o => { const status = getRequestStatus(o.orderNo).toUpperCase(); return orTabStatusFilter.some(f => { if (f === 'ISSUED') return status.startsWith('ISSUED TO'); if (f === 'NO REQUEST') return status === '-'; return status === f }) }) }
@@ -2412,7 +2425,7 @@ function Dashboard() {
               </thead>
               <tbody>
                 {(() => {
-                  let filtered = orders
+                  let filtered = getIssueReturnOrders()
                   // Build status from paper requests
                   const getRequestStatus = (orderNo) => {
                     const pr = (paperRequests || []).filter(r => r.orderNo === orderNo)
@@ -2580,7 +2593,7 @@ function Dashboard() {
                 <div style={{ flex: '1', position: 'relative', minWidth: '130px' }}>
                   {paperOrderNo.length > 0 && <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '3px' }}>{paperOrderNo.map(on => <span key={on} style={{ padding: '1px 4px', background: '#e8f5e9', borderRadius: '2px', fontSize: '9px' }}>{on}<button onClick={() => setPaperOrderNo(paperOrderNo.filter(x => x !== on))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '9px', color: '#e74c3c', marginLeft: '2px' }}>x</button></span>)}</div>}
                   <input value={paperOrderSearch} onChange={e => { setPaperOrderSearch(e.target.value); setShowOrderDropdown(true); setPaperIssueError('') }} onFocus={() => setShowOrderDropdown(true)} onBlur={() => setTimeout(() => setShowOrderDropdown(false), 300)} placeholder="Order No..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} disabled={paperOrderNo.length >= 5} />
-                  {showOrderDropdown && paperOrderSearch && paperOrderNo.length < 5 && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)', minWidth: '300px' }}>{orders.filter(o => !paperOrderNo.includes(o.orderNo) && ((o.orderNo || '').toLowerCase().includes(paperOrderSearch.toLowerCase()) || (o.client || '').toLowerCase().includes(paperOrderSearch.toLowerCase()))).slice(0, 8).map(o => (<div key={o.id} onMouseDown={e => e.preventDefault()} onClick={() => { setPaperOrderNo([...paperOrderNo, o.orderNo]); setPaperOrderSearch(''); setShowOrderDropdown(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background='#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{o.orderNo} - {o.client || ''}</div>))}</div>)}
+                  {showOrderDropdown && paperOrderSearch && paperOrderNo.length < 5 && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)', minWidth: '300px' }}>{getIssueReturnOrders().filter(o => !paperOrderNo.includes(o.orderNo) && ((o.orderNo || '').toLowerCase().includes(paperOrderSearch.toLowerCase()) || (o.client || '').toLowerCase().includes(paperOrderSearch.toLowerCase()))).slice(0, 8).map(o => (<div key={o.id} onMouseDown={e => e.preventDefault()} onClick={() => { setPaperOrderNo([...paperOrderNo, o.orderNo]); setPaperOrderSearch(''); setShowOrderDropdown(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background='#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{o.orderNo} - {o.client || ''}</div>))}</div>)}
                 </div>
                 <div style={{ flex: '1', position: 'relative', minWidth: '100px' }}>
                   <input value={paperUserSearch} onChange={e => { setPaperUserSearch(e.target.value); setShowUserDropdown(true); setPaperIssueTo(''); setPaperIssueError('') }} onFocus={() => setShowUserDropdown(true)} onBlur={() => setTimeout(() => setShowUserDropdown(false), 300)} placeholder="Request To..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
@@ -2614,7 +2627,7 @@ function Dashboard() {
                 <div style={{ flex: '1', position: 'relative', minWidth: '130px' }}>
                   {returnOrderNo.length > 0 && <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '3px' }}>{returnOrderNo.map(on => <span key={on} style={{ padding: '1px 4px', background: '#e8f5e9', borderRadius: '2px', fontSize: '9px' }}>{on}<button onClick={() => setReturnOrderNo(returnOrderNo.filter(x => x !== on))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '9px', color: '#e74c3c', marginLeft: '2px' }}>x</button></span>)}</div>}
                   <input value={returnOrderSearch} onChange={e => { setReturnOrderSearch(e.target.value); setShowReturnOrderDrop(true) }} onFocus={() => setShowReturnOrderDrop(true)} onBlur={() => setTimeout(() => setShowReturnOrderDrop(false), 300)} placeholder="Order No..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} disabled={returnOrderNo.length >= 5} />
-                  {showReturnOrderDrop && returnOrderSearch && returnOrderNo.length < 5 && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)', minWidth: '300px' }}>{orders.filter(o => !returnOrderNo.includes(o.orderNo) && ((o.orderNo || '').toLowerCase().includes(returnOrderSearch.toLowerCase()) || (o.client || '').toLowerCase().includes(returnOrderSearch.toLowerCase()))).slice(0, 8).map(o => (<div key={o.id} onMouseDown={e => e.preventDefault()} onClick={() => { setReturnOrderNo([...returnOrderNo, o.orderNo]); setReturnOrderSearch(''); setShowReturnOrderDrop(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background='#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{o.orderNo} - {o.client || ''}</div>))}</div>)}
+                  {showReturnOrderDrop && returnOrderSearch && returnOrderNo.length < 5 && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)', minWidth: '300px' }}>{getIssueReturnOrders().filter(o => !returnOrderNo.includes(o.orderNo) && ((o.orderNo || '').toLowerCase().includes(returnOrderSearch.toLowerCase()) || (o.client || '').toLowerCase().includes(returnOrderSearch.toLowerCase()))).slice(0, 8).map(o => (<div key={o.id} onMouseDown={e => e.preventDefault()} onClick={() => { setReturnOrderNo([...returnOrderNo, o.orderNo]); setReturnOrderSearch(''); setShowReturnOrderDrop(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background='#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{o.orderNo} - {o.client || ''}</div>))}</div>)}
                 </div>
                 <div style={{ flex: '1', position: 'relative', minWidth: '100px' }}>
                   <input value={returnUserSearch} onChange={e => { setReturnUserSearch(e.target.value); setShowReturnUserDrop(true); setReturnIssueTo('') }} onFocus={() => setShowReturnUserDrop(true)} onBlur={() => setTimeout(() => setShowReturnUserDrop(false), 300)} placeholder="Return To..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />

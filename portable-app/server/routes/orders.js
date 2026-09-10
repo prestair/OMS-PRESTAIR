@@ -201,7 +201,8 @@ router.post('/paper-requests', async (req, res) => {
   }
 
   const { data: orders } = await supabase.from('orders').select('client').eq('order_no', orderNo)
-  const client = orders?.[0]?.client || ''
+  let client = orders?.[0]?.client || ''
+  if (!client) { const { data: delOrd } = await supabase.from('deleted_orders').select('data').eq('data->>order_no', orderNo).limit(1); client = delOrd?.[0]?.data?.client || '' }
   const { data, error } = await supabase.from('paper_requests').insert({ order_no: orderNo, client, requested_by: req.user.username, issue_to: issueTo, status: 'PENDING' }).select()
   if (error) return res.status(400).json({ error: error.message })
   res.json(mapPaperReq(data[0]))
@@ -310,7 +311,9 @@ router.post('/return-requests', async (req, res) => {
   }
 
   const { data: orders } = await supabase.from('orders').select('client').eq('order_no', orderNo)
-  const { data } = await supabase.from('return_requests').insert({ order_no: orderNo, client: orders?.[0]?.client || '', requested_by: req.user.username, return_to: returnTo, status: 'PENDING' }).select()
+  let rtClient = orders?.[0]?.client || ''
+  if (!rtClient) { const { data: delOrd } = await supabase.from('deleted_orders').select('data').eq('data->>order_no', orderNo).limit(1); rtClient = delOrd?.[0]?.data?.client || '' }
+  const { data } = await supabase.from('return_requests').insert({ order_no: orderNo, client: rtClient, requested_by: req.user.username, return_to: returnTo, status: 'PENDING' }).select()
   res.json(data[0])
 })
 
