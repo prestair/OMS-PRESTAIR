@@ -144,6 +144,7 @@ function Dashboard() {
   const [receiptDrillDown, setReceiptDrillDown] = useState(null)
   const [editHistoryPopup, setEditHistoryPopup] = useState(null)
   const [orHistoryPopup, setOrHistoryPopup] = useState(null)
+  const [akhilPointsEdit, setAkhilPointsEdit] = useState({})
   const [showPrintDialog, setShowPrintDialog] = useState(false)
   const [allReminders, setAllReminders] = useState([])
   const [reassignId, setReassignId] = useState(null)
@@ -1419,6 +1420,27 @@ function Dashboard() {
 
   const getCellValue = (order, key) => {
     const val = order[key]
+    if (key === 'akhilPoints' && isAdmin) {
+      const editVal = akhilPointsEdit[order.id] !== undefined ? akhilPointsEdit[order.id] : (val || '')
+      const saveAkhil = async () => {
+        const newVal = (akhilPointsEdit[order.id] ?? '').toString()
+        if (newVal === (val || '')) { setAkhilPointsEdit(prev => { const { [order.id]: _, ...rest } = prev; return rest }); return }
+        try {
+          await axios.put(`/api/orders/${order.id}`, { akhilPoints: newVal.toUpperCase() })
+          setAkhilPointsEdit(prev => { const { [order.id]: _, ...rest } = prev; return rest })
+          fetchOrders()
+        } catch { alert('Failed to save Akhil Points') }
+      }
+      return <input
+        value={editVal}
+        onClick={e => e.stopPropagation()}
+        onChange={e => setAkhilPointsEdit(prev => ({ ...prev, [order.id]: e.target.value }))}
+        onBlur={saveAkhil}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur() } }}
+        style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', textTransform: 'uppercase', boxSizing: 'border-box', textAlign: 'center' }}
+        placeholder="—"
+      />
+    }
     if (key === 'paymentRemarks') {
       return <span>{val || ''} {order.paymentProofUrl && <><a href={order.paymentProofUrl} target="_blank" rel="noreferrer" style={{ color: '#2980b9', fontSize: '10px', fontWeight: '700' }} onClick={e => e.stopPropagation()}>View Supporting</a>{isAdmin && <button onClick={async(e)=>{e.stopPropagation();if(window.confirm('Delete this supporting image?')){try{await axios.delete(`/api/delete-payment-proof/${order.id}`);fetchOrders()}catch{}}}} style={{marginLeft:'4px',padding:'1px 5px',background:'#e74c3c',color:'#fff',border:'none',borderRadius:'3px',fontSize:'9px',cursor:'pointer',fontWeight:'600'}}>Delete</button>}</>}</span>
     }
