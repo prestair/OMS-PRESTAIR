@@ -376,6 +376,8 @@ router.post('/import', adminOnly, async (req, res) => {
 
 // Update order
 router.put('/:id', async (req, res) => {
+  const { data: beforeRows } = await supabase.from('orders').select('akhil_points, order_no, client').eq('id', parseInt(req.params.id))
+  const before = beforeRows?.[0] || {}
   const { error } = await supabase.from('orders').update(snakeOrder(req.body)).eq('id', parseInt(req.params.id))
   if (error) return res.status(400).json({ error: error.message })
 
@@ -390,6 +392,19 @@ router.put('/:id', async (req, res) => {
       await supabase.from('orders').update({ balance, percent_received: percent }).eq('id', parseInt(req.params.id))
     }
   }
+
+  // Auto-reminder to Poonam Gupta when admin edits Akhil Payment Remarks
+  try {
+    if (req.body.akhilPoints !== undefined && req.user.role === 'admin' && String(req.body.akhilPoints || '').trim() !== String(before.akhil_points || '').trim()) {
+      const { data: pg } = await supabase.from('users').select('username').ilike('full_name', 'POONAM GUPTA').limit(1)
+      const pgUser = pg?.[0]?.username
+      if (pgUser) {
+        const nv = String(req.body.akhilPoints || '').trim()
+        const today = new Date().toISOString().split('T')[0]
+        await supabase.from('reminders').insert({ order_id: parseInt(req.params.id), order_no: before.order_no || '', client: before.client || '', description: `AKHIL PAYMENT REMARKS UPDATED: ${nv || '(CLEARED)'}`, date: today, visible_to: [pgUser], assigned_to: pgUser, created_by: req.user.username })
+      }
+    }
+  } catch (remErr) { console.error('Akhil reminder failed', remErr) }
 
   res.json({ message: 'Updated' })
 })

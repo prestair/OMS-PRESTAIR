@@ -471,6 +471,20 @@ router.put('/:id', async (req, res) => {
   if (changes.length > 0) {
     await supabase.from('order_edit_history').insert({ order_id: parseInt(req.params.id), order_no: oldOrder.orderNo || '', edit_type: 'ORDER_EDIT', edited_by: req.user.username, changes })
   }
+
+  // Auto-reminder to Poonam Gupta when admin edits Akhil Payment Remarks
+  try {
+    if (changes.some(c => c.field === 'akhilPoints') && req.user.role === 'admin') {
+      const { data: pg } = await supabase.from('users').select('username').ilike('full_name', 'POONAM GUPTA').limit(1)
+      const pgUser = pg?.[0]?.username
+      if (pgUser) {
+        const nv = String(req.body.akhilPoints || '').trim()
+        const today = new Date().toISOString().split('T')[0]
+        await supabase.from('reminders').insert({ order_id: parseInt(req.params.id), order_no: oldOrder.orderNo || '', client: oldOrder.client || '', description: `AKHIL PAYMENT REMARKS UPDATED: ${nv || '(CLEARED)'}`, date: today, visible_to: [pgUser], assigned_to: pgUser, created_by: req.user.username })
+      }
+    }
+  } catch (remErr) { console.error('Akhil reminder failed', remErr) }
+
   res.json({ message: 'Updated' })
 })
 
