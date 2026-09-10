@@ -2002,7 +2002,8 @@ function Dashboard() {
               const parseDelDate = (d) => {
                 if (!d || d === 'DELIVERED' || d === 'ASAP' || d === 'N/A' || d === 'NA' || d === 'HOLD' || d === '') return null
                 const parts = String(d).split('/')
-                if (parts.length === 3) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
+                const fixYear = (y) => { const n = parseInt(y); return n < 100 ? 2000 + n : n }
+                if (parts.length === 3) return new Date(fixYear(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
                 if (parts.length === 2) return new Date(2026, parseInt(parts[1]) - 1, parseInt(parts[0]))
                 return null
               }
