@@ -81,12 +81,18 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
     return empty
   })
   const [error, setError] = useState('')
+  const [salesReps, setSalesReps] = useState([])
   const [saving, setSaving] = useState(false)
   const [proofFile, setProofFile] = useState(null)
   const [proofFileName, setProofFileName] = useState('')
   const [proofPreview, setProofPreview] = useState(order?.paymentProofUrl || '')
   const [uploading, setUploading] = useState(false)
   const proofInputRef = useRef(null)
+
+  // Fetch sales reps for dropdown
+  React.useEffect(() => {
+    axios.get('/api/sales-reps').then(res => setSalesReps(res.data || [])).catch(() => {})
+  }, [])
 
   // Fetch next order number on mount for new orders
   React.useEffect(() => {
@@ -228,7 +234,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
               const isNewOrderLocked = !order && newOrderDisabledFields.includes(field.key)
               if (!order && isNewOrderLocked) return null
               const editable = !order ? (!isOrderNoLocked && !isDateLocked && !isNewOrderLocked) : (isDeleted ? (isAdmin && !isOrderNoLocked) : (canEditColumn(field.key) && !isOrderNoLocked && !isDateLocked))
-              const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit','advanceBill','orRecvd'].includes(field.key)
+              const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit','advanceBill','orRecvd','salesRep'].includes(field.key)
               return (
                 <div key={field.key} style={styles.field}>
                   <label style={styles.label}>{field.label}</label>
@@ -239,7 +245,13 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
                       style={{ ...styles.input, ...(editable ? {} : styles.inputDisabled) }}
                       disabled={!editable}
                     >
-                      {field.key === 'status' ? (
+                      {field.key === 'salesRep' ? (
+                        <>
+                          <option value="">-- Select --</option>
+                          {salesReps.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                          {form.salesRep && !salesReps.some(r => r.name === form.salesRep) && <option value={form.salesRep}>{form.salesRep}</option>}
+                        </>
+                      ) : field.key === 'status' ? (
                         <>
                           <option value="">-- Select --</option>
                           <option value="MENTIONED">MENTIONED</option>

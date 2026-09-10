@@ -79,6 +79,11 @@ app.post('/api/auth/change-password', authenticate, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// SALES REPS
+app.get('/api/sales-reps', authenticate, async (req, res) => { try { const { data } = await supabase.from('sales_reps').select('*').order('name',{ascending:true}); res.json((data||[]).map(r=>({id:r.id,name:r.name}))) } catch (e) { res.status(500).json({ error: e.message }) } })
+app.post('/api/sales-reps', authenticate, adminOnly, async (req, res) => { try { const { name } = req.body; if(!name||!name.trim())return res.status(400).json({error:'Name required'}); const nm=name.trim(); const { data: ex } = await supabase.from('sales_reps').select('id').ilike('name',nm); if(ex&&ex.length)return res.status(400).json({error:'Sales rep already exists'}); const { data, error } = await supabase.from('sales_reps').insert({name:nm}).select(); if(error)return res.status(400).json({error:error.message}); res.json(data[0]) } catch (e) { res.status(500).json({ error: e.message }) } })
+app.delete('/api/sales-reps/:id', authenticate, adminOnly, async (req, res) => { try { await supabase.from('sales_reps').delete().eq('id',parseInt(req.params.id)); res.json({message:'Deleted'}) } catch (e) { res.status(500).json({ error: e.message }) } })
+
 // USERS
 app.get('/api/users/list', authenticate, async (req, res) => { try { const { data } = await supabase.from('users').select('id, username, full_name, role'); res.json((data||[]).map(u=>({id:u.id,username:u.username,fullName:u.full_name,full_name:u.full_name,role:u.role}))) } catch (e) { res.status(500).json({ error: e.message }) } })
 app.get('/api/users/groups', authenticate, async (req, res) => { try { const { data } = await supabase.from('groups').select('*'); res.json(data || []) } catch (e) { res.status(500).json({ error: e.message }) } })

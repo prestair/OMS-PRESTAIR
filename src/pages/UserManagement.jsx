@@ -23,10 +23,26 @@ function UserManagement() {
   const [showGroupForm, setShowGroupForm] = useState(false)
   const [editingGroup, setEditingGroup] = useState(null)
   const [groupForm, setGroupForm] = useState({ name: '', columnPermissions: {}, canEdit: false, canReceipt: false, canAssignReminder: false, canDelete: false })
+  const [showRepForm, setShowRepForm] = useState(false)
+  const [salesReps, setSalesReps] = useState([])
+  const [newRepName, setNewRepName] = useState('')
+  const [repError, setRepError] = useState('')
 
-  useEffect(() => { fetchUsers(); fetchGroups() }, [])
+  useEffect(() => { fetchUsers(); fetchGroups(); fetchSalesReps() }, [])
   const fetchUsers = async () => { try { setUsers((await axios.get('/api/users')).data) } catch {} }
   const fetchGroups = async () => { try { setGroups((await axios.get('/api/users/groups')).data) } catch {} }
+  const fetchSalesReps = async () => { try { setSalesReps((await axios.get('/api/sales-reps')).data) } catch {} }
+
+  const addSalesRep = async () => {
+    setRepError('')
+    if (!newRepName.trim()) { setRepError('Name required'); return }
+    try { await axios.post('/api/sales-reps', { name: newRepName.trim().toUpperCase() }); setNewRepName(''); fetchSalesReps() }
+    catch (err) { setRepError(err.response?.data?.error || 'Failed') }
+  }
+  const deleteSalesRep = async (id) => {
+    if (!window.confirm('Delete this sales rep?')) return
+    try { await axios.delete(`/api/sales-reps/${id}`); fetchSalesReps() } catch (err) { alert(err.response?.data?.error || 'Failed') }
+  }
 
   // When group changes on user form, auto-fill rights from group
   const applyGroupRights = (groupName) => {
@@ -86,6 +102,7 @@ function UserManagement() {
         <div style={{ marginBottom:'12px', display:'flex', gap:'10px', alignItems:'center' }}>
           <button onClick={() => { setEditingUser(null); setForm({ username:'', password:'', fullName:'', role:'user', group:'', columnPermissions:{}, canEdit:false, canReceipt:false, canAssignReminder:false, canDelete:false }); setShowForm(true) }} style={s.addBtn}>+ Add User</button>
           <button onClick={() => { setEditingGroup(null); setGroupForm({ name:'', columnPermissions:{}, canEdit:false, canReceipt:false, canAssignReminder:false, canDelete:false }); setShowGroupForm(true) }} style={{ ...s.addBtn, background:'#8e44ad' }}>Manage Groups</button>
+          <button onClick={() => { setNewRepName(''); setRepError(''); setShowRepForm(true) }} style={{ ...s.addBtn, background:'#16a085' }}>Manage Sales Reps</button>
           <input value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search by Full Name..." style={{padding:'7px 12px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px',flex:'1',maxWidth:'250px'}}/>
         </div>
 
@@ -226,6 +243,30 @@ function UserManagement() {
               </div>
             </div>
           </>}
+        </div></div>
+      )}
+
+      {/* Sales Reps Management */}
+      {showRepForm && (
+        <div style={s.overlay}><div style={{ ...s.modal, maxWidth:'450px' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
+            <h3 style={{ margin:0 }}>Manage Sales Reps</h3>
+            <button onClick={()=>setShowRepForm(false)} style={{ background:'none', border:'none', fontSize:'20px', cursor:'pointer', fontWeight:'700' }}>X</button>
+          </div>
+          <div style={{ display:'flex', gap:'8px', marginBottom:'6px' }}>
+            <input value={newRepName} onChange={e=>setNewRepName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addSalesRep()}} placeholder="Enter sales rep name..." style={{...s.i, textTransform:'uppercase'}}/>
+            <button onClick={addSalesRep} style={{ ...s.sBtn, background:'#16a085', whiteSpace:'nowrap' }}>+ Add</button>
+          </div>
+          {repError && <p style={{ color:'#e74c3c', fontSize:'11px', margin:'0 0 8px' }}>{repError}</p>}
+          <div style={{ maxHeight:'320px', overflow:'auto', border:'1px solid #e0e0e0', borderRadius:'6px', marginTop:'6px' }}>
+            {salesReps.length === 0 && <p style={{ textAlign:'center', color:'#999', fontSize:'12px', padding:'16px' }}>No sales reps yet. Add one above.</p>}
+            {salesReps.map((r, i) => (
+              <div key={r.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', borderBottom:'1px solid #f0f0f0', background: i%2?'#f8f9fa':'#fff' }}>
+                <span style={{ fontSize:'13px', fontWeight:'500' }}>{r.name}</span>
+                <button onClick={()=>deleteSalesRep(r.id)} style={{ background:'#e74c3c', color:'#fff', border:'none', borderRadius:'3px', fontSize:'10px', padding:'3px 9px', cursor:'pointer' }}>Delete</button>
+              </div>
+            ))}
+          </div>
         </div></div>
       )}
     </div>
