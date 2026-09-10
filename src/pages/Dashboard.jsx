@@ -1548,6 +1548,7 @@ function Dashboard() {
           <button onClick={() => { sessionStorage.setItem('oms_scrollY', window.scrollY); window.location.reload() }} style={{ ...styles.headerBtn, background: '#27ae60' }}>Refresh</button>
           {isAdmin && <button onClick={() => navigate('/users')} style={styles.headerBtn}>Manage Users</button>}
           {isAdmin && <button onClick={async () => { if (window.confirm('Send daily report email now?')) { try { const res = await axios.get('/api/cron-daily-report'); alert('Report sent to agm.prestairsystem@gmail.com') } catch(e) { alert('Error: ' + (e.response?.data?.error || e.message)) } } }} style={{ ...styles.headerBtn, background: '#27ae60' }}>Send Report</button>}
+          {isAdmin && <button onClick={async () => { if (window.confirm('Force refresh ALL users now? Everyone will auto-reload within a minute.')) { try { const res = await axios.post('/api/force-refresh'); localStorage.setItem('oms_app_version', String(res.data?.version || '')); alert('Done! All users will refresh within ~1 minute.'); setTimeout(() => window.location.reload(true), 800) } catch(e) { alert('Error: ' + (e.response?.data?.error || e.message)) } } }} style={{ ...styles.headerBtn, background: '#8e44ad' }}>Force Refresh All</button>}
           <button onClick={logout} style={{ ...styles.headerBtn, background: '#e74c3c' }}>Logout</button>
         </div>
       </header>
