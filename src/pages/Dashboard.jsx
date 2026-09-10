@@ -1426,7 +1426,7 @@ function Dashboard() {
         const newVal = (akhilPointsEdit[order.id] ?? '').toString()
         if (newVal === (val || '')) { setAkhilPointsEdit(prev => { const { [order.id]: _, ...rest } = prev; return rest }); return }
         try {
-          await axios.put(`/api/orders/${order.id}`, { akhilPoints: newVal.toUpperCase() })
+          await axios.put(`/api/orders/${order.id}`, { akhilPoints: newVal })
           setAkhilPointsEdit(prev => { const { [order.id]: _, ...rest } = prev; return rest })
           fetchOrders()
         } catch { alert('Failed to save Akhil Points') }
@@ -1437,7 +1437,7 @@ function Dashboard() {
         onChange={e => setAkhilPointsEdit(prev => ({ ...prev, [order.id]: e.target.value }))}
         onBlur={saveAkhil}
         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur() } }}
-        style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', textTransform: 'uppercase', boxSizing: 'border-box', textAlign: 'center' }}
+        style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', boxSizing: 'border-box', textAlign: 'center' }}
         placeholder="—"
       />
     }
