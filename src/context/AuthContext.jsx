@@ -66,7 +66,8 @@ export function AuthProvider({ children }) {
       try {
         const res = await axios.get('/api/app-version')
         const remote = String(res.data?.version || '')
-        if (!remote) return
+        // Ignore empty or the '1' fallback (means backend couldn't read the real version)
+        if (!remote || remote === '1') return
         const stored = localStorage.getItem('oms_app_version')
         if (!stored) {
           localStorage.setItem('oms_app_version', remote)
