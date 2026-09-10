@@ -209,14 +209,21 @@ function Dashboard() {
   const allowedColumns = getAllowedColumns()
 
   // Combined order list for paper issue/return (active + completed/deleted), de-duplicated by orderNo
+  // Each order carries _isCompleted flag (true if it comes from completed/deleted list)
   const getIssueReturnOrders = () => {
     const seen = new Set()
     const combined = []
-    ;[...(orders || []), ...(deletedOrders || [])].forEach(o => {
+    ;(orders || []).forEach(o => {
       if (!o || !o.orderNo) return
       if (seen.has(o.orderNo)) return
       seen.add(o.orderNo)
-      combined.push(o)
+      combined.push({ ...o, _isCompleted: false })
+    })
+    ;(deletedOrders || []).forEach(o => {
+      if (!o || !o.orderNo) return
+      if (seen.has(o.orderNo)) return
+      seen.add(o.orderNo)
+      combined.push({ ...o, _isCompleted: true })
     })
     return combined
   }
@@ -1102,20 +1109,22 @@ function Dashboard() {
       if (orTabUserSearch.trim()) { const uTerm = orTabUserSearch.toLowerCase(); orFiltered = orFiltered.filter(o => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING')); if (!pr) return false; const n1 = getFullName(pr.requested_by || pr.requestedBy).toLowerCase(); const n2 = getFullName(pr.issue_to || pr.issueTo).toLowerCase(); return n1.includes(uTerm) || n2.includes(uTerm) }) }
       if (orTabStatusFilter.length > 0) { orFiltered = orFiltered.filter(o => { const status = getRequestStatus(o.orderNo).toUpperCase(); return orTabStatusFilter.some(f => { if (f === 'ISSUED') return status.startsWith('ISSUED TO'); if (f === 'NO REQUEST') return status === '-'; return status === f }) }) }
       orFiltered.sort((a, b) => { const getOrd = (orderNo) => { const v = getRequestStatus(orderNo).toUpperCase(); if (v === '-') return 5; if (v === 'ISSUE') return 0; if (v === 'PENDING' || v === 'RETURN PENDING') return 1; if (v.startsWith('ISSUED TO')) return 2; if (v.startsWith('REROUTED')) return 1; if (v === 'RECEIVED') return 3; if (v === 'REJECTED') return 4; return 2 }; return getOrd(a.orderNo) - getOrd(b.orderNo) })
+      const completedFlags = []
       const exportData = orFiltered.map((o, idx) => {
         const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
         const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
         const stat = getRequestStatus(o.orderNo)
         const isRecv = stat.toUpperCase() === 'RECEIVED'
-        return { '#': idx + 1, 'Date': formatDate(o.date), 'Order No': o.orderNo || '', 'Client': o.client || '', 'Issue Date': pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-', 'Requested By': pr ? getFullName(pr.requestedBy || pr.requested_by) : '-', 'Issued By': pr ? getFullName(pr.issueTo || pr.issue_to) : '-', 'Status': stat, 'Collected By': isRecv && rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-', 'Return Date': isRecv && rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' }
+        completedFlags.push(!!o._isCompleted)
+        return { '#': idx + 1, 'Date': formatDate(o.date), 'Order No': (o.orderNo || '') + (o._isCompleted ? ' (COMPLETED)' : ''), 'Client': o.client || '', 'Issue Date': pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-', 'Requested By': pr ? getFullName(pr.requestedBy || pr.requested_by) : '-', 'Issued By': pr ? getFullName(pr.issueTo || pr.issue_to) : '-', 'Status': stat, 'Collected By': isRecv && rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-', 'Return Date': isRecv && rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' }
       })
       const headers = Object.keys(exportData[0] || {})
-      let html = `<html><head><title>Excel Preview - OR Report</title><style>body{font-family:Arial,sans-serif;margin:10px;font-size:9px}h2{text-align:center;font-size:14px;margin-bottom:4px}.subtitle{text-align:center;font-size:11px;color:#555;margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:3px 5px;text-align:center;font-size:8px;word-wrap:break-word}th{background:#FFD700;font-weight:bold;font-size:9px}tr:nth-child(even){background:#f9f9f9}.no-print{text-align:center;margin:12px 0}.no-print button{padding:10px 24px;font-size:14px;font-weight:700;border:none;border-radius:6px;cursor:pointer;margin:0 8px}.dl-btn{background:#27ae60;color:#fff}.cancel-btn{background:#eee;color:#333}</style></head><body>`
+      let html = `<html><head><title>Excel Preview - OR Report</title><style>body{font-family:Arial,sans-serif;margin:10px;font-size:9px}h2{text-align:center;font-size:14px;margin-bottom:4px}.subtitle{text-align:center;font-size:11px;color:#555;margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:3px 5px;text-align:center;font-size:8px;word-wrap:break-word}th{background:#FFD700;font-weight:bold;font-size:9px}tr:nth-child(even){background:#f9f9f9}.completed-row td{color:#e74c3c !important}.no-print{text-align:center;margin:12px 0}.no-print button{padding:10px 24px;font-size:14px;font-weight:700;border:none;border-radius:6px;cursor:pointer;margin:0 8px}.dl-btn{background:#27ae60;color:#fff}.cancel-btn{background:#eee;color:#333}</style></head><body>`
       html += `<div class="no-print"><button class="dl-btn" id="dlBtn">Download Excel</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span style="margin-left:16px;font-size:13px;font-weight:600;color:#555">Total Rows: ${exportData.length}</span></div>`
       html += `<h2>OMS - Prestair Systems LLP</h2>`
       html += `<p class="subtitle">OR Report | ${exportData.length} records | ${new Date().toLocaleDateString('en-IN')}</p>`
       html += `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
-      exportData.forEach(row => { html += `<tr>${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>` })
+      exportData.forEach((row, ri) => { html += `<tr class="${completedFlags[ri] ? 'completed-row' : ''}">${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>` })
       html += `</tbody></table></body></html>`
       const previewWin = window.open('', '_blank')
       previewWin.document.write(html)
@@ -1124,7 +1133,7 @@ function Dashboard() {
         const ws = XLSX.utils.json_to_sheet(exportData)
         ws['!cols'] = headers.map(key => { let maxLen = key.length; exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length }); return { wch: Math.min(Math.max(maxLen + 2, 10), 35) } })
         const range = XLSX.utils.decode_range(ws['!ref'])
-        for (let r = range.s.r; r <= range.e.r; r++) { for (let c = range.s.c; c <= range.e.c; c++) { const addr = XLSX.utils.encode_cell({ r, c }); if (!ws[addr]) ws[addr] = { v: '', t: 's' }; if (!ws[addr].s) ws[addr].s = {}; ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }; ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }; if (r === 0) { ws[addr].s.font = { bold: true, sz: 11 }; ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } } } else { ws[addr].s.font = { sz: 10 } } } }
+        for (let r = range.s.r; r <= range.e.r; r++) { const isCompletedRow = r > 0 && completedFlags[r - 1]; for (let c = range.s.c; c <= range.e.c; c++) { const addr = XLSX.utils.encode_cell({ r, c }); if (!ws[addr]) ws[addr] = { v: '', t: 's' }; if (!ws[addr].s) ws[addr].s = {}; ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }; ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }; if (r === 0) { ws[addr].s.font = { bold: true, sz: 11 }; ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } } } else { ws[addr].s.font = { sz: 10, color: isCompletedRow ? { rgb: 'E74C3C' } : undefined } } } }
         const wb = XLSX.utils.book_new()
         XLSX.utils.book_append_sheet(wb, ws, 'OR Report')
         XLSX.writeFile(wb, `OR_Report_${new Date().toISOString().split('T')[0]}.xlsx`)
@@ -1319,6 +1328,7 @@ function Dashboard() {
         th { background: #FFD700; color: #000; padding: 4px 3px; text-align: center; font-weight: bold; border: 1px solid #333; }
         td { padding: 3px 4px; border: 1px solid #999; text-align: center; }
         tr:nth-child(even) { background: #f5f5f5; }
+        tr.completed-row td { color: #e74c3c; }
         .no-print { margin: 10px 0; text-align: center; }
         .no-print button { padding: 10px 24px; font-size: 14px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin: 0 8px; }
         .print-btn { background: #1a1a2e; color: #fff; }
@@ -1334,7 +1344,7 @@ function Dashboard() {
         const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
         const status = getRequestStatus(o.orderNo)
         const isReceived = status.toUpperCase() === 'RECEIVED'
-        html += `<tr><td>${idx+1}</td><td>${formatDate(o.date)}</td><td>${o.orderNo||''}</td><td>${o.client||''}</td><td>${pr&&pr.acceptedAt?formatDate(pr.acceptedAt.split('T')[0]):pr&&pr.createdAt?formatDate(pr.createdAt.split('T')[0]):'-'}</td><td>${pr?getFullName(pr.requestedBy||pr.requested_by):'-'}</td><td>${pr?getFullName(pr.issueTo||pr.issue_to):'-'}</td><td>${status}</td><td>${isReceived&&rt?getFullName(rt.acceptedBy||rt.accepted_by):'-'}</td><td>${isReceived&&rt&&rt.acceptedAt?formatDate(rt.acceptedAt.split('T')[0]):'-'}</td></tr>`
+        html += `<tr class="${o._isCompleted ? 'completed-row' : ''}"><td>${idx+1}</td><td>${formatDate(o.date)}</td><td>${(o.orderNo||'')}${o._isCompleted?' (COMPLETED)':''}</td><td>${o.client||''}</td><td>${pr&&pr.acceptedAt?formatDate(pr.acceptedAt.split('T')[0]):pr&&pr.createdAt?formatDate(pr.createdAt.split('T')[0]):'-'}</td><td>${pr?getFullName(pr.requestedBy||pr.requested_by):'-'}</td><td>${pr?getFullName(pr.issueTo||pr.issue_to):'-'}</td><td>${status}</td><td>${isReceived&&rt?getFullName(rt.acceptedBy||rt.accepted_by):'-'}</td><td>${isReceived&&rt&&rt.acceptedAt?formatDate(rt.acceptedAt.split('T')[0]):'-'}</td></tr>`
       })
       html += `</tbody></table></body></html>`
       const printWindow = window.open('', '_blank')
@@ -2492,18 +2502,19 @@ function Dashboard() {
                   return filtered.map((o, idx) => {
                     const status = getRequestStatus(o.orderNo)
                     const statusColor = status === 'RECEIVED' ? '#27ae60' : status.startsWith('ISSUED TO') ? '#8e44ad' : status === 'PENDING' || status === 'RETURN PENDING' ? '#f39c12' : status === 'ISSUE' ? '#e74c3c' : status === 'REJECTED' ? '#e74c3c' : '#888'
+                    const completedStyle = o._isCompleted ? { color: '#e74c3c' } : {}
                     return (
-                    <tr key={o.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
-                      <td style={styles.td}>{idx + 1}</td>
-                      <td style={styles.td}>{formatDate(o.date)}</td>
-                      <td style={styles.td}><span onClick={() => setOrHistoryPopup(o)} style={{ cursor: 'pointer', color: '#2980b9', fontWeight: '600', textDecoration: 'underline' }}>{o.orderNo}</span></td>
-                      <td style={{...styles.td, textAlign:'left'}}>{o.client}</td>
-                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-' })()}</td>
-                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.requestedBy || pr.requested_by) : '-' })()}</td>
-                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.issueTo || pr.issue_to) : '-' })()}</td>
+                    <tr key={o.id} style={{ ...(idx % 2 === 0 ? styles.trEven : styles.trOdd), ...completedStyle }}>
+                      <td style={{ ...styles.td, ...completedStyle }}>{idx + 1}</td>
+                      <td style={{ ...styles.td, ...completedStyle }}>{formatDate(o.date)}</td>
+                      <td style={{ ...styles.td, ...completedStyle }}><span onClick={() => setOrHistoryPopup(o)} style={{ cursor: 'pointer', color: o._isCompleted ? '#e74c3c' : '#2980b9', fontWeight: '600', textDecoration: 'underline' }}>{o.orderNo}{o._isCompleted ? ' (COMPLETED)' : ''}</span></td>
+                      <td style={{...styles.td, textAlign:'left', ...completedStyle}}>{o.client}</td>
+                      <td style={{ ...styles.td, ...completedStyle }}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-' })()}</td>
+                      <td style={{ ...styles.td, ...completedStyle }}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.requestedBy || pr.requested_by) : '-' })()}</td>
+                      <td style={{ ...styles.td, ...completedStyle }}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.issueTo || pr.issue_to) : '-' })()}</td>
                       <td style={{ ...styles.td, fontWeight: '600', color: statusColor }}>{status}</td>
-                      <td style={styles.td}>{(() => { if (status.toUpperCase() !== 'RECEIVED') return '-'; const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-' })()}</td>
-                      <td style={styles.td}>{(() => { if (status.toUpperCase() !== 'RECEIVED') return '-'; const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' })()}</td>
+                      <td style={{ ...styles.td, ...completedStyle }}>{(() => { if (status.toUpperCase() !== 'RECEIVED') return '-'; const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-' })()}</td>
+                      <td style={{ ...styles.td, ...completedStyle }}>{(() => { if (status.toUpperCase() !== 'RECEIVED') return '-'; const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' })()}</td>
                     </tr>
                     )
                   })
