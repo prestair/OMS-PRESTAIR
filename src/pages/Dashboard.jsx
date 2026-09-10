@@ -38,12 +38,12 @@ const ALL_COLUMNS = [
   { key: 'sectionDrawingRemarks', label: 'SD Remarks' },
   { key: 'inProduction', label: 'In Production' },
   { key: 'installation', label: 'Seasonal Discount' },
-  { key: 'akhilPoints', label: 'Akhil Points' },
   { key: 'totalAmount', label: 'Total Amount' },
   { key: 'receivedAmount', label: 'Received' },
   { key: 'balance', label: 'Balance' },
   { key: 'percentReceived', label: '% Rcv' },
   { key: 'paymentRemarks', label: 'Payment Remarks' },
+  { key: 'akhilPoints', label: 'Akhil Payment Remarks' },
   { key: 'daysToOrder', label: 'Days to Order' },
   { key: 'akhilSirAudit', label: 'Akhil Sir Audit' },
   { key: 'remarks', label: 'Audit Remarks' },
@@ -477,7 +477,7 @@ function Dashboard() {
     previewWin.document.getElementById('dlBtn').onclick = () => {
       const ws = XLSX.utils.json_to_sheet(exportData)
       ws['!cols'] = headers.map(key => {
-        if (key === 'Akhil Points') return { wch: 25 }
+        if (key === 'Akhil Payment Remarks') return { wch: 25 }
         let maxLen = key.length
         exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length })
         return { wch: Math.min(Math.max(maxLen + 2, 10), 40) }
@@ -605,7 +605,7 @@ function Dashboard() {
       'Akhil Sir Audit': o.akhilSirAudit || '',
       'Advance Bill': o.advanceBill || '',
       'Advance Bill Remarks': o.advanceBillRemarks || '',
-      'Akhil Points': o.akhilPoints || '',
+      'Akhil Payment Remarks': o.akhilPoints || '',
       'Deleted By': o.deletedBy || '',
       'Deleted On': o.deletedAt ? (() => { const d = new Date(o.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''
     }))
@@ -641,12 +641,12 @@ function Dashboard() {
       { key: 'lop', label: 'LOP' },
       { key: 'sectionDrawing', label: 'Section Drawing' },
       { key: 'inProduction', label: 'In Production' },
-      { key: 'akhilPoints', label: 'Akhil Points' },
       { key: 'totalAmount', label: 'Total Amount' },
       { key: 'receivedAmount', label: 'Received' },
       { key: 'balance', label: 'Balance' },
       { key: 'percentReceived', label: '% Rcv' },
       { key: 'paymentRemarks', label: 'Payment Remarks' },
+      { key: 'akhilPoints', label: 'Akhil Payment Remarks' },
       { key: 'akhilSirAudit', label: 'Akhil Sir Audit' },
       { key: 'remarks', label: 'Audit Remarks' },
       { key: 'advanceBill', label: 'Advance Bill' },
@@ -694,7 +694,7 @@ function Dashboard() {
     previewWin.document.getElementById('dlBtn').onclick = () => {
       const ws = XLSX.utils.json_to_sheet(exportData)
       ws['!cols'] = headers.map(key => {
-        if (key === 'Akhil Points') return { wch: 25 }
+        if (key === 'Akhil Payment Remarks') return { wch: 25 }
         let maxLen = key.length
         exportData.forEach(row => { const val = String(row[key] ?? ''); if (val.length > maxLen) maxLen = val.length })
         return { wch: Math.min(Math.max(maxLen + 2, 10), 40) }
@@ -776,7 +776,7 @@ function Dashboard() {
         akhilSirAudit: row['Akhil Sir Audit'] || '',
         advanceBill: row['Advance Bill'] || '',
         advanceBillRemarks: row['Advance Bill Remarks'] || '',
-        akhilPoints: row['Akhil Points'] || '',
+        akhilPoints: row['Akhil Payment Remarks'] || row['Akhil Points'] || '',
         orRecvd: row['OR Recvd'] || '',
         deletedBy: row['Deleted By'] || '',
         deletedOn: convertDate(row['Deleted On'] || row['DELETED ON'] || ''),
@@ -846,7 +846,7 @@ function Dashboard() {
         sectionDrawingRemarks: row['SD Remarks'] || '',
         inProduction: row['In Production'] || '',
         installation: row['Seasonal Discount'] || '',
-        akhilPoints: row['Akhil Points'] || '',
+        akhilPoints: row['Akhil Payment Remarks'] || row['Akhil Points'] || '',
         totalAmount: parseFloat(row['Total Amount'] || 0) || 0,
         receivedAmount: parseFloat(row['Received'] || row['Recvd'] || 0) || 0,
         balance: parseFloat(row['Balance'] || row['BALANCE'] || 0) || 0,
