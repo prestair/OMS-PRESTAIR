@@ -354,7 +354,10 @@ function Dashboard() {
     Object.entries(columnFilters).forEach(([key, selectedValues]) => {
       if (selectedValues && selectedValues.length > 0) {
         result = result.filter(o => {
-          const val = String(o[key] || '').trim() || '(Empty)'
+          const raw = String(o[key] || '').trim()
+          const val = raw || '(Empty)'
+          // Special "(Non Blank)" option: match any order that has a non-empty value
+          if (selectedValues.includes('(Non Blank)') && raw) return true
           return selectedValues.includes(val)
         })
       }
@@ -1733,6 +1736,10 @@ function Dashboard() {
                         <button onClick={() => clearFilter(col.key)} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
                       </div>
                       <div style={styles.filterOptions}>
+                        <label key="(Non Blank)" style={{ ...styles.filterOption, fontWeight: 600, borderBottom: '1px solid #eee' }} onMouseDown={e => e.preventDefault()}>
+                          <input type="checkbox" checked={(columnFilters[col.key] || []).includes('(Non Blank)')} onChange={() => toggleFilterValue(col.key, '(Non Blank)')} />
+                          <span style={{ fontSize: '11px' }}>(Non Blank)</span>
+                        </label>
                         {getUniqueValues(col.key).map(val => (
                           <label key={val} style={styles.filterOption} onMouseDown={e => e.preventDefault()}>
                             <input type="checkbox" checked={(columnFilters[col.key] || []).includes(val)} onChange={() => toggleFilterValue(col.key, val)} />
