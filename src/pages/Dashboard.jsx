@@ -79,6 +79,12 @@ function Dashboard() {
     return saved ? JSON.parse(saved) : DEFAULT_VISIBLE
   })
   const [showColumnPicker, setShowColumnPicker] = useState(false)
+  // Completed/Deleted tab column selection is INDEPENDENT from Active tab (separate storage key)
+  const [completedVisibleColumns, setCompletedVisibleColumns] = useState(() => {
+    const saved = localStorage.getItem(`oms_completed_columns_${user.username}`)
+    return saved ? JSON.parse(saved) : DEFAULT_VISIBLE
+  })
+  const [showCompletedColumnPicker, setShowCompletedColumnPicker] = useState(false)
   const [showOrderForm, setShowOrderForm] = useState(false)
   const [editingOrder, setEditingOrder] = useState(null)
   const [editingDeleted, setEditingDeleted] = useState(false)
@@ -395,6 +401,10 @@ function Dashboard() {
   useEffect(() => {
     localStorage.setItem(`oms_columns_${user.username}`, JSON.stringify(visibleColumns))
   }, [visibleColumns])
+
+  useEffect(() => {
+    localStorage.setItem(`oms_completed_columns_${user.username}`, JSON.stringify(completedVisibleColumns))
+  }, [completedVisibleColumns])
 
   const fetchOrders = async () => {
     try {
@@ -1419,6 +1429,22 @@ function Dashboard() {
     setShowPrintPreview(false)
   }
 
+  const toggleCompletedColumn = (key) => {
+    setCompletedVisibleColumns(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    )
+  }
+
+  // Read-only cell renderer for the Completed/Deleted tab (no inline editors / API calls)
+  const getDeletedCellValue = (order, key) => {
+    const val = order[key]
+    if (key === 'totalAmount' || key === 'receivedAmount') return formatCurrency(val)
+    if (key === 'balance') return formatCurrency((order.totalAmount || 0) - (order.receivedAmount || 0))
+    if (key === 'percentReceived') return `${val || 0}%`
+    if (key === 'date' || key === 'deliveryDate') return formatDate(val)
+    return val || ''
+  }
+
   const toggleColumn = (key) => {
     setVisibleColumns(prev =>
       prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
@@ -1538,6 +1564,10 @@ function Dashboard() {
   }
 
   const displayedColumns = allowedColumns.filter(c => visibleColumns.includes(c.key))
+  // Completed tab: same permission filter as Active (allowedColumns) + independent selection.
+  // date/poNo/client/orderNo are rendered as fixed sticky prefix columns, so exclude them here to avoid duplicates.
+  const COMPLETED_FIXED_KEYS = ['date', 'poNo', 'client', 'orderNo']
+  const completedDisplayedColumns = allowedColumns.filter(c => completedVisibleColumns.includes(c.key) && !COMPLETED_FIXED_KEYS.includes(c.key))
 
   return (
     <div style={styles.wrapper}>
@@ -1810,12 +1840,36 @@ function Dashboard() {
       {/* Deleted Orders Tab */}
       {activeTab === 'deleted' && (
         <div style={{ padding: '0 24px' }}>
-          {isAdmin && (
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', justifyContent: 'flex-end' }}>
-              <button onClick={handleDeletedCompleteDownload} style={{ ...styles.actionBtn, background: '#1a1a2e' }}>Complete Download</button>
-              <button onClick={handleDeletedExport} style={{ ...styles.actionBtn, background: '#27ae60' }}>Download Excel</button>
-              <button onClick={() => deletedFileInputRef.current.click()} style={{ ...styles.actionBtn, background: '#f39c12' }}>Import Excel</button>
-              <input ref={deletedFileInputRef} type="file" accept=".xlsx,.xls" onChange={handleDeletedImport} style={{ display: 'none' }} />
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', justifyContent: 'flex-end' }}>
+            <button onClick={() => setShowCompletedColumnPicker(!showCompletedColumnPicker)} style={{ ...styles.actionBtn, background: '#2980b9' }}>Select Columns</button>
+            {isAdmin && (
+              <>
+                <button onClick={handleDeletedCompleteDownload} style={{ ...styles.actionBtn, background: '#1a1a2e' }}>Complete Download</button>
+                <button onClick={handleDeletedExport} style={{ ...styles.actionBtn, background: '#27ae60' }}>Download Excel</button>
+                <button onClick={() => deletedFileInputRef.current.click()} style={{ ...styles.actionBtn, background: '#f39c12' }}>Import Excel</button>
+                <input ref={deletedFileInputRef} type="file" accept=".xlsx,.xls" onChange={handleDeletedImport} style={{ display: 'none' }} />
+              </>
+            )}
+          </div>
+          {/* Completed Column Picker (independent from Active, same permission set) */}
+          {showCompletedColumnPicker && (
+            <div style={styles.columnPicker}>
+              <div style={styles.columnPickerHeader}>
+                <h3 style={{ margin: 0 }}>Select Columns to Display</h3>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button onClick={() => setCompletedVisibleColumns(allowedColumns.map(c => c.key))} style={styles.selectAllBtn}>Select All</button>
+                  <button onClick={() => setCompletedVisibleColumns([])} style={styles.deselectAllBtn}>Deselect All</button>
+                  <button onClick={() => setShowCompletedColumnPicker(false)} style={styles.closeBtn}>X</button>
+                </div>
+              </div>
+              <div style={styles.columnGrid}>
+                {allowedColumns.map(col => (
+                  <label key={col.key} style={styles.columnCheckbox}>
+                    <input type="checkbox" checked={completedVisibleColumns.includes(col.key)} onChange={() => toggleCompletedColumn(col.key)} />
+                    <span>{col.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           )}
           {/* Active Column Filters Summary */}
@@ -1889,18 +1943,7 @@ function Dashboard() {
                   <th style={{...styles.th, position:'sticky', top:0, left:'125px', zIndex:25, minWidth:'85px', background:'#1a1a2e'}}>PO No</th>
                   <th style={{...styles.th, position:'sticky', top:0, left:'210px', zIndex:25, minWidth:'160px', background:'#1a1a2e'}}>Order No</th>
                   {[
-                    { key: 'client', label: 'Client' },
-                    { key: 'customerName', label: 'Customer' },
-                    { key: 'gst', label: 'GST' },
-                    { key: 'photography', label: 'Photography' },
-                    { key: 'siteVideo', label: 'Site Video' },
-                    { key: 'review', label: 'Review' },
-                    { key: 'salesRep', label: 'Sales Rep' },
-                    { key: 'deliveryAddress', label: 'Delivery Address' },
-                    { key: 'phoneNo', label: 'Phone No' },
-                    { key: 'totalAmount', label: 'Total Amount' },
-                    { key: 'receivedAmount', label: 'Received' },
-                    { key: 'balance', label: 'Balance' },
+                    ...completedDisplayedColumns,
                     { key: 'deletedBy', label: 'Deleted By' },
                     { key: 'deletedOn', label: 'Deleted On' },
                   ].map(col => {
@@ -1990,18 +2033,9 @@ function Dashboard() {
                     <td style={{...styles.td, position:'sticky', left:'40px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'85px'}}>{formatDate(order.date)}</td>
                     <td style={{...styles.td, position:'sticky', left:'125px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'85px'}}>{order.poNo}</td>
                     <td style={{...styles.td, position:'sticky', left:'210px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'160px'}}>{order.orderNo}</td>
-                    <td style={{...styles.td, textAlign:'left'}}>{order.client}</td>
-                    <td style={{...styles.td, textAlign:'left'}}>{order.customerName}</td>
-                    <td style={styles.td}>{order.gst}</td>
-                    <td style={styles.td}>{order.photography}</td>
-                    <td style={styles.td}>{order.siteVideo}</td>
-                    <td style={styles.td}>{order.review}</td>
-                    <td style={styles.td}>{order.salesRep}</td>
-                    <td style={styles.td}>{order.deliveryAddress}</td>
-                    <td style={styles.td}>{order.phoneNo}</td>
-                    <td style={styles.td}>{formatCurrency(order.totalAmount)}</td>
-                    <td style={styles.td}>{formatCurrency(order.receivedAmount)}</td>
-                    <td style={styles.td}>{formatCurrency(order.balance)}</td>
+                    {completedDisplayedColumns.map(col => (
+                      <td key={col.key} style={{...styles.td, ...(col.key === 'client' || col.key === 'customerName' ? {textAlign:'left'} : {})}}>{getDeletedCellValue(order, col.key)}</td>
+                    ))}
                     <td style={styles.td}>{order.deletedBy}</td>
                     <td style={styles.td}>{order.deletedAt ? (() => { const d = new Date(order.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''}</td>
                     {isAdmin && (
