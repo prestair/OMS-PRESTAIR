@@ -1565,8 +1565,24 @@ function Dashboard() {
 
   const displayedColumns = allowedColumns.filter(c => visibleColumns.includes(c.key))
   // Completed tab: same permission filter (allowedColumns) and same column SEQUENCE as Active (ALL_COLUMNS order),
-  // with an independent selection. No reordered/sticky prefix columns so order matches Active exactly.
+  // with an independent selection. Column order matches Active exactly.
   const completedDisplayedColumns = allowedColumns.filter(c => completedVisibleColumns.includes(c.key))
+
+  // Freeze the leading columns up to and including Order No (only the contiguous leading run,
+  // so cumulative left offsets stay correct). Widths must match the <td>/<th> minWidths below.
+  const COMPLETED_FREEZE_WIDTHS = { date: 85, poNo: 85, client: 160, orderNo: 160 }
+  const completedStickyMap = (() => {
+    const map = {}
+    let left = 35 // width of the leading '#' column
+    for (const col of completedDisplayedColumns) {
+      if (!(col.key in COMPLETED_FREEZE_WIDTHS)) break // stop at first non-freeze column
+      const width = COMPLETED_FREEZE_WIDTHS[col.key]
+      map[col.key] = { left, width }
+      left += width
+      if (col.key === 'orderNo') break // freeze only up to Order No
+    }
+    return map
+  })()
 
   return (
     <div style={styles.wrapper}>
@@ -1936,7 +1952,7 @@ function Dashboard() {
             <table style={styles.table}>
               <thead>
                 <tr onClick={() => setDeletedOpenFilter(null)}>
-                  <th style={{...styles.th, width:'35px', minWidth:'35px'}}>#</th>
+                  <th style={{...styles.th, position:'sticky', top:0, left:0, zIndex:25, width:'35px', minWidth:'35px', background:'#1a1a2e'}}>#</th>
                   {[
                     ...completedDisplayedColumns,
                     { key: 'deletedBy', label: 'Deleted By' },
@@ -1945,8 +1961,10 @@ function Dashboard() {
                     const filterable = true // all columns are filterable in Completed tab (deletedOn uses a date-range filter)
                     const isActive = col.key === 'deletedOn' ? (deletedDateFrom || deletedDateTo) : (deletedColumnFilters[col.key] && deletedColumnFilters[col.key].length > 0)
                     const uniqueVals = col.key === 'deletedOn' ? [] : [...new Set(deletedOrders.map(o => String(o[col.key] || '').trim()).filter(Boolean))].sort()
+                    const sticky = completedStickyMap[col.key]
+                    const thStickyStyle = sticky ? { left: sticky.left + 'px', minWidth: sticky.width + 'px', zIndex: 25, background: '#1a1a2e' } : {}
                     return (
-                      <th key={col.key} style={{ ...styles.th, position: 'sticky', top: 0, zIndex: 10 }} onClick={e => e.stopPropagation()}>
+                      <th key={col.key} style={{ ...styles.th, position: 'sticky', top: 0, zIndex: 10, ...thStickyStyle }} onClick={e => e.stopPropagation()}>
                         <div style={styles.thContent}>
                           <span>{col.label}</span>
                           {filterable && (
@@ -2048,10 +2066,14 @@ function Dashboard() {
                   return filtered.map((order, idx) => {
                   return (
                   <tr key={order.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
-                    <td style={{...styles.td, width:'35px'}}>{idx + 1}</td>
-                    {completedDisplayedColumns.map(col => (
-                      <td key={col.key} style={{...styles.td, ...(col.key === 'client' || col.key === 'customerName' ? {textAlign:'left'} : {})}}>{getDeletedCellValue(order, col.key)}</td>
-                    ))}
+                    <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', width:'35px', minWidth:'35px'}}>{idx + 1}</td>
+                    {completedDisplayedColumns.map(col => {
+                      const sticky = completedStickyMap[col.key]
+                      const tdStickyStyle = sticky ? { position:'sticky', left: sticky.left + 'px', minWidth: sticky.width + 'px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff' } : {}
+                      return (
+                      <td key={col.key} style={{...styles.td, ...(col.key === 'client' || col.key === 'customerName' ? {textAlign:'left'} : {}), ...tdStickyStyle}}>{getDeletedCellValue(order, col.key)}</td>
+                      )
+                    })}
                     <td style={styles.td}>{order.deletedBy}</td>
                     <td style={styles.td}>{order.deletedAt ? (() => { const d = new Date(order.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''}</td>
                     {isAdmin && (
