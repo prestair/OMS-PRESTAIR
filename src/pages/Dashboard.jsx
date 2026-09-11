@@ -364,6 +364,8 @@ function Dashboard() {
           const val = raw || '(Empty)'
           // Special "(Non Blank)" option: match any order that has a non-empty value
           if (selectedValues.includes('(Non Blank)') && raw) return true
+          // Special "(Blank)" option: match any order with an empty value
+          if (selectedValues.includes('(Blank)') && !raw) return true
           return selectedValues.includes(val)
         })
       }
@@ -1535,8 +1537,9 @@ function Dashboard() {
   const getUniqueValues = (key) => {
     const values = new Set()
     orders.forEach(o => {
-      const val = String(o[key] || '').trim() || '(Empty)'
-      values.add(val)
+      const val = String(o[key] || '').trim()
+      // Blanks are handled by the dedicated "(Blank)" option, so skip empty values here
+      if (val) values.add(val)
     })
     return [...values].sort()
   }
@@ -1766,9 +1769,13 @@ function Dashboard() {
                         <button onClick={() => clearFilter(col.key)} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
                       </div>
                       <div style={styles.filterOptions}>
-                        <label key="(Non Blank)" style={{ ...styles.filterOption, fontWeight: 600, borderBottom: '1px solid #eee' }} onMouseDown={e => e.preventDefault()}>
+                        <label key="(Non Blank)" style={{ ...styles.filterOption, fontWeight: 600 }} onMouseDown={e => e.preventDefault()}>
                           <input type="checkbox" checked={(columnFilters[col.key] || []).includes('(Non Blank)')} onChange={() => toggleFilterValue(col.key, '(Non Blank)')} />
                           <span style={{ fontSize: '11px' }}>(Non Blank)</span>
+                        </label>
+                        <label key="(Blank)" style={{ ...styles.filterOption, fontWeight: 600, borderBottom: '1px solid #eee' }} onMouseDown={e => e.preventDefault()}>
+                          <input type="checkbox" checked={(columnFilters[col.key] || []).includes('(Blank)')} onChange={() => toggleFilterValue(col.key, '(Blank)')} />
+                          <span style={{ fontSize: '11px' }}>(Blank)</span>
                         </label>
                         {getUniqueValues(col.key).map(val => (
                           <label key={val} style={styles.filterOption} onMouseDown={e => e.preventDefault()}>
@@ -1960,7 +1967,7 @@ function Dashboard() {
                               <button onClick={() => { setDeletedColumnFilters(prev => { const { [col.key]: _, ...rest } = prev; return rest }); setDeletedOpenFilter(null) }} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
                             </div>
                             <div style={styles.filterOptions}>
-                              <label key="(Non Blank)" style={{ ...styles.filterOption, fontWeight: 600, borderBottom: '1px solid #eee' }} onMouseDown={e => e.preventDefault()}>
+                              <label key="(Non Blank)" style={{ ...styles.filterOption, fontWeight: 600 }} onMouseDown={e => e.preventDefault()}>
                                 <input type="checkbox" checked={(deletedColumnFilters[col.key] || []).includes('(Non Blank)')} onChange={() => {
                                   setDeletedColumnFilters(prev => {
                                     const current = prev[col.key] || []
@@ -1970,6 +1977,17 @@ function Dashboard() {
                                   })
                                 }} />
                                 <span style={{ fontSize: '11px' }}>(Non Blank)</span>
+                              </label>
+                              <label key="(Blank)" style={{ ...styles.filterOption, fontWeight: 600, borderBottom: '1px solid #eee' }} onMouseDown={e => e.preventDefault()}>
+                                <input type="checkbox" checked={(deletedColumnFilters[col.key] || []).includes('(Blank)')} onChange={() => {
+                                  setDeletedColumnFilters(prev => {
+                                    const current = prev[col.key] || []
+                                    const updated = current.includes('(Blank)') ? current.filter(v => v !== '(Blank)') : [...current, '(Blank)']
+                                    if (updated.length === 0) { const { [col.key]: _, ...rest } = prev; return rest }
+                                    return { ...prev, [col.key]: updated }
+                                  })
+                                }} />
+                                <span style={{ fontSize: '11px' }}>(Blank)</span>
                               </label>
                               {uniqueVals.map(val => (
                                 <label key={val} style={styles.filterOption} onMouseDown={e => e.preventDefault()}>
@@ -2027,6 +2045,7 @@ function Dashboard() {
                       filtered = filtered.filter(o => {
                         const raw = String(o[key] || '').trim()
                         if (selectedValues.includes('(Non Blank)') && raw) return true
+                        if (selectedValues.includes('(Blank)') && !raw) return true
                         return selectedValues.includes(raw)
                       })
                     }
