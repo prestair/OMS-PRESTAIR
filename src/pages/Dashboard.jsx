@@ -1569,7 +1569,7 @@ function Dashboard() {
   const displayedColumns = allowedColumns.filter(c => visibleColumns.includes(c.key))
   // Completed tab: same permission filter as Active (allowedColumns) + independent selection.
   // date/poNo/client/orderNo are rendered as fixed sticky prefix columns, so exclude them here to avoid duplicates.
-  const COMPLETED_FIXED_KEYS = ['date', 'poNo', 'client', 'orderNo']
+  const COMPLETED_FIXED_KEYS = ['date', 'poNo', 'client', 'orderNo'] // client is always shown as a fixed column in Completed tab
   const completedDisplayedColumns = allowedColumns.filter(c => completedVisibleColumns.includes(c.key) && !COMPLETED_FIXED_KEYS.includes(c.key))
 
   return (
@@ -1945,6 +1945,7 @@ function Dashboard() {
                   <th style={{...styles.th, position:'sticky', top:0, left:'125px', zIndex:25, minWidth:'85px', background:'#1a1a2e'}}>PO No</th>
                   <th style={{...styles.th, position:'sticky', top:0, left:'210px', zIndex:25, minWidth:'160px', background:'#1a1a2e'}}>Order No</th>
                   {[
+                    { key: 'client', label: 'Client' },
                     ...completedDisplayedColumns,
                     { key: 'deletedBy', label: 'Deleted By' },
                     { key: 'deletedOn', label: 'Deleted On' },
@@ -2059,6 +2060,7 @@ function Dashboard() {
                     <td style={{...styles.td, position:'sticky', left:'40px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'85px'}}>{formatDate(order.date)}</td>
                     <td style={{...styles.td, position:'sticky', left:'125px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'85px'}}>{order.poNo}</td>
                     <td style={{...styles.td, position:'sticky', left:'210px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'160px'}}>{order.orderNo}</td>
+                    <td style={{...styles.td, textAlign:'left'}}>{order.client}</td>
                     {completedDisplayedColumns.map(col => (
                       <td key={col.key} style={{...styles.td, ...(col.key === 'client' || col.key === 'customerName' ? {textAlign:'left'} : {})}}>{getDeletedCellValue(order, col.key)}</td>
                     ))}
