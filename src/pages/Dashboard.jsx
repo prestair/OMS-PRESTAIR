@@ -615,35 +615,32 @@ function Dashboard() {
     }
     Object.entries(deletedColumnFilters).forEach(([key, selectedValues]) => {
       if (selectedValues && selectedValues.length > 0) {
-        exportFiltered = exportFiltered.filter(o => selectedValues.includes(String(o[key] || '')))
+        exportFiltered = exportFiltered.filter(o => {
+          const raw = String(o[key] || '').trim()
+          if (selectedValues.includes('(Non Blank)') && raw) return true
+          if (selectedValues.includes('(Blank)') && !raw) return true
+          return selectedValues.includes(raw)
+        })
       }
     })
     if (deletedDateFrom) exportFiltered = exportFiltered.filter(o => o.deletedAt && new Date(o.deletedAt) >= new Date(deletedDateFrom))
     if (deletedDateTo) exportFiltered = exportFiltered.filter(o => o.deletedAt && new Date(o.deletedAt) <= new Date(deletedDateTo + 'T23:59:59'))
-    const exportData = exportFiltered.map((o, idx) => ({
-      '#': idx + 1,
-      'Date': formatDate(o.date),
-      'PO No': o.poNo || '',
-      'Order No': o.orderNo || '',
-      'Client': o.client || '',
-      'Customer Name': o.customerName || '',
-      'GST': o.gst || '',
-      'Photography': o.photography || '',
-      'Site Video': o.siteVideo || '',
-      'Review': o.review || '',
-      'Sales Rep': o.salesRep || '',
-      'Delivery Address': o.deliveryAddress || '',
-      'Phone No': o.phoneNo || '',
-      'Total Amount': o.totalAmount || 0,
-      'Received': o.receivedAmount || 0,
-      'Balance': o.balance || 0,
-      'Akhil Sir Audit': o.akhilSirAudit || '',
-      'Advance Bill': o.advanceBill || '',
-      'Advance Bill Remarks': o.advanceBillRemarks || '',
-      'Akhil Payment Remarks': o.akhilPoints || '',
-      'Deleted By': o.deletedBy || '',
-      'Deleted On': o.deletedAt ? (() => { const d = new Date(o.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''
-    }))
+    // Use the same column selection and SEQUENCE as the Completed tab (which matches Active/ALL_COLUMNS order)
+    const exportCols = completedDisplayedColumns
+    const exportData = exportFiltered.map((o, idx) => {
+      const row = { '#': idx + 1 }
+      exportCols.forEach(col => {
+        let val = o[col.key]
+        if (col.key === 'date' || col.key === 'deliveryDate') val = formatDate(val)
+        else if (['totalAmount', 'receivedAmount', 'balance'].includes(col.key)) val = val || 0
+        else if (col.key === 'percentReceived') val = `${val || 0}%`
+        else val = val || ''
+        row[col.label] = val
+      })
+      row['Deleted By'] = o.deletedBy || ''
+      row['Deleted On'] = o.deletedAt ? (() => { const d = new Date(o.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''
+      return row
+    })
     const ws = XLSX.utils.json_to_sheet(exportData)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Completed Orders')
@@ -1567,10 +1564,9 @@ function Dashboard() {
   }
 
   const displayedColumns = allowedColumns.filter(c => visibleColumns.includes(c.key))
-  // Completed tab: same permission filter as Active (allowedColumns) + independent selection.
-  // date/poNo/client/orderNo are rendered as fixed sticky prefix columns, so exclude them here to avoid duplicates.
-  const COMPLETED_FIXED_KEYS = ['date', 'poNo', 'client', 'orderNo'] // client is always shown as a fixed column in Completed tab
-  const completedDisplayedColumns = allowedColumns.filter(c => completedVisibleColumns.includes(c.key) && !COMPLETED_FIXED_KEYS.includes(c.key))
+  // Completed tab: same permission filter (allowedColumns) and same column SEQUENCE as Active (ALL_COLUMNS order),
+  // with an independent selection. No reordered/sticky prefix columns so order matches Active exactly.
+  const completedDisplayedColumns = allowedColumns.filter(c => completedVisibleColumns.includes(c.key))
 
   return (
     <div style={styles.wrapper}>
@@ -1940,12 +1936,8 @@ function Dashboard() {
             <table style={styles.table}>
               <thead>
                 <tr onClick={() => setDeletedOpenFilter(null)}>
-                  <th style={{...styles.th, position:'sticky', top:0, left:0, zIndex:25, minWidth:'40px', background:'#1a1a2e'}}>#</th>
-                  <th style={{...styles.th, position:'sticky', top:0, left:'40px', zIndex:25, minWidth:'85px', background:'#1a1a2e'}}>Date</th>
-                  <th style={{...styles.th, position:'sticky', top:0, left:'125px', zIndex:25, minWidth:'85px', background:'#1a1a2e'}}>PO No</th>
-                  <th style={{...styles.th, position:'sticky', top:0, left:'210px', zIndex:25, minWidth:'160px', background:'#1a1a2e'}}>Order No</th>
+                  <th style={{...styles.th, width:'35px', minWidth:'35px'}}>#</th>
                   {[
-                    { key: 'client', label: 'Client' },
                     ...completedDisplayedColumns,
                     { key: 'deletedBy', label: 'Deleted By' },
                     { key: 'deletedOn', label: 'Deleted On' },
@@ -2056,11 +2048,7 @@ function Dashboard() {
                   return filtered.map((order, idx) => {
                   return (
                   <tr key={order.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
-                    <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'40px'}}>{idx + 1}</td>
-                    <td style={{...styles.td, position:'sticky', left:'40px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'85px'}}>{formatDate(order.date)}</td>
-                    <td style={{...styles.td, position:'sticky', left:'125px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'85px'}}>{order.poNo}</td>
-                    <td style={{...styles.td, position:'sticky', left:'210px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff', minWidth:'160px'}}>{order.orderNo}</td>
-                    <td style={{...styles.td, textAlign:'left'}}>{order.client}</td>
+                    <td style={{...styles.td, width:'35px'}}>{idx + 1}</td>
                     {completedDisplayedColumns.map(col => (
                       <td key={col.key} style={{...styles.td, ...(col.key === 'client' || col.key === 'customerName' ? {textAlign:'left'} : {})}}>{getDeletedCellValue(order, col.key)}</td>
                     ))}
