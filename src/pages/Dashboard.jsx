@@ -1878,12 +1878,7 @@ function Dashboard() {
               <span style={{ fontWeight: '600', fontSize: '12px' }}>Active Filters:</span>
               {Object.entries(deletedColumnFilters).map(([key, vals]) => (
                 <span key={key} style={styles.filterTag}>
-                  {[
-                    { key: 'client', label: 'Client' }, { key: 'customerName', label: 'Customer' },
-                    { key: 'photography', label: 'Photography' }, { key: 'siteVideo', label: 'Site Video' },
-                    { key: 'review', label: 'Review' }, { key: 'salesRep', label: 'Sales Rep' },
-                    { key: 'deletedBy', label: 'Deleted By' }
-                  ].find(c => c.key === key)?.label}: {vals.length} selected
+                  {(ALL_COLUMNS.find(c => c.key === key)?.label) || (key === 'deletedBy' ? 'Deleted By' : key === 'deletedOn' ? 'Deleted On' : key)}: {vals.length} selected
                   <button onClick={() => setDeletedColumnFilters(prev => { const { [key]: _, ...rest } = prev; return rest })} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', marginLeft: '4px', fontSize: '12px', fontWeight: '700' }}>×</button>
                 </span>
               ))}
@@ -1947,12 +1942,9 @@ function Dashboard() {
                     { key: 'deletedBy', label: 'Deleted By' },
                     { key: 'deletedOn', label: 'Deleted On' },
                   ].map(col => {
-                    const filterable = ['client','customerName','photography','siteVideo','review','salesRep','deletedBy','deletedOn'].includes(col.key)
+                    const filterable = true // all columns are filterable in Completed tab (deletedOn uses a date-range filter)
                     const isActive = col.key === 'deletedOn' ? (deletedDateFrom || deletedDateTo) : (deletedColumnFilters[col.key] && deletedColumnFilters[col.key].length > 0)
-                    const uniqueVals = filterable ? [...new Set(deletedOrders.map(o => {
-                      if (col.key === 'deletedOn') return o.deletedAt ? (() => { const d = new Date(o.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''
-                      return String(o[col.key] || '')
-                    }).filter(Boolean))].sort() : []
+                    const uniqueVals = col.key === 'deletedOn' ? [] : [...new Set(deletedOrders.map(o => String(o[col.key] || '').trim()).filter(Boolean))].sort()
                     return (
                       <th key={col.key} style={{ ...styles.th, position: 'sticky', top: 0, zIndex: 10 }} onClick={e => e.stopPropagation()}>
                         <div style={styles.thContent}>
@@ -1968,6 +1960,17 @@ function Dashboard() {
                               <button onClick={() => { setDeletedColumnFilters(prev => { const { [col.key]: _, ...rest } = prev; return rest }); setDeletedOpenFilter(null) }} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
                             </div>
                             <div style={styles.filterOptions}>
+                              <label key="(Non Blank)" style={{ ...styles.filterOption, fontWeight: 600, borderBottom: '1px solid #eee' }} onMouseDown={e => e.preventDefault()}>
+                                <input type="checkbox" checked={(deletedColumnFilters[col.key] || []).includes('(Non Blank)')} onChange={() => {
+                                  setDeletedColumnFilters(prev => {
+                                    const current = prev[col.key] || []
+                                    const updated = current.includes('(Non Blank)') ? current.filter(v => v !== '(Non Blank)') : [...current, '(Non Blank)']
+                                    if (updated.length === 0) { const { [col.key]: _, ...rest } = prev; return rest }
+                                    return { ...prev, [col.key]: updated }
+                                  })
+                                }} />
+                                <span style={{ fontSize: '11px' }}>(Non Blank)</span>
+                              </label>
                               {uniqueVals.map(val => (
                                 <label key={val} style={styles.filterOption} onMouseDown={e => e.preventDefault()}>
                                   <input type="checkbox" checked={(deletedColumnFilters[col.key] || []).includes(val)} onChange={() => {
@@ -2021,7 +2024,11 @@ function Dashboard() {
                   }
                   Object.entries(deletedColumnFilters).forEach(([key, selectedValues]) => {
                     if (selectedValues && selectedValues.length > 0) {
-                      filtered = filtered.filter(o => selectedValues.includes(String(o[key] || '')))
+                      filtered = filtered.filter(o => {
+                        const raw = String(o[key] || '').trim()
+                        if (selectedValues.includes('(Non Blank)') && raw) return true
+                        return selectedValues.includes(raw)
+                      })
                     }
                   })
                   if (deletedDateFrom) filtered = filtered.filter(o => o.deletedAt && new Date(o.deletedAt) >= new Date(deletedDateFrom))
