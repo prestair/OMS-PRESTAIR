@@ -298,6 +298,8 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
                           <option value="ISSUE">ISSUE</option>
                           <option value="NR">NR</option>
                           <option value="PENDING">PENDING</option>
+                          <option value="LATER">LATER</option>
+                          <option value="IN PROCESS">IN PROCESS</option>
                         </>
                       ) : ['siteVerification','sectionDrawing','lop'].includes(field.key) ? (
                         <>
