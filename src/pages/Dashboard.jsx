@@ -7,6 +7,7 @@ import OrderForm from '../components/OrderForm'
 import PaymentForm from '../components/PaymentForm'
 import ReminderForm from '../components/ReminderForm'
 import ReminderPopup from '../components/ReminderPopup'
+import ComplaintsManagement from '../components/ComplaintsManagement'
 
 const ALL_COLUMNS = [
   { key: 'date', label: 'Date' },
@@ -86,6 +87,7 @@ function Dashboard() {
   })
   const [showCompletedColumnPicker, setShowCompletedColumnPicker] = useState(false)
   const [showOrderForm, setShowOrderForm] = useState(false)
+  const [showComplaints, setShowComplaints] = useState(false)
   const [editingOrder, setEditingOrder] = useState(null)
   const [editingDeleted, setEditingDeleted] = useState(false)
   const [showPaymentForm, setShowPaymentForm] = useState(null)
@@ -1600,6 +1602,7 @@ function Dashboard() {
           <span style={styles.headerUser}>Welcome, {user.fullName || user.username} ({user.role})</span>
         </div>
         <div style={styles.headerRight}>
+          {(isAdmin || user.canComplaints) && <button onClick={() => setShowComplaints(true)} style={{ ...styles.headerBtn, background: '#8e44ad' }}>COMPLAINTS MANAGEMENT</button>}
           <button onClick={() => { sessionStorage.setItem('oms_scrollY', window.scrollY); window.location.reload() }} style={{ ...styles.headerBtn, background: '#27ae60' }}>Refresh</button>
           {isAdmin && <button onClick={() => navigate('/users')} style={styles.headerBtn}>Manage Users</button>}
           {isAdmin && <button onClick={async () => { if (window.confirm('Send daily report email now?')) { try { const res = await axios.get('/api/cron-daily-report'); alert('Report sent to agm.prestairsystem@gmail.com') } catch(e) { alert('Error: ' + (e.response?.data?.error || e.message)) } } }} style={{ ...styles.headerBtn, background: '#27ae60' }}>Send Report</button>}
@@ -2928,6 +2931,9 @@ function Dashboard() {
 
       {/* Reminder Popup - always active, auto-polls for new reminders */}
       <ReminderPopup onClose={() => {}} />
+
+      {/* Complaints Management Modal */}
+      {showComplaints && <ComplaintsManagement onClose={() => setShowComplaints(false)} />}
 
       {/* Print Orientation Dialog */}
       {showPrintDialog && (
