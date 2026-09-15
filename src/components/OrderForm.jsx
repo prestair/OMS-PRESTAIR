@@ -88,6 +88,10 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
   const [proofPreview, setProofPreview] = useState(order?.paymentProofUrl || '')
   const [uploading, setUploading] = useState(false)
   const proofInputRef = useRef(null)
+  const [auditProofFile, setAuditProofFile] = useState(null)
+  const [auditProofFileName, setAuditProofFileName] = useState('')
+  const [auditProofPreview, setAuditProofPreview] = useState(order?.auditProofUrl || '')
+  const auditProofInputRef = useRef(null)
 
   // Fetch sales reps for dropdown
   React.useEffect(() => {
@@ -144,7 +148,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
     // Convert all text fields to uppercase
     const upperForm = { ...form }
     Object.keys(upperForm).forEach(key => {
-      if (typeof upperForm[key] === 'string' && key !== 'paymentProofUrl') {
+      if (typeof upperForm[key] === 'string' && key !== 'paymentProofUrl' && key !== 'auditProofUrl') {
         upperForm[key] = upperForm[key].toUpperCase()
       }
     })
@@ -162,6 +166,19 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
         upperForm.paymentProofUrl = res.data.url
         setUploading(false)
       }
+      // Upload audit image if new file selected (auto-delete old one first)
+      if (auditProofFile) {
+        setUploading(true)
+        if (order && order.id && order.auditProofUrl) {
+          try { await axios.delete(`/api/delete-audit-proof/${order.id}`) } catch {}
+        }
+        const reader = new FileReader()
+        const fileData = await new Promise((resolve) => { reader.onload = (ev) => resolve(ev.target.result.split(',')[1]); reader.readAsDataURL(auditProofFile) })
+        const orderId = order ? order.id : 'temp'
+        const res = await axios.post('/api/upload-audit-proof', { orderId, fileData, fileName: auditProofFileName || auditProofFile.name })
+        upperForm.auditProofUrl = res.data.url
+        setUploading(false)
+      }
       if (order) {
         if (isDeleted) {
           await axios.put(`/api/orders/deleted/${order.id}/update`, upperForm)
@@ -175,6 +192,12 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
           const reader = new FileReader()
           const fileData = await new Promise((resolve) => { reader.onload = (ev) => resolve(ev.target.result.split(',')[1]); reader.readAsDataURL(proofFile) })
           await axios.post('/api/upload-payment-proof', { orderId: createRes.data.id, fileData, fileName: proofFileName || proofFile.name })
+        }
+        // Upload audit proof for new order
+        if (auditProofFile && createRes.data?.id) {
+          const reader = new FileReader()
+          const fileData = await new Promise((resolve) => { reader.onload = (ev) => resolve(ev.target.result.split(',')[1]); reader.readAsDataURL(auditProofFile) })
+          await axios.post('/api/upload-audit-proof', { orderId: createRes.data.id, fileData, fileName: auditProofFileName || auditProofFile.name })
         }
       }
       onSaved()
@@ -351,6 +374,24 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
               </div>
             )}
             {proofPreview && <img src={proofPreview} alt="proof" style={{ marginTop: '8px', maxHeight: '80px', borderRadius: '4px', border: '1px solid #ddd' }} />}
+          </div>
+          {/* Audit Remarks Proof Upload */}
+          <div style={{ padding: '10px', background: '#f0f8ff', borderRadius: '6px', border: '1px solid #bee5eb', marginTop: '10px' }}>
+            <label style={{ fontSize: '11px', fontWeight: '700', color: '#1a1a2e', marginBottom: '6px', display: 'block' }}>Audit Supporting Image <span style={{ color: '#e74c3c' }}>*Required with Audit Remarks</span> {auditProofPreview && !auditProofFile && <span style={{ color: '#27ae60' }}>(Current kept if not changed)</span>}</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <button type="button" onClick={() => auditProofInputRef.current.click()} style={{ padding: '6px 14px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>{auditProofPreview ? 'Change Image' : 'Upload Image'}</button>
+              <input ref={auditProofInputRef} type="file" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp,.tiff,.svg" onChange={(e) => { const f = e.target.files[0]; if (f) { if (f.size > 1 * 1024 * 1024) { setError('Image size must be less than 1MB'); setTimeout(() => setError(''), 3000); return } setAuditProofFile(f); const ext = f.name.split('.').pop() || ''; const nameWithoutExt = f.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9._-]/g, '_'); setAuditProofFileName(nameWithoutExt + '.' + ext); setAuditProofPreview(URL.createObjectURL(f)); setError('') } }} style={{ display: 'none' }} />
+              {auditProofPreview && <a href={auditProofPreview} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#2980b9', fontWeight: '600' }}>View Current</a>}
+              {auditProofPreview && order && isAdmin && <button type="button" onClick={async () => { if (window.confirm('Delete this image?')) { try { await axios.delete(`/api/delete-audit-proof/${order.id}`); setAuditProofPreview(''); setAuditProofFile(null); setAuditProofFileName(''); setForm(prev => ({...prev, auditProofUrl: ''})) } catch(e) { setError(e.response?.data?.error || 'Delete failed') } } }} style={{ padding: '4px 10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>Delete</button>}
+              {uploading && <span style={{ fontSize: '10px', color: '#f39c12' }}>Uploading...</span>}
+            </div>
+            {auditProofFile && (
+              <div style={{ marginTop: '6px' }}>
+                <label style={{ fontSize: '10px', fontWeight: '600', color: '#555' }}>File Name (only A-Z, 0-9, dot, dash, underscore allowed):</label>
+                <input value={auditProofFileName} onChange={(e) => setAuditProofFileName(e.target.value.replace(/[^a-zA-Z0-9._-]/g, '_'))} style={{ padding: '4px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box', marginTop: '3px' }} />
+              </div>
+            )}
+            {auditProofPreview && <img src={auditProofPreview} alt="audit proof" style={{ marginTop: '8px', maxHeight: '80px', borderRadius: '4px', border: '1px solid #ddd' }} />}
           </div>
           </div>{/* end scrollable */}
           {error && <p style={styles.error}>{error}</p>}
