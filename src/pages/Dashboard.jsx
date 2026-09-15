@@ -1170,7 +1170,7 @@ function Dashboard() {
       if (dailyFilter === 'advanceBill') row['Akhil Sir Audit'] = o.akhilSirAudit || ''
       if (dailyFilter === 'advanceBill') row['Audit Remarks'] = o.remarks || ''
       if (dailyFilter === 'akhilSirAudit') row['Audit Remarks'] = o.remarks || ''
-      if (dailyFilter === 'percentReceived') { row['Total Amount'] = o.totalAmount || 0; row['Received'] = o.receivedAmount || 0; row['Balance'] = (o.totalAmount || 0) - (o.receivedAmount || 0) }
+      if (dailyFilter === 'percentReceived') { row['Total Amount'] = o.totalAmount || 0; row['Received'] = o.receivedAmount || 0; row['Balance'] = (o.totalAmount || 0) - (o.receivedAmount || 0); row['Payment Remarks'] = o.paymentRemarks || '' }
       if (dailyFilter === 'photography') row['Photo Remarks'] = o.photographyRemarks || ''
       if (dailyFilter === 'siteVideo') row['Video Remarks'] = o.siteVideoRemarks || ''
       if (dailyFilter === 'review') row['Review Remarks'] = o.reviewRemarks || ''
@@ -1397,7 +1397,7 @@ function Dashboard() {
     if (dailyFilter === 'sectionDrawing') html += `<th>SD Remarks</th>`
     if (dailyFilter === 'advanceBill') html += `<th>Advance Bill Remarks</th><th>Akhil Sir Audit</th><th>Audit Remarks</th>`
     if (dailyFilter === 'akhilSirAudit') html += `<th>Audit Remarks</th>`
-    if (dailyFilter === 'percentReceived') html += `<th>Total Amount</th><th>Received</th><th>Balance</th>`
+    if (dailyFilter === 'percentReceived') html += `<th>Total Amount</th><th>Received</th><th>Balance</th><th>Payment Remarks</th>`
     if (dailyFilter === 'photography') html += `<th>Photo Remarks</th>`
     if (dailyFilter === 'siteVideo') html += `<th>Video Remarks</th>`
     if (dailyFilter === 'review') html += `<th>Review Remarks</th>`
@@ -1415,7 +1415,7 @@ function Dashboard() {
       if (dailyFilter === 'sectionDrawing') html += `<td>${o.sectionDrawingRemarks || ''}</td>`
       if (dailyFilter === 'advanceBill') html += `<td>${o.advanceBillRemarks || ''}</td><td>${o.akhilSirAudit || ''}</td><td>${o.remarks || ''}</td>`
       if (dailyFilter === 'akhilSirAudit') html += `<td>${o.remarks || ''}</td>`
-      if (dailyFilter === 'percentReceived') html += `<td>${(o.totalAmount || 0).toLocaleString('en-IN')}</td><td>${(o.receivedAmount || 0).toLocaleString('en-IN')}</td><td>${((o.totalAmount || 0) - (o.receivedAmount || 0)).toLocaleString('en-IN')}</td>`
+      if (dailyFilter === 'percentReceived') html += `<td>${(o.totalAmount || 0).toLocaleString('en-IN')}</td><td>${(o.receivedAmount || 0).toLocaleString('en-IN')}</td><td>${((o.totalAmount || 0) - (o.receivedAmount || 0)).toLocaleString('en-IN')}</td><td>${o.paymentRemarks || ''}</td>`
       if (dailyFilter === 'photography') html += `<td>${o.photographyRemarks || ''}</td>`
       if (dailyFilter === 'siteVideo') html += `<td>${o.siteVideoRemarks || ''}</td>`
       if (dailyFilter === 'review') html += `<td>${o.reviewRemarks || ''}</td>`
@@ -2628,6 +2628,7 @@ function Dashboard() {
                   {dailyFilter === 'percentReceived' && <th style={styles.th}>Total Amount</th>}
                   {dailyFilter === 'percentReceived' && <th style={styles.th}>Received</th>}
                   {dailyFilter === 'percentReceived' && <th style={styles.th}>Balance</th>}
+                  {dailyFilter === 'percentReceived' && <th style={styles.th}>Payment Remarks</th>}
                   {dailyFilter === 'photography' && <th style={styles.th}>Photography Remarks</th>}
                   {dailyFilter === 'siteVideo' && <th style={styles.th}>Site Video Remarks</th>}
                   {dailyFilter === 'review' && <th style={styles.th}>Review Remarks</th>}
@@ -2662,6 +2663,7 @@ function Dashboard() {
                       {dailyFilter === 'percentReceived' && <td style={styles.td}>{formatCurrency(o.totalAmount)}</td>}
                       {dailyFilter === 'percentReceived' && <td style={styles.td}>{formatCurrency(o.receivedAmount)}</td>}
                       {dailyFilter === 'percentReceived' && <td style={styles.td}>{formatCurrency((o.totalAmount || 0) - (o.receivedAmount || 0))}</td>}
+                      {dailyFilter === 'percentReceived' && <td style={styles.td}>{o.paymentRemarks}</td>}
                       {dailyFilter === 'photography' && <td style={styles.td}>{o.photographyRemarks}</td>}
                       {dailyFilter === 'siteVideo' && <td style={styles.td}>{o.siteVideoRemarks}</td>}
                       {dailyFilter === 'review' && <td style={styles.td}>{o.reviewRemarks}</td>}
