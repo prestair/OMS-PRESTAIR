@@ -1209,11 +1209,14 @@ function Dashboard() {
       ws['!cols'] = headers.map(key => {
         if (key === '#') return { wch: 4 }
         if (key === 'Date') return { wch: 10 }
-        if (key === 'Client') return { wch: 40 }
+        if (key === 'Client') return { wch: 48 }
         if (key === 'Order No') return { wch: 16 }
         if (key === 'GST') return { wch: 18 }
         if (key === 'PO No') return { wch: 12 }
         if (key === 'Follow Up') return { wch: 10 }
+        if (key === 'Total Amount' || key === 'Received' || key === 'Balance') return { wch: 11 }
+        if (key === '% Rcv') return { wch: 7 }
+        if (key === 'Payment Remarks') return { wch: 48 }
         let maxLen = key.length
         exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length })
         return { wch: Math.min(Math.max(maxLen + 2, 10), 35) }
@@ -1389,15 +1392,16 @@ function Dashboard() {
     html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span id="pageInfo" style="margin-left:16px;font-size:13px;font-weight:600;color:#555"></span></div>`
     html += `<h2>OMS - Prestair Systems LLP</h2>`
     html += `<p class="subtitle">Daily Report | Filter: <strong>${filterLabel || 'None'}</strong> | Values: <strong>${selectedValues}</strong> | Date: ${new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric' })} | Layout: ${orientation.toUpperCase()}</p>`
-    html += `<table><thead><tr><th style="width:18px">#</th><th style="width:52px">Date</th><th style="width:32px">PO No</th><th style="min-width:110px">Client</th><th style="width:75px">Order No</th><th style="width:85px">GST</th><th style="width:42px">Follow Up</th>`
-    if (dailyFilter) html += `<th>${filterLabel}</th>`
+    const clientTh = dailyFilter === 'percentReceived' ? '<th style="min-width:220px">Client</th>' : '<th style="min-width:110px">Client</th>'
+    html += `<table><thead><tr><th style="width:18px">#</th><th style="width:52px">Date</th><th style="width:32px">PO No</th>${clientTh}<th style="width:75px">Order No</th><th style="width:85px">GST</th><th style="width:42px">Follow Up</th>`
+    if (dailyFilter) html += dailyFilter === 'percentReceived' ? `<th style="width:45px">${filterLabel}</th>` : `<th>${filterLabel}</th>`
     if (dailyFilter === 'siteVerification') html += `<th>SV Remarks</th>`
     if (dailyFilter === 'installationStatus') html += `<th>Inst. Remarks</th>`
     if (dailyFilter === 'sectionDrawing') html += `<th>LOP</th>`
     if (dailyFilter === 'sectionDrawing') html += `<th>SD Remarks</th>`
     if (dailyFilter === 'advanceBill') html += `<th>Advance Bill Remarks</th><th>Akhil Sir Audit</th><th>Audit Remarks</th>`
     if (dailyFilter === 'akhilSirAudit') html += `<th>Audit Remarks</th>`
-    if (dailyFilter === 'percentReceived') html += `<th>Total Amount</th><th>Received</th><th>Balance</th><th>Payment Remarks</th>`
+    if (dailyFilter === 'percentReceived') html += `<th style="width:60px">Total Amount</th><th style="width:60px">Received</th><th style="width:60px">Balance</th><th style="min-width:160px">Payment Remarks</th>`
     if (dailyFilter === 'photography') html += `<th>Photo Remarks</th>`
     if (dailyFilter === 'siteVideo') html += `<th>Video Remarks</th>`
     if (dailyFilter === 'review') html += `<th>Review Remarks</th>`
