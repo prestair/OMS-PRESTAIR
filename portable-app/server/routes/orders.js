@@ -120,8 +120,14 @@ router.post('/deleted/:id/restore', adminOnly, async (req, res) => {
   const { data: dels } = await supabase.from('deleted_orders').select('*').eq('original_id', parseInt(req.params.id))
   if (!dels?.length) return res.status(404).json({ error: 'Not found' })
   const orderData = dels[0].data
-  const { error } = await supabase.from('orders').insert(snakeOrder(orderData))
+  // Strip stale primary key / timestamp so the DB assigns a fresh id (prevents id collisions that silently drop the row)
+  const snaked = snakeOrder(orderData)
+  delete snaked.id
+  delete snaked.created_at
+  // Insert AND verify a row actually came back before we remove it from deleted_orders
+  const { data: inserted, error } = await supabase.from('orders').insert(snaked).select()
   if (error) return res.status(400).json({ error: error.message })
+  if (!inserted || !inserted.length) return res.status(400).json({ error: 'Restore failed - order not inserted' })
   await supabase.from('deleted_orders').delete().eq('original_id', parseInt(req.params.id))
   res.json({ message: 'Restored' })
 })
@@ -422,7 +428,18 @@ router.delete('/:id', async (req, res) => {
   const { data: orders } = await supabase.from('orders').select('*').eq('id', parseInt(req.params.id))
   if (!orders?.length) return res.status(404).json({ error: 'Not found' })
 
-  await supabase.from('deleted_orders').insert({ original_id: orders[0].id, data: mapOrder(orders[0]), deleted_by: req.user.username })
+  // Avoid original_id collisions (a stale deleted row with the same id would make the insert fail
+  // and silently drop the order). If the id is already used in deleted_orders, assign a fresh one.
+  let delId = orders[0].id
+  const { data: existDel } = await supabase.from('deleted_orders').select('original_id').eq('original_id', delId)
+  if (existDel?.length) {
+    const { data: maxRow } = await supabase.from('deleted_orders').select('original_id').order('original_id', { ascending: false }).limit(1)
+    delId = (maxRow?.length ? maxRow[0].original_id : 90000) + 1
+  }
+  // Archive first and VERIFY it succeeded before removing from the live orders table.
+  const { data: insDel, error: insErr } = await supabase.from('deleted_orders').insert({ original_id: delId, data: mapOrder(orders[0]), deleted_by: req.user.username }).select()
+  if (insErr) return res.status(400).json({ error: insErr.message })
+  if (!insDel || !insDel.length) return res.status(400).json({ error: 'Delete failed - could not archive order' })
   await supabase.from('orders').delete().eq('id', parseInt(req.params.id))
   res.json({ message: 'Deleted' })
 })
