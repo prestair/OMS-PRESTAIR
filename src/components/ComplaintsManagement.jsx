@@ -20,8 +20,36 @@ const emptyComplaint = () => ({
 
 const fmtDate = (d) => {
   if (!d) return ''
-  if (typeof d === 'string' && d.includes('-')) { const p = d.split('-'); return `${p[2]}/${p[1]}/${p[0]}` }
-  return d
+  const s = String(d).trim()
+  // ISO yyyy-mm-dd -> dd/mm/yyyy
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)
+  if (m) return `${String(m[3]).padStart(2, '0')}/${String(m[2]).padStart(2, '0')}/${m[1]}`
+  // dd[./-]mm[./-]yy(yy) -> dd/mm/yyyy (normalizes dots and 2-digit years)
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/)
+  if (m) { const y = m[3].length === 2 ? '20' + m[3] : m[3]; return `${String(m[1]).padStart(2, '0')}/${String(m[2]).padStart(2, '0')}/${y}` }
+  return s
+}
+// dd/mm/yyyy string -> yyyy-mm-dd (for storage); returns '' if incomplete
+const fromDMY = (s) => {
+  if (!s) return ''
+  const m = String(s).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/)
+  if (!m) return null // signals "not yet a complete valid date"
+  const y = m[3].length === 2 ? '20' + m[3] : m[3]
+  return `${y}-${String(m[2]).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`
+}
+
+// Text date input that displays & accepts DD/MM/YYYY, stores yyyy-mm-dd
+function DateInput({ value, onChange, style }) {
+  const [text, setText] = React.useState(fmtDate(value))
+  React.useEffect(() => { setText(fmtDate(value)) }, [value])
+  const handle = (raw) => {
+    setText(raw)
+    const iso = fromDMY(raw)
+    if (raw === '') onChange('')
+    else if (iso) onChange(iso) // only push up when a full valid date is typed
+  }
+  return <input type="text" inputMode="numeric" placeholder="DD/MM/YYYY" value={text}
+    onChange={e => handle(e.target.value)} style={style} maxLength={10} />
 }
 
 export default function ComplaintsManagement({ onClose }) {
@@ -40,6 +68,9 @@ export default function ComplaintsManagement({ onClose }) {
   const [historyView, setHistoryView] = useState(null) // complaint whose history is shown
   const [picker, setPicker] = useState(null) // { mode } when choosing a complaint for assign/resolution
   const [pickerSearch, setPickerSearch] = useState('')
+  const [importPreview, setImportPreview] = useState(null) // { rows, fileName }
+  const [importing, setImporting] = useState(false)
+  const fileRef = React.useRef(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -128,6 +159,74 @@ export default function ComplaintsManagement({ onClose }) {
     return list.slice(0, 50)
   }, [complaints, pickerSearch, picker])
   const choosePicker = (c) => { const mode = picker.mode; setPicker(null); openForm(c, mode) }
+
+  // Import: map exported header labels -> complaint fields
+  const HEADER_MAP = {
+    'complaint no': 'complaintNo', 'complaintno': 'complaintNo',
+    'date': 'complaintDate', 'complaint date': 'complaintDate',
+    'client': 'client', 'customer': 'customerName', 'customer name': 'customerName',
+    'phone': 'phone', 'purchase bill no': 'purchaseBillNo', 'purchase bill': 'purchaseBillNo',
+    'purchase date': 'purchaseDate', 'warranty': 'warrantyStatus', 'warranty status': 'warrantyStatus',
+    'product': 'product', 'problem reported': 'problemReported', 'problem': 'problemReported',
+    'priority': 'priority', 'technician': 'technician', 'helper': 'helper',
+    'assignment type': 'assignmentType', 'type': 'assignmentType',
+    'scheduled date': 'scheduledDate', 'sched. date': 'scheduledDate', 'sched date': 'scheduledDate',
+    'status': 'status', 'problem identified': 'problemIdentified',
+    'resolution': 'resolution', 'bill required': 'billRequired', 'bill': 'billRequired',
+    'bill no': 'billNo', 'amount': 'amount', 'service slip no': 'serviceSlipNo', 'slip no': 'serviceSlipNo',
+    'resolution date': 'resolutionDate', 'res. date': 'resolutionDate', 'res date': 'resolutionDate'
+  }
+  const toISO = (v) => {
+    if (v === null || v === undefined || v === '') return ''
+    if (v instanceof Date) return v.toISOString().split('T')[0]
+    const s = String(v).trim()
+    // already ISO yyyy-mm-dd
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)) { const p = s.split('-'); return `${p[0]}-${String(p[1]).padStart(2,'0')}-${String(p[2]).padStart(2,'0')}` }
+    // dd/mm/yyyy, dd-mm-yyyy, dd.mm.yy, d.m.yy etc. (any of / - . separators, 2 or 4 digit year)
+    const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/)
+    if (m) { const y = m[3].length === 2 ? '20' + m[3] : m[3]; return `${y}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}` }
+    return s
+  }
+  const parseImportFile = (file) => {
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      try {
+        const wb = XLSX.read(evt.target.result, { type: 'binary', cellDates: true })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const raw = XLSX.utils.sheet_to_json(ws, { defval: '' })
+        const rows = raw.map(r => {
+          const c = {}
+          Object.keys(r).forEach(k => {
+            const key = HEADER_MAP[String(k).trim().toLowerCase()]
+            if (!key || key === '#' || String(k).trim() === '#') return
+            let val = r[k]
+            if (['complaintDate', 'purchaseDate', 'scheduledDate', 'resolutionDate'].includes(key)) val = toISO(val)
+            else if (key === 'billRequired') val = ['yes', 'true', '1', 'y'].includes(String(val).trim().toLowerCase())
+            else if (key === 'amount') val = parseFloat(String(val).replace(/[^0-9.\-]/g, '')) || 0
+            else if (key === 'warrantyStatus') { const u = String(val).trim().toUpperCase(); val = u.startsWith('OUT') ? 'OUT' : (u ? 'IN' : '') }
+            else val = String(val).trim()
+            c[key] = val
+          })
+          return c
+        }).filter(c => (c.client || c.customerName || c.problemReported)) // skip empty rows
+        if (!rows.length) { setError('No valid rows found in the file.'); return }
+        setError('')
+        setImportPreview({ rows, fileName: file.name })
+      } catch (e) { setError('Could not read file. Make sure it is a valid .xlsx exported from here.') }
+    }
+    reader.readAsBinaryString(file)
+  }
+  const doImport = async () => {
+    if (!importPreview) return
+    setImporting(true)
+    try {
+      const res = await axios.post('/api/complaints/import', { rows: importPreview.rows })
+      setImportPreview(null)
+      fetchComplaints()
+      alert(`Imported ${res.data.imported} complaint(s).`)
+    } catch (e) { setError(e.response?.data?.error || 'Import failed') }
+    finally { setImporting(false) }
+  }
 
   const counts = useMemo(() => {
     const c = { total: complaints.length, open: 0, assigned: 0, progress: 0, closed: 0 }
@@ -232,7 +331,7 @@ export default function ComplaintsManagement({ onClose }) {
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
             {view === 'schedule' && (
               <label style={S.inlineLabel}>Date:
-                <input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} style={S.inputSm} />
+                <DateInput value={scheduleDate} onChange={v => setScheduleDate(v)} style={{ ...S.inputSm, width: '110px' }} />
               </label>
             )}
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={S.inputSm}>
@@ -242,6 +341,9 @@ export default function ComplaintsManagement({ onClose }) {
             <input placeholder="Filter table…" value={search} onChange={e => setSearch(e.target.value)} style={{ ...S.inputSm, width: '150px' }} />
             <button onClick={exportExcel} style={S.exBtn}>Excel</button>
             <button onClick={printReport} style={S.exBtn}>Print</button>
+            {isAdmin && <button onClick={() => fileRef.current && fileRef.current.click()} style={{ ...S.exBtn, background: '#8e44ad' }}>Import</button>}
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files[0]; if (f) parseImportFile(f); e.target.value = '' }} />
           </div>
         </div>
 
@@ -320,12 +422,12 @@ export default function ComplaintsManagement({ onClose }) {
             <div style={S.formBody}>
               {(!form.id || formMode === 'details') && (
               <Section title="Complaint Details">
-                <Field label="Complaint Date"><input type="date" value={form.complaintDate || ''} onChange={e => handleChange('complaintDate', e.target.value)} style={S.input} /></Field>
+                <Field label="Complaint Date"><DateInput value={form.complaintDate || ''} onChange={v => handleChange('complaintDate', v)} style={S.input} /></Field>
                 <Field label="Client"><input value={form.client || ''} onChange={e => handleChange('client', e.target.value)} style={S.input} /></Field>
                 <Field label="Customer Name"><input value={form.customerName || ''} onChange={e => handleChange('customerName', e.target.value)} style={S.input} /></Field>
                 <Field label="Phone"><input value={form.phone || ''} onChange={e => handleChange('phone', e.target.value)} style={S.input} /></Field>
                 <Field label="Purchase Bill No"><input value={form.purchaseBillNo || ''} onChange={e => handleChange('purchaseBillNo', e.target.value)} style={S.input} /></Field>
-                <Field label="Purchase Date"><input type="date" value={form.purchaseDate || ''} onChange={e => handleChange('purchaseDate', e.target.value)} style={S.input} /></Field>
+                <Field label="Purchase Date"><DateInput value={form.purchaseDate || ''} onChange={v => handleChange('purchaseDate', v)} style={S.input} /></Field>
                 <Field label="Warranty Status">
                   <select value={form.warrantyStatus || 'IN'} onChange={e => handleChange('warrantyStatus', e.target.value)} style={S.input}>
                     {WARRANTY.map(w => <option key={w} value={w}>{w === 'IN' ? 'IN WARRANTY' : 'OUT OF WARRANTY'}</option>)}
@@ -354,7 +456,7 @@ export default function ComplaintsManagement({ onClose }) {
                   <input list="peopleList" value={form.helper || ''} onChange={e => handleChange('helper', e.target.value)} style={S.input} placeholder="Select or type" />
                 </Field>
                 <datalist id="peopleList">{people.map(t => <option key={t} value={t} />)}</datalist>
-                <Field label="Scheduled Date"><input type="date" value={form.scheduledDate || ''} onChange={e => handleChange('scheduledDate', e.target.value)} style={S.input} /></Field>
+                <Field label="Scheduled Date"><DateInput value={form.scheduledDate || ''} onChange={v => handleChange('scheduledDate', v)} style={S.input} /></Field>
                 <Field label={isAdmin ? 'Status (admin can change)' : 'Status (auto)'}>
                   {isAdmin ? (
                     <select value={form.status || 'OPEN'} onChange={e => handleChange('status', e.target.value)} style={S.input}>
@@ -373,7 +475,7 @@ export default function ComplaintsManagement({ onClose }) {
                 <Field label="Problem Identified" full><textarea value={form.problemIdentified || ''} onChange={e => handleChange('problemIdentified', e.target.value)} style={{ ...S.input, minHeight: '40px' }} /></Field>
                 <Field label="Resolution" full><textarea value={form.resolution || ''} onChange={e => handleChange('resolution', e.target.value)} style={{ ...S.input, minHeight: '40px' }} /></Field>
                 <Field label="Service Slip No"><input value={form.serviceSlipNo || ''} onChange={e => handleChange('serviceSlipNo', e.target.value)} style={S.input} /></Field>
-                <Field label="Resolution Date"><input type="date" value={form.resolutionDate || ''} onChange={e => handleChange('resolutionDate', e.target.value)} style={S.input} /></Field>
+                <Field label="Resolution Date"><DateInput value={form.resolutionDate || ''} onChange={v => handleChange('resolutionDate', v)} style={S.input} /></Field>
 
                 <Field label="Bill Required?">
                   <Toggle value={!!form.billRequired} onChange={v => handleChange('billRequired', v)} onLabel="YES" offLabel="NO" onColor="#27ae60" />
@@ -464,6 +566,50 @@ export default function ComplaintsManagement({ onClose }) {
             <div style={S.formActions}>
               <button onClick={() => { const c = historyView; setHistoryView(null); openEdit(c) }} style={{ ...S.saveBtn, background: '#2980b9' }}>Edit / Reassign</button>
               <button onClick={() => setHistoryView(null)} style={S.cancelBtn}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import preview */}
+      {importPreview && (
+        <div style={S.formOverlay}>
+          <div style={{ ...S.formModal, maxWidth: '900px', maxHeight: '85vh' }}>
+            <div style={S.head}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px' }}>Import Preview</h3>
+                <span style={S.subtitle}>{importPreview.fileName} · {importPreview.rows.length} row(s) · Complaint No blanks will auto-generate</span>
+              </div>
+              <button onClick={() => setImportPreview(null)} style={S.close}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflow: 'auto', padding: '10px 16px' }}>
+              <table style={{ ...S.table, fontSize: '11px' }}>
+                <thead>
+                  <tr>{['#', 'Complaint No', 'Date', 'Client', 'Customer', 'Phone', 'Product', 'Problem', 'Technician', 'Status'].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {importPreview.rows.slice(0, 100).map((r, i) => (
+                    <tr key={i} style={i % 2 ? { background: '#fafafa' } : {}}>
+                      <td style={S.td}>{i + 1}</td>
+                      <td style={S.td}>{r.complaintNo || <em style={{ color: '#888' }}>auto</em>}</td>
+                      <td style={S.td}>{fmtDate(r.complaintDate)}</td>
+                      <td style={{ ...S.td, textAlign: 'left' }}>{r.client}</td>
+                      <td style={{ ...S.td, textAlign: 'left' }}>{r.customerName}</td>
+                      <td style={S.td}>{r.phone}</td>
+                      <td style={S.td}>{r.product}</td>
+                      <td style={{ ...S.td, textAlign: 'left', maxWidth: '200px' }}>{r.problemReported}</td>
+                      <td style={S.td}>{r.technician}</td>
+                      <td style={S.td}>{r.status || 'OPEN'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {importPreview.rows.length > 100 && <p style={{ fontSize: '11px', color: '#888' }}>Showing first 100 of {importPreview.rows.length}. All rows will be imported.</p>}
+              {error && <p style={{ color: '#e74c3c', fontSize: '12px', fontWeight: 600 }}>{error}</p>}
+            </div>
+            <div style={S.formActions}>
+              <button onClick={() => setImportPreview(null)} style={S.cancelBtn}>Cancel</button>
+              <button onClick={doImport} disabled={importing} style={S.saveBtn}>{importing ? 'Importing…' : `Import ${importPreview.rows.length} Complaint(s)`}</button>
             </div>
           </div>
         </div>
