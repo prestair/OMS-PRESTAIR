@@ -24,7 +24,9 @@ router.use(adminOnly)
 router.post('/groups', async (req, res) => {
   const { name, column_permissions, can_edit, can_receipt, can_assign_reminder, can_delete, can_create_quote } = req.body
   if (!name) return res.status(400).json({ error: 'Group name required' })
-  const { data, error } = await supabase.from('groups').insert({ name: name.toUpperCase(), column_permissions: column_permissions || {}, can_edit: can_edit || false, can_receipt: can_receipt || false, can_assign_reminder: can_assign_reminder || false, can_delete: can_delete || false, can_create_quote: can_create_quote || false }).select()
+  const can_edit_completed = req.body.can_edit_completed ?? req.body.canEditCompleted
+  const can_edit_daily = req.body.can_edit_daily ?? req.body.canEditDaily
+  const { data, error } = await supabase.from('groups').insert({ name: name.toUpperCase(), column_permissions: column_permissions || {}, can_edit: can_edit || false, can_receipt: can_receipt || false, can_assign_reminder: can_assign_reminder || false, can_delete: can_delete || false, can_create_quote: can_create_quote || false, can_edit_completed: can_edit_completed || false, can_edit_daily: can_edit_daily || false }).select()
   if (error) return res.status(400).json({ error: error.message })
   res.json(data[0])
 })
@@ -39,6 +41,10 @@ router.put('/groups/:id', async (req, res) => {
   if (can_assign_reminder !== undefined) updates.can_assign_reminder = can_assign_reminder
   if (can_delete !== undefined) updates.can_delete = can_delete
   if (can_create_quote !== undefined) updates.can_create_quote = can_create_quote
+  const gEditCompleted = req.body.can_edit_completed ?? req.body.canEditCompleted
+  const gEditDaily = req.body.can_edit_daily ?? req.body.canEditDaily
+  if (gEditCompleted !== undefined) updates.can_edit_completed = gEditCompleted
+  if (gEditDaily !== undefined) updates.can_edit_daily = gEditDaily
   await supabase.from('groups').update(updates).eq('id', parseInt(req.params.id))
   res.json({ message: 'Group updated' })
 })
@@ -50,8 +56,8 @@ router.delete('/groups/:id', async (req, res) => {
 
 // User CRUD
 router.get('/', async (req, res) => {
-  const { data } = await supabase.from('users').select('id, username, full_name, role, user_group, column_permissions, can_edit, can_receipt, can_assign_reminder, can_delete, can_create_quote, can_color, created_at, plain_password')
-  const mapped = (data || []).map(u => ({ ...u, fullName: u.full_name, group: u.user_group, columnPermissions: u.column_permissions, canEdit: u.can_edit, canReceipt: u.can_receipt, canAssignReminder: u.can_assign_reminder, canDelete: u.can_delete, canCreateQuote: u.can_create_quote, canColor: u.can_color, createdAt: u.created_at, plainPassword: u.plain_password }))
+  const { data } = await supabase.from('users').select('id, username, full_name, role, user_group, column_permissions, can_edit, can_receipt, can_assign_reminder, can_delete, can_create_quote, can_color, can_edit_completed, can_edit_daily, created_at, plain_password')
+  const mapped = (data || []).map(u => ({ ...u, fullName: u.full_name, group: u.user_group, columnPermissions: u.column_permissions, canEdit: u.can_edit, canReceipt: u.can_receipt, canAssignReminder: u.can_assign_reminder, canDelete: u.can_delete, canCreateQuote: u.can_create_quote, canColor: u.can_color, canEditCompleted: u.can_edit_completed, canEditDaily: u.can_edit_daily, createdAt: u.created_at, plainPassword: u.plain_password }))
   res.json(mapped)
 })
 
@@ -64,7 +70,7 @@ router.post('/', async (req, res) => {
     username, password: bcrypt.hashSync(password.toLowerCase(), 10), plain_password: password.toLowerCase(), full_name: fullName, role: role || 'user',
     user_group: group || '', column_permissions: columnPermissions || {},
     can_edit: canEdit !== undefined ? canEdit : false, can_receipt: canReceipt !== undefined ? canReceipt : false,
-    can_assign_reminder: canAssignReminder || false, can_delete: canDelete || false, can_create_quote: canCreateQuote || false, can_color: req.body.canColor || false
+    can_assign_reminder: canAssignReminder || false, can_delete: canDelete || false, can_create_quote: canCreateQuote || false, can_color: req.body.canColor || false, can_edit_completed: req.body.canEditCompleted || false, can_edit_daily: req.body.canEditDaily || false
   }).select()
   if (error) return res.status(400).json({ error: error.message })
   res.json(data[0])
@@ -81,6 +87,8 @@ router.put('/:id', async (req, res) => {
   if (canDelete !== undefined) updates.can_delete = canDelete
   if (canCreateQuote !== undefined) updates.can_create_quote = canCreateQuote
   if (req.body.canColor !== undefined) updates.can_color = req.body.canColor
+  if (req.body.canEditCompleted !== undefined) updates.can_edit_completed = req.body.canEditCompleted
+  if (req.body.canEditDaily !== undefined) updates.can_edit_daily = req.body.canEditDaily
   await supabase.from('users').update(updates).eq('id', parseInt(req.params.id))
   res.json({ message: 'User updated' })
 })

@@ -42,7 +42,7 @@ const FIELDS = [
   { key: 'reviewRemarks', label: 'Review Remarks' }
 ]
 
-function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted }) {
+function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted, allowCompletedEdit, restrictToFields }) {
   const { user } = useAuth()
 
   const generateOrderNo = (salesRepName) => {
@@ -217,7 +217,13 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
       // New order: hide fields that should not be filled at entry time
       return FIELDS.filter(f => !newOrderDisabledFields.includes(f.key))
     }
+    // When opened from the daily report to edit a specific field, show only those fields
+    if (restrictToFields && restrictToFields.length) {
+      return FIELDS.filter(f => restrictToFields.includes(f.key))
+    }
     if (isAdmin) return FIELDS
+    // Editing a completed/deleted order with the "Edit Completed" right: show all fields
+    if (isDeleted && allowCompletedEdit) return FIELDS
     // Edit existing: show only fields user can edit
     return FIELDS.filter(f => canEditColumn(f.key))
   }
@@ -256,7 +262,12 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted 
               const newOrderDisabledFields = ['installation','photography','photographyRemarks','siteVideo','siteVideoRemarks','review','reviewRemarks','inProduction','akhilSirAudit','remarks','installationStatus','installationRemarks','advanceBill','advanceBillRemarks','siteVerification','siteVerificationRemarks','orRecvd','lop','sectionDrawing','sectionDrawingRemarks','akhilPoints']
               const isNewOrderLocked = !order && newOrderDisabledFields.includes(field.key)
               if (!order && isNewOrderLocked) return null
-              const editable = !order ? (!isOrderNoLocked && !isDateLocked && !isNewOrderLocked) : (isDeleted ? (isAdmin && !isOrderNoLocked) : (canEditColumn(field.key) && !isOrderNoLocked && !isDateLocked))
+              const inRestricted = restrictToFields && restrictToFields.length ? restrictToFields.includes(field.key) : true
+              const editable = !order
+                ? (!isOrderNoLocked && !isDateLocked && !isNewOrderLocked)
+                : (isDeleted
+                    ? ((isAdmin || allowCompletedEdit) && !isOrderNoLocked && inRestricted)
+                    : (((isAdmin || (restrictToFields && restrictToFields.length && inRestricted)) || canEditColumn(field.key)) && !isOrderNoLocked && !isDateLocked && inRestricted))
               const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit','advanceBill','orRecvd','salesRep'].includes(field.key)
               return (
                 <div key={field.key} style={styles.field}>

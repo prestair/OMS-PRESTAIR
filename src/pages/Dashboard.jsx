@@ -90,6 +90,8 @@ function Dashboard() {
   const [showComplaints, setShowComplaints] = useState(false)
   const [editingOrder, setEditingOrder] = useState(null)
   const [editingDeleted, setEditingDeleted] = useState(false)
+  // When editing from the daily report, restrict the form to the relevant field + its remarks
+  const [dailyEditFields, setDailyEditFields] = useState(null)
   const [showPaymentForm, setShowPaymentForm] = useState(null)
   const [importDuplicates, setImportDuplicates] = useState(null)
   const [pendingImport, setPendingImport] = useState(null)
@@ -196,6 +198,9 @@ function Dashboard() {
   // canCreateQuote now controls "Add New Order" button visibility
   const canCreateOrder = canCreateQuote
   const canColor = isAdmin || user.canColor
+  // Assignable rights for editing completed/deleted orders and daily-report fields (photography/site video/review)
+  const canEditCompleted = isAdmin || user.canEditCompleted
+  const canEditDaily = isAdmin || user.canEditDaily
 
   // Helper to get full name from username
   const getFullName = (username) => {
@@ -974,7 +979,7 @@ function Dashboard() {
     }
   }
 
-  const handleOrderSaved = () => { setShowOrderForm(false); setEditingOrder(null); setEditingDeleted(false); fetchOrders(); fetchDeletedOrders() }
+  const handleOrderSaved = () => { setShowOrderForm(false); setEditingOrder(null); setEditingDeleted(false); setDailyEditFields(null); fetchOrders(); fetchDeletedOrders() }
   const handlePaymentSaved = () => { setShowPaymentForm(null); fetchOrders() }
 
   const getDailyFilteredData = () => {
@@ -2049,7 +2054,7 @@ function Dashboard() {
                       </th>
                     )
                   })}
-                  {isAdmin && <th style={{...styles.th, position:'sticky', top:0, right:0, zIndex:25, minWidth:'220px', background:'#1a1a2e'}}>Action</th>}
+                  {(isAdmin || canEditCompleted) && <th style={{...styles.th, position:'sticky', top:0, right:0, zIndex:25, minWidth:'220px', background:'#1a1a2e'}}>Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -2086,11 +2091,11 @@ function Dashboard() {
                     })}
                     <td style={styles.td}>{order.deletedBy}</td>
                     <td style={styles.td}>{order.deletedAt ? (() => { const d = new Date(order.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''}</td>
-                    {isAdmin && (
+                    {(isAdmin || canEditCompleted) && (
                       <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff' }}>
-                        <button onClick={() => { setEditingOrder(order); setEditingDeleted(true); setShowOrderForm(true) }} style={{ ...styles.tblBtn, background: '#2980b9' }}>Edit</button>
-                        <button onClick={() => handleRestore(order.id)} style={{ ...styles.tblBtn, background: '#27ae60' }}>Restore</button>
-                        <button onClick={() => setPermanentDeleteConfirm(order)} style={{ ...styles.tblBtn, background: '#e74c3c' }}>Permanent Delete</button>
+                        {(isAdmin || canEditCompleted) && <button onClick={() => { setEditingOrder(order); setEditingDeleted(true); setShowOrderForm(true) }} style={{ ...styles.tblBtn, background: '#2980b9' }}>Edit</button>}
+                        {isAdmin && <button onClick={() => handleRestore(order.id)} style={{ ...styles.tblBtn, background: '#27ae60' }}>Restore</button>}
+                        {isAdmin && <button onClick={() => setPermanentDeleteConfirm(order)} style={{ ...styles.tblBtn, background: '#e74c3c' }}>Permanent Delete</button>}
                       </td>
                     )}
                   </tr>
@@ -2639,6 +2644,7 @@ function Dashboard() {
                   {dailyFilter === 'photography' && <th style={styles.th}>Photography Remarks</th>}
                   {dailyFilter === 'siteVideo' && <th style={styles.th}>Site Video Remarks</th>}
                   {dailyFilter === 'review' && <th style={styles.th}>Review Remarks</th>}
+                  {(dailyFilter === 'photography' || dailyFilter === 'siteVideo' || dailyFilter === 'review') && canEditDaily && <th style={styles.th}>Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -2674,6 +2680,14 @@ function Dashboard() {
                       {dailyFilter === 'photography' && <td style={styles.td}>{o.photographyRemarks}</td>}
                       {dailyFilter === 'siteVideo' && <td style={styles.td}>{o.siteVideoRemarks}</td>}
                       {dailyFilter === 'review' && <td style={styles.td}>{o.reviewRemarks}</td>}
+                      {(dailyFilter === 'photography' || dailyFilter === 'siteVideo' || dailyFilter === 'review') && canEditDaily && (
+                        <td style={styles.td}>
+                          <button onClick={() => {
+                            const fieldMap = { photography: ['photography','photographyRemarks'], siteVideo: ['siteVideo','siteVideoRemarks'], review: ['review','reviewRemarks'] }
+                            setEditingOrder(o); setEditingDeleted(isFromDeleted); setDailyEditFields(fieldMap[dailyFilter]); setShowOrderForm(true)
+                          }} style={{ ...styles.tblBtn, background: '#2980b9' }} title="Edit">Edit</button>
+                        </td>
+                      )}
                     </tr>
                     )
                   })
@@ -3064,11 +3078,13 @@ function Dashboard() {
       {showOrderForm && (
         <OrderForm
           order={editingOrder}
-          onClose={() => { setShowOrderForm(false); setEditingOrder(null); setEditingDeleted(false) }}
+          onClose={() => { setShowOrderForm(false); setEditingOrder(null); setEditingDeleted(false); setDailyEditFields(null) }}
           onSaved={handleOrderSaved}
           canEditColumn={canEditColumn}
           isAdmin={isAdmin}
           isDeleted={editingDeleted}
+          allowCompletedEdit={canEditCompleted}
+          restrictToFields={dailyEditFields}
         />
       )}
 
