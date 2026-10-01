@@ -27,11 +27,27 @@ function UserManagement() {
   const [salesReps, setSalesReps] = useState([])
   const [newRepName, setNewRepName] = useState('')
   const [repError, setRepError] = useState('')
+  // Login Activity
+  const [showLoginActivity, setShowLoginActivity] = useState(false)
+  const [loginLogs, setLoginLogs] = useState([])
+  const [logsLoading, setLogsLoading] = useState(false)
+  const [logUserFilter, setLogUserFilter] = useState('')
 
   useEffect(() => { fetchUsers(); fetchGroups(); fetchSalesReps() }, [])
   const fetchUsers = async () => { try { setUsers((await axios.get('/api/users')).data) } catch {} }
   const fetchGroups = async () => { try { setGroups((await axios.get('/api/users/groups')).data) } catch {} }
   const fetchSalesReps = async () => { try { setSalesReps((await axios.get('/api/sales-reps')).data) } catch {} }
+
+  const fetchLoginLogs = async (username) => {
+    setLogsLoading(true)
+    try {
+      const params = { limit: 500 }
+      if (username) params.username = username
+      const res = await axios.get('/api/users/login-logs', { params })
+      setLoginLogs(res.data)
+    } catch {}
+    setLogsLoading(false)
+  }
 
   const addSalesRep = async () => {
     setRepError('')
@@ -103,6 +119,7 @@ function UserManagement() {
           <button onClick={() => { setEditingUser(null); setForm({ username:'', password:'', fullName:'', role:'user', group:'', columnPermissions:{}, canEdit:false, canReceipt:false, canAssignReminder:false, canDelete:false }); setShowForm(true) }} style={s.addBtn}>+ Add User</button>
           <button onClick={() => { setEditingGroup(null); setGroupForm({ name:'', columnPermissions:{}, canEdit:false, canReceipt:false, canAssignReminder:false, canDelete:false }); setShowGroupForm(true) }} style={{ ...s.addBtn, background:'#8e44ad' }}>Manage Groups</button>
           <button onClick={() => { setNewRepName(''); setRepError(''); setShowRepForm(true) }} style={{ ...s.addBtn, background:'#16a085' }}>Manage Sales Reps</button>
+          <button onClick={() => { setLogUserFilter(''); setShowLoginActivity(true); fetchLoginLogs('') }} style={{ ...s.addBtn, background:'#c0392b' }}>Login Activity</button>
           <input value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search by Full Name..." style={{padding:'7px 12px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px',flex:'1',maxWidth:'250px'}}/>
         </div>
 
@@ -274,6 +291,95 @@ function UserManagement() {
             ))}
           </div>
         </div></div>
+      )}
+
+      {/* Login Activity */}
+      {showLoginActivity && (
+        <div style={s.overlay}>
+          <div style={{ ...s.modal, maxWidth:'960px', width:'95vw' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px' }}>
+              <h3 style={{ margin:0, fontSize:'15px' }}>Login Activity</h3>
+              <button onClick={() => setShowLoginActivity(false)} style={{ background:'none', border:'none', fontSize:'20px', cursor:'pointer', fontWeight:'700' }}>X</button>
+            </div>
+
+            {/* Filters */}
+            <div style={{ display:'flex', gap:'10px', marginBottom:'12px', flexWrap:'wrap', alignItems:'center' }}>
+              <select value={logUserFilter} onChange={e => { setLogUserFilter(e.target.value); fetchLoginLogs(e.target.value) }}
+                style={{ padding:'7px 10px', border:'1px solid #ddd', borderRadius:'5px', fontSize:'12px', minWidth:'180px' }}>
+                <option value=''>All Users</option>
+                {users.map(u => <option key={u.id} value={u.username}>{u.fullName || u.username} ({u.username})</option>)}
+              </select>
+              <button onClick={() => fetchLoginLogs(logUserFilter)} style={{ padding:'7px 12px', background:'#2980b9', color:'#fff', border:'none', borderRadius:'5px', fontSize:'11px', fontWeight:'600', cursor:'pointer' }}>Refresh</button>
+              <span style={{ fontSize:'11px', color:'#888' }}>{loginLogs.length} records</span>
+            </div>
+
+            {logsLoading ? (
+              <p style={{ textAlign:'center', color:'#888', padding:'20px' }}>Loading...</p>
+            ) : (
+              <div style={{ overflowX:'auto', maxHeight:'65vh', overflowY:'auto' }}>
+                <table style={{ ...s.table, fontSize:'11px' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...s.th, width:'30px' }}>#</th>
+                      <th style={s.th}>Username</th>
+                      <th style={s.th}>Full Name</th>
+                      <th style={s.th}>Role</th>
+                      <th style={s.th}>IP Address</th>
+                      <th style={{ ...s.th, minWidth:'200px' }}>Device / Browser</th>
+                      <th style={{ ...s.th, minWidth:'130px' }}>Date & Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loginLogs.length === 0 && (
+                      <tr><td colSpan={7} style={{ ...s.td, textAlign:'center', color:'#888', padding:'20px' }}>No login records yet</td></tr>
+                    )}
+                    {loginLogs.map((log, idx) => {
+                      // Parse user-agent to friendly string
+                      const ua = log.user_agent || ''
+                      let device = ua
+                      if (ua.includes('Mobile') || ua.includes('Android') || ua.includes('iPhone')) {
+                        device = ua.includes('Android') ? 'Android Mobile' : ua.includes('iPhone') ? 'iPhone' : 'Mobile'
+                      } else if (ua.includes('Windows')) {
+                        device = 'Windows PC'
+                      } else if (ua.includes('Macintosh') || ua.includes('Mac OS')) {
+                        device = 'Mac'
+                      } else if (ua.includes('Linux')) {
+                        device = 'Linux'
+                      }
+                      // Add browser
+                      let browser = ''
+                      if (ua.includes('Edg/')) browser = 'Edge'
+                      else if (ua.includes('OPR/') || ua.includes('Opera')) browser = 'Opera'
+                      else if (ua.includes('Chrome')) browser = 'Chrome'
+                      else if (ua.includes('Firefox')) browser = 'Firefox'
+                      else if (ua.includes('Safari')) browser = 'Safari'
+                      const deviceStr = browser ? `${device} / ${browser}` : device
+
+                      const dt = log.logged_in_at ? new Date(log.logged_in_at) : null
+                      const dtStr = dt ? `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}  ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}` : '-'
+
+                      return (
+                        <tr key={log.id} style={{ background: idx % 2 === 0 ? '#f8f9fa' : '#fff' }}>
+                          <td style={s.td}>{idx + 1}</td>
+                          <td style={{ ...s.td, fontWeight:'600' }}>{log.username}</td>
+                          <td style={s.td}>{log.full_name || '-'}</td>
+                          <td style={s.td}>
+                            <span style={{ padding:'2px 6px', borderRadius:'3px', fontSize:'10px', fontWeight:'600', background: log.role === 'admin' ? '#e74c3c' : '#27ae60', color:'#fff' }}>
+                              {log.role || '-'}
+                            </span>
+                          </td>
+                          <td style={{ ...s.td, fontFamily:'monospace', color:'#2980b9', fontWeight:'600' }}>{log.ip_address || '-'}</td>
+                          <td style={{ ...s.td, color:'#555' }}>{deviceStr || '-'}</td>
+                          <td style={{ ...s.td, whiteSpace:'nowrap' }}>{dtStr}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

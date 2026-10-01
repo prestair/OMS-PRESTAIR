@@ -170,6 +170,16 @@ CREATE TABLE IF NOT EXISTS return_requests (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS login_logs (
+  id SERIAL PRIMARY KEY,
+  username TEXT NOT NULL,
+  full_name TEXT,
+  role TEXT,
+  ip_address TEXT,
+  user_agent TEXT,
+  logged_in_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Disable RLS on all tables
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
