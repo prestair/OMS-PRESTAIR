@@ -78,12 +78,16 @@ app.post('/api/auth/log-location', authenticate, async (req, res) => {
   try {
     const { lat, lon } = req.body
     if (!lat || !lon) return res.status(400).json({ error: 'lat/lon required' })
-    // Reverse-geocode via ip-api to get city/country from coords (free, no key needed)
+    // Reverse-geocode via OpenStreetMap Nominatim (lat/lon → city/country, free, no key)
     let city = '', country = ''
     try {
-      const geoRes = await fetch(`http://ip-api.com/json/?fields=city,country`)
+      const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
+        headers: { 'User-Agent': 'OMS-Prestair/1.0' }
+      })
       const geoData = await geoRes.json()
-      city = geoData.city || ''; country = geoData.country || ''
+      const addr = geoData.address || {}
+      city = addr.city || addr.town || addr.village || addr.county || addr.state_district || ''
+      country = addr.country || ''
     } catch {}
     // Update the most recent login_log row for this user (within last 2 minutes)
     const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
