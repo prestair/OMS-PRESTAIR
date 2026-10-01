@@ -74,6 +74,26 @@ app.post('/api/auth/login', async (req, res) => {
     res.json({ token, user: { id: user.id, username: user.username, fullName: user.full_name, role: user.role, group: user.user_group || '', columnPermissions: isAdmin ? {} : mergedPerms, canEdit: isAdmin || gr('can_edit'), canReceipt: isAdmin || gr('can_receipt'), canAssignReminder: isAdmin || gr('can_assign_reminder'), canDelete: isAdmin || gr('can_delete'), canCreateQuote: isAdmin || gr('can_create_quote'), canColor: isAdmin || gr('can_color'), canComplaints: isAdmin || grAny('can_complaints'), canEditCompleted: isAdmin || grAny('can_edit_completed'), canEditDaily: isAdmin || grAny('can_edit_daily') } })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
+app.post('/api/auth/log-location', authenticate, async (req, res) => {
+  try {
+    const { lat, lon } = req.body
+    if (!lat || !lon) return res.status(400).json({ error: 'lat/lon required' })
+    // Reverse-geocode via ip-api to get city/country from coords (free, no key needed)
+    let city = '', country = ''
+    try {
+      const geoRes = await fetch(`http://ip-api.com/json/?fields=city,country`)
+      const geoData = await geoRes.json()
+      city = geoData.city || ''; country = geoData.country || ''
+    } catch {}
+    // Update the most recent login_log row for this user (within last 2 minutes)
+    const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
+    await supabase.from('login_logs')
+      .update({ latitude: lat, longitude: lon, city, country })
+      .eq('username', req.user.username)
+      .gte('logged_in_at', twoMinAgo)
+    res.json({ message: 'Location saved' })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
 app.post('/api/auth/change-password', authenticate, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body

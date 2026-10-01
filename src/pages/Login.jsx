@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import axios from 'axios'
 
 function Login() {
   const [username, setUsername] = useState('')
@@ -8,15 +9,33 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [allowLocation, setAllowLocation] = useState(true)
   const { login } = useAuth()
   const navigate = useNavigate()
+
+  // Get GPS coordinates — returns {lat, lon} or null
+  const getGPS = () => new Promise((resolve) => {
+    if (!allowLocation || !navigator.geolocation) { resolve(null); return }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout: 6000, maximumAge: 0 }
+    )
+  })
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
+      // Get GPS first (max 6s wait), then login
+      const gps = await getGPS()
+      // Login via AuthContext (sets token + user state)
       await login(username, password)
+      // Fire location log to backend (fire-and-forget, does not block navigation)
+      if (gps) {
+        axios.post('/api/auth/log-location', { lat: gps.lat, lon: gps.lon }).catch(() => {})
+      }
       navigate('/dashboard')
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed')
@@ -93,8 +112,34 @@ function Login() {
               </div>
             </div>
             {error && <p style={styles.error}>{error}</p>}
+            {/* Allow Location toggle */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', background:'#f0f8ff', borderRadius:'8px', border:'1px solid #d0e8ff' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                <span style={{ fontSize:'16px' }}>📍</span>
+                <div>
+                  <div style={{ fontSize:'12px', fontWeight:'600', color:'#2980b9' }}>Allow Location</div>
+                  <div style={{ fontSize:'10px', color:'#888' }}>Helps track login activity</div>
+                </div>
+              </div>
+              <div
+                onClick={() => setAllowLocation(v => !v)}
+                style={{
+                  width:'42px', height:'24px', borderRadius:'12px', cursor:'pointer',
+                  background: allowLocation ? '#27ae60' : '#ccc',
+                  position:'relative', transition:'background 0.2s', flexShrink:0
+                }}
+              >
+                <div style={{
+                  position:'absolute', top:'3px',
+                  left: allowLocation ? '21px' : '3px',
+                  width:'18px', height:'18px', borderRadius:'50%',
+                  background:'#fff', transition:'left 0.2s',
+                  boxShadow:'0 1px 3px rgba(0,0,0,0.3)'
+                }}/>
+              </div>
+            </div>
             <button type="submit" style={styles.button} disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? (allowLocation ? 'Getting location...' : 'Signing in...') : 'Sign In'}
             </button>
           </form>
           <p style={styles.footer}>www.prestairsystems.com</p>

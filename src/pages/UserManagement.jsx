@@ -326,6 +326,7 @@ function UserManagement() {
                       <th style={s.th}>Role</th>
                       <th style={s.th}>IP Address</th>
                       <th style={{ ...s.th, minWidth:'200px' }}>Device / Browser</th>
+                      <th style={s.th}>Location</th>
                       <th style={{ ...s.th, minWidth:'130px' }}>Date & Time</th>
                     </tr>
                   </thead>
@@ -370,6 +371,20 @@ function UserManagement() {
                           </td>
                           <td style={{ ...s.td, fontFamily:'monospace', color:'#2980b9', fontWeight:'600' }}>{log.ip_address || '-'}</td>
                           <td style={{ ...s.td, color:'#555' }}>{deviceStr || '-'}</td>
+                          <td style={s.td}>
+                            {log.latitude && log.longitude ? (
+                              <a
+                                href={`https://www.google.com/maps?q=${log.latitude},${log.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color:'#27ae60', fontWeight:'600', fontSize:'11px', textDecoration:'none', display:'flex', alignItems:'center', gap:'3px' }}
+                              >
+                                📍 {log.city ? `${log.city}${log.country ? ', ' + log.country : ''}` : 'View Map'}
+                              </a>
+                            ) : (
+                              <span style={{ color:'#bbb', fontSize:'10px' }}>—</span>
+                            )}
+                          </td>
                           <td style={{ ...s.td, whiteSpace:'nowrap' }}>{dtStr}</td>
                         </tr>
                       )
