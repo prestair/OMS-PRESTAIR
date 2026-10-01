@@ -71,6 +71,39 @@ function Login() {
         </div>
       </div>
       <div style={styles.rightPanel}>
+        {/* Location toggle — small, top-right corner of right panel */}
+        <div
+          onClick={() => setAllowLocation(v => !v)}
+          title={allowLocation ? 'Location tracking ON (click to disable)' : 'Location tracking OFF (click to enable)'}
+          style={{
+            position: 'absolute', top: '14px', right: '18px',
+            display: 'flex', alignItems: 'center', gap: '5px',
+            cursor: 'pointer', userSelect: 'none',
+            padding: '4px 8px', borderRadius: '20px',
+            background: allowLocation ? 'rgba(39,174,96,0.12)' : 'rgba(0,0,0,0.06)',
+            border: `1px solid ${allowLocation ? '#27ae60' : '#ccc'}`,
+            transition: 'all 0.2s'
+          }}
+        >
+          <span style={{ fontSize: '12px' }}>📍</span>
+          {/* Mini toggle pill */}
+          <div style={{
+            width: '28px', height: '16px', borderRadius: '8px',
+            background: allowLocation ? '#27ae60' : '#ccc',
+            position: 'relative', transition: 'background 0.2s', flexShrink: 0
+          }}>
+            <div style={{
+              position: 'absolute', top: '2px',
+              left: allowLocation ? '14px' : '2px',
+              width: '12px', height: '12px', borderRadius: '50%',
+              background: '#fff', transition: 'left 0.2s',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.25)'
+            }}/>
+          </div>
+          <span style={{ fontSize: '10px', color: allowLocation ? '#27ae60' : '#999', fontWeight: '600' }}>
+            {allowLocation ? 'Location ON' : 'Location OFF'}
+          </span>
+        </div>
         <div style={styles.card}>
           <div style={styles.logo}>
             <div style={styles.omsIcon}>OMS</div>
@@ -112,32 +145,6 @@ function Login() {
               </div>
             </div>
             {error && <p style={styles.error}>{error}</p>}
-            {/* Allow Location toggle */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', background:'#f0f8ff', borderRadius:'8px', border:'1px solid #d0e8ff' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                <span style={{ fontSize:'16px' }}>📍</span>
-                <div>
-                  <div style={{ fontSize:'12px', fontWeight:'600', color:'#2980b9' }}>Allow Location</div>
-                  <div style={{ fontSize:'10px', color:'#888' }}>Helps track login activity</div>
-                </div>
-              </div>
-              <div
-                onClick={() => setAllowLocation(v => !v)}
-                style={{
-                  width:'42px', height:'24px', borderRadius:'12px', cursor:'pointer',
-                  background: allowLocation ? '#27ae60' : '#ccc',
-                  position:'relative', transition:'background 0.2s', flexShrink:0
-                }}
-              >
-                <div style={{
-                  position:'absolute', top:'3px',
-                  left: allowLocation ? '21px' : '3px',
-                  width:'18px', height:'18px', borderRadius:'50%',
-                  background:'#fff', transition:'left 0.2s',
-                  boxShadow:'0 1px 3px rgba(0,0,0,0.3)'
-                }}/>
-              </div>
-            </div>
             <button type="submit" style={styles.button} disabled={loading}>
               {loading ? (allowLocation ? 'Getting location...' : 'Signing in...') : 'Sign In'}
             </button>
@@ -179,7 +186,7 @@ const styles = {
   clientsNames: { fontSize: '11px', opacity: 0.7, margin: 0, lineHeight: '1.8' },
   rightPanel: {
     flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: '#f8f9fa', padding: '40px'
+    background: '#f8f9fa', padding: '40px', position: 'relative'
   },
   card: {
     width: '100%', maxWidth: '380px'

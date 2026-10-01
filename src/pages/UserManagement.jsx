@@ -328,6 +328,7 @@ function UserManagement() {
                       <th style={{ ...s.th, minWidth:'200px' }}>Device / Browser</th>
                       <th style={s.th}>Location</th>
                       <th style={{ ...s.th, minWidth:'130px' }}>Date & Time</th>
+                      <th style={s.th}>Del</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -386,6 +387,18 @@ function UserManagement() {
                             )}
                           </td>
                           <td style={{ ...s.td, whiteSpace:'nowrap' }}>{dtStr}</td>
+                          <td style={s.td}>
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(`Delete login record for "${log.username}" at ${dtStr}?`)) return
+                                try {
+                                  await axios.delete(`/api/users/login-logs/${log.id}`)
+                                  setLoginLogs(prev => prev.filter(r => r.id !== log.id))
+                                } catch { alert('Delete failed') }
+                              }}
+                              style={{ padding:'2px 7px', background:'#e74c3c', color:'#fff', border:'none', borderRadius:'3px', fontSize:'10px', cursor:'pointer', fontWeight:'600' }}
+                            >Del</button>
+                          </td>
                         </tr>
                       )
                     })}
