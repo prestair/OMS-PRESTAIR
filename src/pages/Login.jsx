@@ -9,17 +9,27 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [allowLocation, setAllowLocation] = useState(true)
   const { login } = useAuth()
   const navigate = useNavigate()
 
-  // Get GPS coordinates — returns {lat, lon} or null
-  const getGPS = () => new Promise((resolve) => {
-    if (!allowLocation || !navigator.geolocation) { resolve(null); return }
+  // Get GPS coordinates — MANDATORY. Returns coords or throws with reason.
+  const getGPS = () => new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject('Location not supported by this browser. Please use Chrome or Firefox.')
+      return
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-      () => resolve(null),
-      { timeout: 6000, maximumAge: 0 }
+      (err) => {
+        if (err.code === 1) {
+          reject('Location access denied. Please allow location to login.')
+        } else if (err.code === 2) {
+          reject('Location unavailable. Please check your device GPS/network and try again.')
+        } else {
+          reject('Location request timed out. Please try again.')
+        }
+      },
+      { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
     )
   })
 
@@ -28,11 +38,18 @@ function Login() {
     setError('')
     setLoading(true)
     try {
-      // Get GPS first (max 6s wait), then login
-      const gps = await getGPS()
-      // Login via AuthContext (sets token + user state)
+      // Location is MANDATORY — block login if denied
+      let gps = null
+      try {
+        gps = await getGPS()
+      } catch (locErr) {
+        setError(locErr)
+        setLoading(false)
+        return
+      }
+      // Credentials check
       await login(username, password)
-      // Fire location log to backend (fire-and-forget, does not block navigation)
+      // Save location (fire-and-forget)
       if (gps) {
         axios.post('/api/auth/log-location', { lat: gps.lat, lon: gps.lon }).catch(() => {})
       }
@@ -71,39 +88,6 @@ function Login() {
         </div>
       </div>
       <div style={styles.rightPanel}>
-        {/* Location toggle — small, top-right corner of right panel */}
-        <div
-          onClick={() => setAllowLocation(v => !v)}
-          title={allowLocation ? 'Location tracking ON (click to disable)' : 'Location tracking OFF (click to enable)'}
-          style={{
-            position: 'absolute', top: '14px', right: '18px',
-            display: 'flex', alignItems: 'center', gap: '5px',
-            cursor: 'pointer', userSelect: 'none',
-            padding: '4px 8px', borderRadius: '20px',
-            background: allowLocation ? 'rgba(39,174,96,0.12)' : 'rgba(0,0,0,0.06)',
-            border: `1px solid ${allowLocation ? '#27ae60' : '#ccc'}`,
-            transition: 'all 0.2s'
-          }}
-        >
-          <span style={{ fontSize: '12px' }}>📍</span>
-          {/* Mini toggle pill */}
-          <div style={{
-            width: '28px', height: '16px', borderRadius: '8px',
-            background: allowLocation ? '#27ae60' : '#ccc',
-            position: 'relative', transition: 'background 0.2s', flexShrink: 0
-          }}>
-            <div style={{
-              position: 'absolute', top: '2px',
-              left: allowLocation ? '14px' : '2px',
-              width: '12px', height: '12px', borderRadius: '50%',
-              background: '#fff', transition: 'left 0.2s',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.25)'
-            }}/>
-          </div>
-          <span style={{ fontSize: '10px', color: allowLocation ? '#27ae60' : '#999', fontWeight: '600' }}>
-            {allowLocation ? 'Location ON' : 'Location OFF'}
-          </span>
-        </div>
         <div style={styles.card}>
           <div style={styles.logo}>
             <div style={styles.omsIcon}>OMS</div>
@@ -146,7 +130,7 @@ function Login() {
             </div>
             {error && <p style={styles.error}>{error}</p>}
             <button type="submit" style={styles.button} disabled={loading}>
-              {loading ? (allowLocation ? 'Getting location...' : 'Signing in...') : 'Sign In'}
+              {loading ? 'Getting location...' : 'Sign In'}
             </button>
           </form>
           <p style={styles.footer}>www.prestairsystems.com</p>
@@ -186,7 +170,7 @@ const styles = {
   clientsNames: { fontSize: '11px', opacity: 0.7, margin: 0, lineHeight: '1.8' },
   rightPanel: {
     flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: '#f8f9fa', padding: '40px', position: 'relative'
+    background: '#f8f9fa', padding: '40px'
   },
   card: {
     width: '100%', maxWidth: '380px'
