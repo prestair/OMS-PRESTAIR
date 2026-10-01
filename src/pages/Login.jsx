@@ -8,27 +8,29 @@ function Login() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [locationBlocked, setLocationBlocked] = useState(false)
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
 
-  // Get GPS coordinates — MANDATORY. Returns coords or throws with reason.
+  // Detect browser for tailored instructions
+  const getBrowser = () => {
+    const ua = navigator.userAgent
+    if (ua.includes('Edg/')) return 'edge'
+    if (ua.includes('Chrome')) return 'chrome'
+    if (ua.includes('Firefox')) return 'firefox'
+    if (ua.includes('Safari')) return 'safari'
+    return 'chrome'
+  }
+
   const getGPS = () => new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
-      reject('Location not supported by this browser. Please use Chrome or Firefox.')
+      reject({ type: 'unsupported' })
       return
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-      (err) => {
-        if (err.code === 1) {
-          reject('Location access denied. Please allow location to login.')
-        } else if (err.code === 2) {
-          reject('Location unavailable. Please check your device GPS/network and try again.')
-        } else {
-          reject('Location request timed out. Please try again.')
-        }
-      },
+      (err) => reject({ type: err.code === 1 ? 'denied' : err.code === 2 ? 'unavailable' : 'timeout' }),
       { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
     )
   })
@@ -36,26 +38,28 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setLocationBlocked(false)
     setLoading(true)
+    let gps = null
     try {
-      // Location is MANDATORY — block login if denied
-      let gps = null
-      try {
-        gps = await getGPS()
-      } catch (locErr) {
-        setError(locErr)
-        setLoading(false)
-        return
+      gps = await getGPS()
+    } catch (locErr) {
+      setLoading(false)
+      if (locErr.type === 'denied' || locErr.type === 'unsupported') {
+        setLocationBlocked(true)
+      } else if (locErr.type === 'unavailable') {
+        setError('Location signal unavailable. Please ensure GPS or network is enabled and try again.')
+      } else {
+        setError('Location request timed out. Please try again.')
       }
-      // Credentials check
+      return
+    }
+    try {
       await login(username, password)
-      // Save location (fire-and-forget)
-      if (gps) {
-        axios.post('/api/auth/log-location', { lat: gps.lat, lon: gps.lon }).catch(() => {})
-      }
+      if (gps) axios.post('/api/auth/log-location', { lat: gps.lat, lon: gps.lon }).catch(() => {})
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed')
+      setError(err.response?.data?.error || 'Login failed. Please check your credentials.')
     } finally {
       setLoading(false)
     }
@@ -129,7 +133,63 @@ function Login() {
               </div>
             </div>
             {error && <p style={styles.error}>{error}</p>}
-            <button type="submit" style={styles.button} disabled={loading}>
+
+            {/* Location blocked — show browser-specific instructions */}
+            {locationBlocked && (() => {
+              const br = getBrowser()
+              const steps = br === 'firefox'
+                ? [
+                    'Click the 🔒 lock icon in the address bar.',
+                    'Click "Connection Secure" → "More Information".',
+                    'Go to the "Permissions" tab.',
+                    'Find "Access Your Location" and set it to "Allow".',
+                    'Refresh this page and try again.'
+                  ]
+                : br === 'safari'
+                ? [
+                    'Go to Safari → Settings → Websites.',
+                    'Click "Location" in the left sidebar.',
+                    `Find this website and change it to "Allow".`,
+                    'Refresh this page and try again.'
+                  ]
+                : br === 'edge'
+                ? [
+                    'Click the 🔒 lock icon in the address bar.',
+                    'Click "Permissions for this site".',
+                    'Find "Location" and set it to "Allow".',
+                    'Refresh this page and try again.'
+                  ]
+                : [
+                    'Click the 🔒 lock icon in the address bar (left of the URL).',
+                    'Click "Site settings".',
+                    'Find "Location" and change it from "Block" to "Allow".',
+                    'Refresh this page and try again.'
+                  ]
+              return (
+                <div style={{ background:'#fff8e1', border:'1px solid #f39c12', borderRadius:'10px', padding:'14px', fontSize:'12px' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'10px' }}>
+                    <span style={{ fontSize:'18px' }}>📍</span>
+                    <strong style={{ color:'#e67e22', fontSize:'13px' }}>Location Access Required</strong>
+                  </div>
+                  <p style={{ margin:'0 0 10px', color:'#555', lineHeight:'1.5' }}>
+                    Location access is required to use this application. Your browser has blocked it.
+                    Please follow these steps to enable it:
+                  </p>
+                  <ol style={{ margin:'0 0 10px', paddingLeft:'18px', color:'#333', lineHeight:'2' }}>
+                    {steps.map((step, i) => <li key={i}>{step}</li>)}
+                  </ol>
+                  <button
+                    type="button"
+                    onClick={() => { setLocationBlocked(false); setError('') }}
+                    style={{ padding:'6px 14px', background:'#f39c12', color:'#fff', border:'none', borderRadius:'6px', fontSize:'11px', fontWeight:'600', cursor:'pointer' }}
+                  >
+                    I have enabled location — Try Again
+                  </button>
+                </div>
+              )
+            })()}
+
+            <button type="submit" style={{ ...styles.button, opacity: locationBlocked ? 0.4 : 1 }} disabled={loading || locationBlocked}>
               {loading ? 'Getting location...' : 'Sign In'}
             </button>
           </form>
