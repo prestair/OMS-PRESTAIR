@@ -43,6 +43,7 @@ const ALL_COLUMNS = [
   { key: 'receivedAmount', label: 'Received' },
   { key: 'balance', label: 'Balance' },
   { key: 'percentReceived', label: '% Rcv' },
+  { key: 'followUpType', label: 'Follow Up Direct/Sir' },
   { key: 'paymentRemarks', label: 'Payment Remarks' },
   { key: 'akhilPoints', label: 'Akhil Payment Remarks' },
   { key: 'daysToOrder', label: 'Days to Order' },
@@ -53,7 +54,7 @@ const ALL_COLUMNS = [
   { key: 'orRecvd', label: 'OR Recvd' }
 ]
 
-const DEFAULT_VISIBLE = ['date', 'poNo', 'client', 'orderNo', 'status', 'customerName', 'salesRep', 'totalAmount', 'receivedAmount', 'balance', 'percentReceived']
+const DEFAULT_VISIBLE = ['date', 'poNo', 'client', 'orderNo', 'status', 'customerName', 'salesRep', 'totalAmount', 'receivedAmount', 'balance', 'followUpType', 'percentReceived']
 
 function Dashboard() {
   const { user, logout } = useAuth()
@@ -153,6 +154,8 @@ function Dashboard() {
   const [paymentDateTo, setPaymentDateTo] = useState('')
   const [receiptDrillDown, setReceiptDrillDown] = useState(null)
   const [editHistoryPopup, setEditHistoryPopup] = useState(null)
+  const [deleteLogsDate, setDeleteLogsDate] = useState('')
+  const [deletingLogs, setDeletingLogs] = useState(false)
   const [orHistoryPopup, setOrHistoryPopup] = useState(null)
   const [akhilPointsEdit, setAkhilPointsEdit] = useState({})
   const [showPrintDialog, setShowPrintDialog] = useState(false)
@@ -243,9 +246,9 @@ function Dashboard() {
 
   useEffect(() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests() }, [])
 
-  // Auto-refresh every 2 minutes
+  // Auto-refresh every 10 minutes
   useEffect(() => {
-    const interval = setInterval(() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests() }, 120000)
+    const interval = setInterval(() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests() }, 600000)
     return () => clearInterval(interval)
   }, [])
 
@@ -253,7 +256,7 @@ function Dashboard() {
   useEffect(() => {
     if (activeTab === 'reminders') {
       fetchAllReminders()
-      const interval = setInterval(fetchAllReminders, 30000)
+      const interval = setInterval(fetchAllReminders, 300000) // every 5 min (was 2 min)
       return () => clearInterval(interval)
     }
   }, [activeTab])
@@ -287,7 +290,7 @@ function Dashboard() {
       } catch {}
     }
     init()
-    const interval = setInterval(checkNewResponses, 30000)
+    const interval = setInterval(checkNewResponses, 600000) // every 10 min (was 3 min)
     return () => clearInterval(interval)
   }, [allUsers])
   // Persist active tab and daily filter to survive auto-refresh
@@ -342,7 +345,7 @@ function Dashboard() {
       } catch {}
     }
     checkPaperRequests()
-    const interval = setInterval(checkPaperRequests, 30000)
+    const interval = setInterval(checkPaperRequests, 300000) // every 5 min (was 2 min)
     return () => clearInterval(interval)
   }, [])
 
@@ -684,6 +687,7 @@ function Dashboard() {
       { key: 'receivedAmount', label: 'Received' },
       { key: 'balance', label: 'Balance' },
       { key: 'percentReceived', label: '% Rcv' },
+      { key: 'followUpType', label: 'Follow Up Direct/Sir' },
       { key: 'paymentRemarks', label: 'Payment Remarks' },
       { key: 'akhilPoints', label: 'Akhil Payment Remarks' },
       { key: 'akhilSirAudit', label: 'Akhil Sir Audit' },
@@ -810,6 +814,7 @@ function Dashboard() {
         totalAmount: parseFloat(row['Total Amount'] || 0) || 0,
         receivedAmount: parseFloat(row['Received'] || row['Recvd'] || 0) || 0,
         balance: parseFloat(row['Balance'] || 0) || 0,
+        followUpType: row['Follow Up Direct/Sir'] || '',
         paymentRemarks: row['Payment Remarks'] || '',
         remarks: row['Audit Remarks'] || row['Remarks'] || '',
         akhilSirAudit: row['Akhil Sir Audit'] || '',
@@ -890,6 +895,7 @@ function Dashboard() {
         receivedAmount: parseFloat(row['Received'] || row['Recvd'] || 0) || 0,
         balance: parseFloat(row['Balance'] || row['BALANCE'] || 0) || 0,
         percentReceived: parseFloat(String(row['% Rcv'] || row['% Rec'] || '0').replace('%','')) || 0,
+        followUpType: row['Follow Up Direct/Sir'] || '',
         paymentRemarks: row['Payment Remarks'] || row['Payment REMARKS'] || '',
         daysToOrder: parseInt(row['Days to Order'] || 0) || 0,
         remarks: row['Audit Remarks'] || row['Remarks'] || '',
@@ -1177,7 +1183,7 @@ function Dashboard() {
       if (dailyFilter === 'advanceBill') row['Akhil Sir Audit'] = o.akhilSirAudit || ''
       if (dailyFilter === 'advanceBill') row['Audit Remarks'] = o.remarks || ''
       if (dailyFilter === 'akhilSirAudit') row['Audit Remarks'] = o.remarks || ''
-      if (dailyFilter === 'percentReceived') { row['Total Amount'] = o.totalAmount || 0; row['Received'] = o.receivedAmount || 0; row['Balance'] = (o.totalAmount || 0) - (o.receivedAmount || 0); row['Payment Remarks'] = o.paymentRemarks || '' }
+      if (dailyFilter === 'percentReceived') { row['Total Amount'] = o.totalAmount || 0; row['Received'] = o.receivedAmount || 0; row['Balance'] = (o.totalAmount || 0) - (o.receivedAmount || 0); row['Follow Up Direct/Sir'] = o.followUpType || ''; row['Payment Remarks'] = o.paymentRemarks || '' }
       if (dailyFilter === 'photography') row['Photo Remarks'] = o.photographyRemarks || ''
       if (dailyFilter === 'siteVideo') row['Video Remarks'] = o.siteVideoRemarks || ''
       if (dailyFilter === 'review') row['Review Remarks'] = o.reviewRemarks || ''
@@ -1223,6 +1229,7 @@ function Dashboard() {
         if (key === 'Follow Up') return { wch: 10 }
         if (key === 'Total Amount' || key === 'Received' || key === 'Balance') return { wch: 11 }
         if (key === '% Rcv') return { wch: 7 }
+        if (key === 'Follow Up Direct/Sir') return { wch: 18 }
         if (key === 'Payment Remarks') return { wch: 48 }
         let maxLen = key.length
         exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length })
@@ -1408,7 +1415,7 @@ function Dashboard() {
     if (dailyFilter === 'sectionDrawing') html += `<th>SD Remarks</th>`
     if (dailyFilter === 'advanceBill') html += `<th>Advance Bill Remarks</th><th>Akhil Sir Audit</th><th>Audit Remarks</th>`
     if (dailyFilter === 'akhilSirAudit') html += `<th>Audit Remarks</th>`
-    if (dailyFilter === 'percentReceived') html += `<th style="width:60px">Total Amount</th><th style="width:60px">Received</th><th style="width:60px">Balance</th><th style="min-width:160px">Payment Remarks</th>`
+    if (dailyFilter === 'percentReceived') html += `<th style="width:60px">Total Amount</th><th style="width:60px">Received</th><th style="width:60px">Balance</th><th style="min-width:120px">Follow Up Direct/Sir</th><th style="min-width:160px">Payment Remarks</th>`
     if (dailyFilter === 'photography') html += `<th>Photo Remarks</th>`
     if (dailyFilter === 'siteVideo') html += `<th>Video Remarks</th>`
     if (dailyFilter === 'review') html += `<th>Review Remarks</th>`
@@ -1426,7 +1433,7 @@ function Dashboard() {
       if (dailyFilter === 'sectionDrawing') html += `<td>${o.sectionDrawingRemarks || ''}</td>`
       if (dailyFilter === 'advanceBill') html += `<td>${o.advanceBillRemarks || ''}</td><td>${o.akhilSirAudit || ''}</td><td>${o.remarks || ''}</td>`
       if (dailyFilter === 'akhilSirAudit') html += `<td>${o.remarks || ''}</td>`
-      if (dailyFilter === 'percentReceived') html += `<td>${(o.totalAmount || 0).toLocaleString('en-IN')}</td><td>${(o.receivedAmount || 0).toLocaleString('en-IN')}</td><td>${((o.totalAmount || 0) - (o.receivedAmount || 0)).toLocaleString('en-IN')}</td><td>${o.paymentRemarks || ''}</td>`
+      if (dailyFilter === 'percentReceived') html += `<td>${(o.totalAmount || 0).toLocaleString('en-IN')}</td><td>${(o.receivedAmount || 0).toLocaleString('en-IN')}</td><td>${((o.totalAmount || 0) - (o.receivedAmount || 0)).toLocaleString('en-IN')}</td><td>${o.followUpType || ''}</td><td>${o.paymentRemarks || ''}</td>`
       if (dailyFilter === 'photography') html += `<td>${o.photographyRemarks || ''}</td>`
       if (dailyFilter === 'siteVideo') html += `<td>${o.siteVideoRemarks || ''}</td>`
       if (dailyFilter === 'review') html += `<td>${o.reviewRemarks || ''}</td>`
@@ -1502,6 +1509,21 @@ function Dashboard() {
         style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', boxSizing: 'border-box', textAlign: 'center' }}
         placeholder="—"
       />
+    }
+    if (key === 'followUpType') {
+      if (!canEditColumn('followUpType')) return val || ''
+      const save = async (e) => {
+        const newVal = e.target.value
+        if (newVal === (val || '')) return
+        try { await axios.put(`/api/orders/${order.id}`, { followUpType: newVal }); fetchOrders() }
+        catch { alert('Failed to save Follow Up Direct/Sir') }
+      }
+      return <select value={val || ''} onClick={e => e.stopPropagation()} onChange={save}
+        style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', boxSizing: 'border-box' }}>
+        <option value="">—</option>
+        <option value="Direct">Direct</option>
+        <option value="Sir">Sir</option>
+      </select>
     }
     if (key === 'paymentRemarks') {
       return <span>{val || ''} {order.paymentProofUrl && <><a href={order.paymentProofUrl} target="_blank" rel="noreferrer" style={{ color: '#2980b9', fontSize: '10px', fontWeight: '700' }} onClick={e => e.stopPropagation()}>View Supporting</a>{isAdmin && <button onClick={async(e)=>{e.stopPropagation();if(window.confirm('Delete this supporting image?')){try{await axios.delete(`/api/delete-payment-proof/${order.id}`);fetchOrders()}catch{}}}} style={{marginLeft:'4px',padding:'1px 5px',background:'#e74c3c',color:'#fff',border:'none',borderRadius:'3px',fontSize:'9px',cursor:'pointer',fontWeight:'600'}}>Delete</button>}</>}</span>
@@ -1612,6 +1634,39 @@ function Dashboard() {
           {isAdmin && <button onClick={() => navigate('/users')} style={styles.headerBtn}>Manage Users</button>}
           {isAdmin && <button onClick={async () => { if (window.confirm('Send daily report email now?')) { try { const res = await axios.get('/api/cron-daily-report'); alert('Report sent to agm.prestairsystem@gmail.com') } catch(e) { alert('Error: ' + (e.response?.data?.error || e.message)) } } }} style={{ ...styles.headerBtn, background: '#27ae60' }}>Send Report</button>}
           {isAdmin && <button onClick={async () => { if (window.confirm('Force refresh ALL users now? Everyone will auto-reload within a minute.')) { try { const res = await axios.post('/api/force-refresh'); localStorage.setItem('oms_app_version', String(res.data?.version || '')); alert('Done! All users will refresh within ~1 minute.'); setTimeout(() => window.location.reload(true), 800) } catch(e) { alert('Error: ' + (e.response?.data?.error || e.message)) } } }} style={{ ...styles.headerBtn, background: '#8e44ad' }}>Force Refresh All</button>}
+          {isAdmin && (
+            <span style={{display:'flex',alignItems:'center',gap:'4px'}}>
+              <input
+                type="date"
+                value={deleteLogsDate}
+                onChange={e => setDeleteLogsDate(e.target.value)}
+                style={{fontSize:'11px',padding:'3px 5px',borderRadius:'4px',border:'1px solid #ccc',height:'26px',cursor:'pointer'}}
+                title="Delete edit logs before this date"
+              />
+              <button
+                disabled={!deleteLogsDate || deletingLogs}
+                onClick={async () => {
+                  if (!deleteLogsDate) { alert('Pehle date select karein'); return }
+                  const label = new Date(deleteLogsDate).toLocaleDateString('en-IN', {day:'2-digit',month:'2-digit',year:'numeric'})
+                  if (!window.confirm(`${label} se pehle ki saari edit history delete ho jayegi. Confirm?`)) return
+                  setDeletingLogs(true)
+                  try {
+                    const res = await axios.delete('/api/orders/edit-logs/before-today', { data: { before: deleteLogsDate } })
+                    alert(`${res.data.count ?? 0} edit log(s) delete ho gaye.`)
+                    setDeleteLogsDate('')
+                  } catch (err) {
+                    alert('Error: ' + (err.response?.data?.error || err.message))
+                  } finally {
+                    setDeletingLogs(false)
+                  }
+                }}
+                style={{...styles.headerBtn, background: deleteLogsDate&&!deletingLogs?'#e74c3c':'#aaa', padding:'3px 8px', fontSize:'11px', cursor: deleteLogsDate&&!deletingLogs?'pointer':'not-allowed', whiteSpace:'nowrap'}}
+                title="Is date se pehle ki sari edit history delete karein"
+              >
+                {deletingLogs ? '...' : '🗑 Logs Delete'}
+              </button>
+            </span>
+          )}
           <button onClick={logout} style={{ ...styles.headerBtn, background: '#e74c3c' }}>Logout</button>
         </div>
       </header>
@@ -2640,6 +2695,7 @@ function Dashboard() {
                   {dailyFilter === 'percentReceived' && <th style={styles.th}>Total Amount</th>}
                   {dailyFilter === 'percentReceived' && <th style={styles.th}>Received</th>}
                   {dailyFilter === 'percentReceived' && <th style={styles.th}>Balance</th>}
+                  {dailyFilter === 'percentReceived' && <th style={styles.th}>Follow Up Direct/Sir</th>}
                   {dailyFilter === 'percentReceived' && <th style={styles.th}>Payment Remarks</th>}
                   {dailyFilter === 'photography' && <th style={styles.th}>Photography Remarks</th>}
                   {dailyFilter === 'siteVideo' && <th style={styles.th}>Site Video Remarks</th>}
@@ -2676,6 +2732,7 @@ function Dashboard() {
                       {dailyFilter === 'percentReceived' && <td style={styles.td}>{formatCurrency(o.totalAmount)}</td>}
                       {dailyFilter === 'percentReceived' && <td style={styles.td}>{formatCurrency(o.receivedAmount)}</td>}
                       {dailyFilter === 'percentReceived' && <td style={styles.td}>{formatCurrency((o.totalAmount || 0) - (o.receivedAmount || 0))}</td>}
+                      {dailyFilter === 'percentReceived' && <td style={styles.td}>{o.followUpType}</td>}
                       {dailyFilter === 'percentReceived' && <td style={styles.td}>{o.paymentRemarks}</td>}
                       {dailyFilter === 'photography' && <td style={styles.td}>{o.photographyRemarks}</td>}
                       {dailyFilter === 'siteVideo' && <td style={styles.td}>{o.siteVideoRemarks}</td>}

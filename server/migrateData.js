@@ -52,7 +52,7 @@ async function migrate() {
       section_drawing_remarks: o.sectionDrawingRemarks, in_production: o.inProduction,
       billing: o.billing, installation: o.installation, total_amount: o.totalAmount || 0,
       received_amount: o.receivedAmount || 0, balance: o.balance || 0, percent_received: o.percentReceived || 0,
-      payment_remarks: o.paymentRemarks, days_to_order: o.daysToOrder || 0, remarks: o.remarks,
+      follow_up_type: o.followUpType, payment_remarks: o.paymentRemarks, days_to_order: o.daysToOrder || 0, remarks: o.remarks,
       akhil_sir_audit: o.akhilSirAudit, advance_bill: o.advanceBill, or_recvd: o.orRecvd,
       photography: o.photography, photography_remarks: o.photographyRemarks,
       site_video: o.siteVideo, site_video_remarks: o.siteVideoRemarks,

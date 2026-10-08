@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS orders (
   received_amount NUMERIC DEFAULT 0,
   balance NUMERIC DEFAULT 0,
   percent_received NUMERIC DEFAULT 0,
+  follow_up_type TEXT,
   payment_remarks TEXT,
   days_to_order INTEGER DEFAULT 0,
   remarks TEXT,

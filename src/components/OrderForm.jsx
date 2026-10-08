@@ -27,6 +27,7 @@ const FIELDS = [
   { key: 'inProduction', label: 'In Production' },
   { key: 'installation', label: 'Seasonal Discount' },
   { key: 'totalAmount', label: 'Total Amount', type: 'number' },
+  { key: 'followUpType', label: 'Follow Up Direct/Sir', type: 'select', options: ['', 'Direct', 'Sir'] },
   { key: 'paymentRemarks', label: 'Payment Remarks' },
   { key: 'akhilPoints', label: 'Akhil Payment Remarks' },
   { key: 'akhilSirAudit', label: 'Akhil Sir Audit' },
@@ -148,7 +149,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted,
     // Convert all text fields to uppercase
     const upperForm = { ...form }
     Object.keys(upperForm).forEach(key => {
-      if (typeof upperForm[key] === 'string' && key !== 'paymentProofUrl' && key !== 'auditProofUrl') {
+      if (typeof upperForm[key] === 'string' && key !== 'paymentProofUrl' && key !== 'auditProofUrl' && key !== 'followUpType') {
         upperForm[key] = upperForm[key].toUpperCase()
       }
     })
@@ -268,7 +269,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted,
                 : (isDeleted
                     ? ((isAdmin || allowCompletedEdit) && !isOrderNoLocked && inRestricted)
                     : (((isAdmin || (restrictToFields && restrictToFields.length && inRestricted)) || canEditColumn(field.key)) && !isOrderNoLocked && !isDateLocked && inRestricted))
-              const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit','advanceBill','orRecvd','salesRep'].includes(field.key)
+              const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit','advanceBill','orRecvd','salesRep','followUpType'].includes(field.key)
               return (
                 <div key={field.key} style={styles.field}>
                   <label style={styles.label}>{field.label}</label>
@@ -279,7 +280,13 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted,
                       style={{ ...styles.input, ...(editable ? {} : styles.inputDisabled) }}
                       disabled={!editable}
                     >
-                      {field.key === 'salesRep' ? (
+                      {field.key === 'followUpType' ? (
+                        <>
+                          <option value="">-- Select --</option>
+                          <option value="Direct">Direct</option>
+                          <option value="Sir">Sir</option>
+                        </>
+                      ) : field.key === 'salesRep' ? (
                         <>
                           <option value="">-- Select --</option>
                           {salesReps.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
