@@ -242,19 +242,57 @@ function Dashboard() {
     return combined
   }
 
-  useEffect(() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests() }, [])
+  // Change-detection refs for the egress-saving signal polls
+  const lastOrdersSignal = useRef(null)       // `${count}_${maxId}` from /api/orders/signal
+  const ordersPollTicks = useRef(0)           // safety-net counter (every 5th tick = ~10 min full refetch)
+  const lastRemindersSignal = useRef(null)    // reminders-tab live view: `${count}_${maxId}_${maxResponseDate}`
+  const lastResponseSignal = useRef(null)     // checkNewResponses notifier: independent so tab polling can't swallow a notification
 
-  // Auto-refresh every 2 minutes
   useEffect(() => {
-    const interval = setInterval(() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests() }, 120000)
+    fetchOrders(); fetchDeletedOrders(); fetchPaperRequests()
+    // Seed the orders signal so the first 2-min tick doesn't trigger a redundant full refetch
+    axios.get('/api/orders/signal').then(sig => { lastOrdersSignal.current = `${sig.data.count}_${sig.data.maxId}` }).catch(() => {})
+  }, [])
+
+  // Auto-refresh every 2 minutes — gated on /api/orders/signal to avoid shipping the full
+  // orders payload when nothing changed. Every 5th tick (~10 min) forces a full refetch as a
+  // safety net for in-place edits (which the count/maxId signal cannot detect).
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      ordersPollTicks.current += 1
+      const forceFull = ordersPollTicks.current % 5 === 0
+      try {
+        const sig = await axios.get('/api/orders/signal')
+        const key = `${sig.data.count}_${sig.data.maxId}`
+        if (forceFull || lastOrdersSignal.current === null || lastOrdersSignal.current !== key) {
+          fetchOrders(); fetchDeletedOrders(); fetchPaperRequests()
+        }
+        lastOrdersSignal.current = key
+      } catch {
+        // Signal failed — fall back to the original full refetch so data never goes stale
+        fetchOrders(); fetchDeletedOrders(); fetchPaperRequests()
+      }
+    }, 120000)
     return () => clearInterval(interval)
   }, [])
 
-  // Auto-refresh reminders tab every 30 seconds
+  // Auto-refresh reminders tab every 30 seconds — load immediately on entering the tab, then
+  // only refetch the full list when the reminders signal changes.
   useEffect(() => {
     if (activeTab === 'reminders') {
       fetchAllReminders()
-      const interval = setInterval(fetchAllReminders, 30000)
+      const interval = setInterval(async () => {
+        try {
+          const sig = await axios.get('/api/orders/reminders/signal')
+          const key = `${sig.data.count}_${sig.data.maxId}_${sig.data.maxResponseDate}`
+          if (lastRemindersSignal.current === null || lastRemindersSignal.current !== key) {
+            fetchAllReminders()
+          }
+          lastRemindersSignal.current = key
+        } catch {
+          fetchAllReminders()
+        }
+      }, 30000)
       return () => clearInterval(interval)
     }
   }, [activeTab])
@@ -264,6 +302,14 @@ function Dashboard() {
     let lastCheckedResponses = {}
     const checkNewResponses = async () => {
       try {
+        // Change-detection: only pull the full reminders list when the signal moved.
+        // count/maxId catch new reminders, maxResponseDate catches new responses/reassigns.
+        try {
+          const sig = await axios.get('/api/orders/reminders/signal')
+          const key = `${sig.data.count}_${sig.data.maxId}_${sig.data.maxResponseDate}`
+          if (lastResponseSignal.current !== null && lastResponseSignal.current === key) return
+          lastResponseSignal.current = key
+        } catch {}
         const res = await axios.get('/api/orders/reminders/all')
         const myReminders = res.data.filter(r => r.createdBy === user.username || r.created_by === user.username)
         myReminders.forEach(r => {
@@ -279,12 +325,17 @@ function Dashboard() {
         })
       } catch {}
     }
-    // Initialize on first load
+    // Initialize on first load — fetch the full list once (as today) and seed the signal
+    // so subsequent 30s ticks skip the full fetch until something actually changes.
     const init = async () => {
       try {
         const res = await axios.get('/api/orders/reminders/all')
         const myReminders = res.data.filter(r => r.createdBy === user.username || r.created_by === user.username)
         myReminders.forEach(r => { lastCheckedResponses[r.id] = r.respondedBy || r.responded_by || null })
+      } catch {}
+      try {
+        const sig = await axios.get('/api/orders/reminders/signal')
+        lastResponseSignal.current = `${sig.data.count}_${sig.data.maxId}_${sig.data.maxResponseDate}`
       } catch {}
     }
     init()
