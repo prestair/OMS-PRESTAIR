@@ -154,8 +154,6 @@ function Dashboard() {
   const [paymentDateTo, setPaymentDateTo] = useState('')
   const [receiptDrillDown, setReceiptDrillDown] = useState(null)
   const [editHistoryPopup, setEditHistoryPopup] = useState(null)
-  const [deleteLogsDate, setDeleteLogsDate] = useState('')
-  const [deletingLogs, setDeletingLogs] = useState(false)
   const [orHistoryPopup, setOrHistoryPopup] = useState(null)
   const [akhilPointsEdit, setAkhilPointsEdit] = useState({})
   const [showPrintDialog, setShowPrintDialog] = useState(false)
@@ -246,9 +244,9 @@ function Dashboard() {
 
   useEffect(() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests() }, [])
 
-  // Auto-refresh every 10 minutes
+  // Auto-refresh every 2 minutes
   useEffect(() => {
-    const interval = setInterval(() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests() }, 600000)
+    const interval = setInterval(() => { fetchOrders(); fetchDeletedOrders(); fetchPaperRequests() }, 120000)
     return () => clearInterval(interval)
   }, [])
 
@@ -256,7 +254,7 @@ function Dashboard() {
   useEffect(() => {
     if (activeTab === 'reminders') {
       fetchAllReminders()
-      const interval = setInterval(fetchAllReminders, 300000) // every 5 min (was 2 min)
+      const interval = setInterval(fetchAllReminders, 30000)
       return () => clearInterval(interval)
     }
   }, [activeTab])
@@ -290,7 +288,7 @@ function Dashboard() {
       } catch {}
     }
     init()
-    const interval = setInterval(checkNewResponses, 600000) // every 10 min (was 3 min)
+    const interval = setInterval(checkNewResponses, 30000)
     return () => clearInterval(interval)
   }, [allUsers])
   // Persist active tab and daily filter to survive auto-refresh
@@ -345,7 +343,7 @@ function Dashboard() {
       } catch {}
     }
     checkPaperRequests()
-    const interval = setInterval(checkPaperRequests, 300000) // every 5 min (was 2 min)
+    const interval = setInterval(checkPaperRequests, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -1634,39 +1632,6 @@ function Dashboard() {
           {isAdmin && <button onClick={() => navigate('/users')} style={styles.headerBtn}>Manage Users</button>}
           {isAdmin && <button onClick={async () => { if (window.confirm('Send daily report email now?')) { try { const res = await axios.get('/api/cron-daily-report'); alert('Report sent to agm.prestairsystem@gmail.com') } catch(e) { alert('Error: ' + (e.response?.data?.error || e.message)) } } }} style={{ ...styles.headerBtn, background: '#27ae60' }}>Send Report</button>}
           {isAdmin && <button onClick={async () => { if (window.confirm('Force refresh ALL users now? Everyone will auto-reload within a minute.')) { try { const res = await axios.post('/api/force-refresh'); localStorage.setItem('oms_app_version', String(res.data?.version || '')); alert('Done! All users will refresh within ~1 minute.'); setTimeout(() => window.location.reload(true), 800) } catch(e) { alert('Error: ' + (e.response?.data?.error || e.message)) } } }} style={{ ...styles.headerBtn, background: '#8e44ad' }}>Force Refresh All</button>}
-          {isAdmin && (
-            <span style={{display:'flex',alignItems:'center',gap:'4px'}}>
-              <input
-                type="date"
-                value={deleteLogsDate}
-                onChange={e => setDeleteLogsDate(e.target.value)}
-                style={{fontSize:'11px',padding:'3px 5px',borderRadius:'4px',border:'1px solid #ccc',height:'26px',cursor:'pointer'}}
-                title="Delete edit logs before this date"
-              />
-              <button
-                disabled={!deleteLogsDate || deletingLogs}
-                onClick={async () => {
-                  if (!deleteLogsDate) { alert('Pehle date select karein'); return }
-                  const label = new Date(deleteLogsDate).toLocaleDateString('en-IN', {day:'2-digit',month:'2-digit',year:'numeric'})
-                  if (!window.confirm(`${label} se pehle ki saari edit history delete ho jayegi. Confirm?`)) return
-                  setDeletingLogs(true)
-                  try {
-                    const res = await axios.delete('/api/orders/edit-logs/before-today', { data: { before: deleteLogsDate } })
-                    alert(`${res.data.count ?? 0} edit log(s) delete ho gaye.`)
-                    setDeleteLogsDate('')
-                  } catch (err) {
-                    alert('Error: ' + (err.response?.data?.error || err.message))
-                  } finally {
-                    setDeletingLogs(false)
-                  }
-                }}
-                style={{...styles.headerBtn, background: deleteLogsDate&&!deletingLogs?'#e74c3c':'#aaa', padding:'3px 8px', fontSize:'11px', cursor: deleteLogsDate&&!deletingLogs?'pointer':'not-allowed', whiteSpace:'nowrap'}}
-                title="Is date se pehle ki sari edit history delete karein"
-              >
-                {deletingLogs ? '...' : '🗑 Logs Delete'}
-              </button>
-            </span>
-          )}
           <button onClick={logout} style={{ ...styles.headerBtn, background: '#e74c3c' }}>Logout</button>
         </div>
       </header>
