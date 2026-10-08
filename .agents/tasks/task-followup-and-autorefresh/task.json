@@ -1,0 +1,7 @@
+{
+  "task_id": "task-followup-and-autorefresh",
+  "task_description": "Add a 'Follow Up Direct/Sir' order column (dropdown Direct/Sir) placed before Payment Remarks, mapped through every table/export/import/print and both backends + DB schema; and add auto hard-refresh on login when a new deployment is published (server app-version check + Vite build constant), all loop-guarded.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
