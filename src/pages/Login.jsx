@@ -190,7 +190,7 @@ function Login() {
             })()}
 
             <button type="submit" style={{ ...styles.button, opacity: locationBlocked ? 0.4 : 1 }} disabled={loading || locationBlocked}>
-              {loading ? 'Getting location...' : 'Sign In'}
+              {loading ? 'Logging in in few seconds ........ Please Wait .......' : 'Sign In'}
             </button>
           </form>
           <p style={styles.footer}>www.prestairsystems.com</p>
