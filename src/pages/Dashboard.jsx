@@ -425,6 +425,11 @@ function Dashboard() {
           if (selectedValues.includes('(Non Blank)') && raw) return true
           // Special "(Blank)" option: match any order with an empty value
           if (selectedValues.includes('(Blank)') && !raw) return true
+          // Special "(With Image)" option: match orders that have a supporting proof image
+          if (selectedValues.includes('(With Image)')) {
+            if (key === 'paymentRemarks' && o.paymentProofUrl) return true
+            if (key === 'remarks' && o.auditProofUrl) return true
+          }
           return selectedValues.includes(val)
         })
       }
@@ -678,12 +683,28 @@ function Dashboard() {
           const raw = String(o[key] || '').trim()
           if (selectedValues.includes('(Non Blank)') && raw) return true
           if (selectedValues.includes('(Blank)') && !raw) return true
+          if (selectedValues.includes('(With Image)')) {
+            if (key === 'paymentRemarks' && o.paymentProofUrl) return true
+            if (key === 'remarks' && o.auditProofUrl) return true
+          }
           return selectedValues.includes(raw)
         })
       }
     })
-    if (deletedDateFrom) exportFiltered = exportFiltered.filter(o => o.deletedAt && new Date(o.deletedAt) >= new Date(deletedDateFrom))
-    if (deletedDateTo) exportFiltered = exportFiltered.filter(o => o.deletedAt && new Date(o.deletedAt) <= new Date(deletedDateTo + 'T23:59:59'))
+    {
+      const fromKey = deletedDateKey(deletedDateFrom)
+      const toKey = deletedDateKey(deletedDateTo)
+      if (fromKey != null || toKey != null) {
+        exportFiltered = exportFiltered.filter(o => {
+          if (!o.deletedAt) return false
+          const dayKey = deletedDateKey(o.deletedAt)
+          if (dayKey == null) return false
+          if (fromKey != null && dayKey < fromKey) return false
+          if (toKey != null && dayKey > toKey) return false
+          return true
+        })
+      }
+    }
     // Use the same column selection and SEQUENCE as the Completed tab (which matches Active/ALL_COLUMNS order)
     const exportCols = completedDisplayedColumns
     const exportData = exportFiltered.map((o, idx) => {
@@ -1648,6 +1669,20 @@ function Dashboard() {
     setOpenFilterWithRef(null)
   }
 
+  // Date-only, timezone-consistent key (y*10000 + m*100 + d) for Deleted-On range filtering.
+  // Accepts a YYYY-MM-DD input string (parsed directly, no new Date to avoid UTC shift)
+  // or a full timestamp/Date (parsed with new Date using LOCAL parts). Returns null for empty/invalid.
+  const deletedDateKey = (dateLike) => {
+    if (!dateLike) return null
+    if (typeof dateLike === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateLike)) {
+      const [y, m, d] = dateLike.split('-')
+      return parseInt(y, 10) * 10000 + parseInt(m, 10) * 100 + parseInt(d, 10)
+    }
+    const dt = new Date(dateLike)
+    if (isNaN(dt.getTime())) return null
+    return dt.getFullYear() * 10000 + (dt.getMonth() + 1) * 100 + dt.getDate()
+  }
+
   const displayedColumns = allowedColumns.filter(c => visibleColumns.includes(c.key))
   // Completed tab: same permission filter (allowedColumns) and same column SEQUENCE as Active (ALL_COLUMNS order),
   // with an independent selection. Column order matches Active exactly.
@@ -1863,10 +1898,17 @@ function Dashboard() {
                   {openFilter === col.key && (
                     <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
                       <div style={styles.filterDropdownHeader}>
+                        <button onClick={() => setOpenFilterWithRef(null)} style={styles.filterDoneTopBtn}>Done</button>
                         <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: {col.label}</span>
                         <button onClick={() => clearFilter(col.key)} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
                       </div>
                       <div style={styles.filterOptions}>
+                        {(col.key === 'paymentRemarks' || col.key === 'remarks') && (
+                          <label key="(With Image)" style={{ ...styles.filterOption, fontWeight: 600 }} onMouseDown={e => e.preventDefault()}>
+                            <input type="checkbox" checked={(columnFilters[col.key] || []).includes('(With Image)')} onChange={() => toggleFilterValue(col.key, '(With Image)')} />
+                            <span style={{ fontSize: '11px' }}>(With Image)</span>
+                          </label>
+                        )}
                         <label key="(Non Blank)" style={{ ...styles.filterOption, fontWeight: 600 }} onMouseDown={e => e.preventDefault()}>
                           <input type="checkbox" checked={(columnFilters[col.key] || []).includes('(Non Blank)')} onChange={() => toggleFilterValue(col.key, '(Non Blank)')} />
                           <span style={{ fontSize: '11px' }}>(Non Blank)</span>
@@ -2060,10 +2102,24 @@ function Dashboard() {
                         {deletedOpenFilter === col.key && col.key !== 'deletedOn' && (
                           <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
                             <div style={styles.filterDropdownHeader}>
+                              <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneTopBtn}>Done</button>
                               <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: {col.label}</span>
                               <button onClick={() => { setDeletedColumnFilters(prev => { const { [col.key]: _, ...rest } = prev; return rest }); setDeletedOpenFilter(null) }} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
                             </div>
                             <div style={styles.filterOptions}>
+                              {(col.key === 'paymentRemarks' || col.key === 'remarks') && (
+                                <label key="(With Image)" style={{ ...styles.filterOption, fontWeight: 600 }} onMouseDown={e => e.preventDefault()}>
+                                  <input type="checkbox" checked={(deletedColumnFilters[col.key] || []).includes('(With Image)')} onChange={() => {
+                                    setDeletedColumnFilters(prev => {
+                                      const current = prev[col.key] || []
+                                      const updated = current.includes('(With Image)') ? current.filter(v => v !== '(With Image)') : [...current, '(With Image)']
+                                      if (updated.length === 0) { const { [col.key]: _, ...rest } = prev; return rest }
+                                      return { ...prev, [col.key]: updated }
+                                    })
+                                  }} />
+                                  <span style={{ fontSize: '11px' }}>(With Image)</span>
+                                </label>
+                              )}
                               <label key="(Non Blank)" style={{ ...styles.filterOption, fontWeight: 600 }} onMouseDown={e => e.preventDefault()}>
                                 <input type="checkbox" checked={(deletedColumnFilters[col.key] || []).includes('(Non Blank)')} onChange={() => {
                                   setDeletedColumnFilters(prev => {
@@ -2106,6 +2162,7 @@ function Dashboard() {
                         {deletedOpenFilter === col.key && col.key === 'deletedOn' && (
                           <div style={{ ...styles.filterDropdown, minWidth: '220px' }} onClick={e => e.stopPropagation()}>
                             <div style={styles.filterDropdownHeader}>
+                              <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneTopBtn}>Done</button>
                               <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: Deleted On</span>
                               <button onClick={() => { setDeletedDateFrom(''); setDeletedDateTo(''); setDeletedOpenFilter(null) }} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
                             </div>
@@ -2143,12 +2200,28 @@ function Dashboard() {
                         const raw = String(o[key] || '').trim()
                         if (selectedValues.includes('(Non Blank)') && raw) return true
                         if (selectedValues.includes('(Blank)') && !raw) return true
+                        if (selectedValues.includes('(With Image)')) {
+                          if (key === 'paymentRemarks' && o.paymentProofUrl) return true
+                          if (key === 'remarks' && o.auditProofUrl) return true
+                        }
                         return selectedValues.includes(raw)
                       })
                     }
                   })
-                  if (deletedDateFrom) filtered = filtered.filter(o => o.deletedAt && new Date(o.deletedAt) >= new Date(deletedDateFrom))
-                  if (deletedDateTo) filtered = filtered.filter(o => o.deletedAt && new Date(o.deletedAt) <= new Date(deletedDateTo + 'T23:59:59'))
+                  {
+                    const fromKey = deletedDateKey(deletedDateFrom)
+                    const toKey = deletedDateKey(deletedDateTo)
+                    if (fromKey != null || toKey != null) {
+                      filtered = filtered.filter(o => {
+                        if (!o.deletedAt) return false
+                        const dayKey = deletedDateKey(o.deletedAt)
+                        if (dayKey == null) return false
+                        if (fromKey != null && dayKey < fromKey) return false
+                        if (toKey != null && dayKey > toKey) return false
+                        return true
+                      })
+                    }
+                  }
                   return filtered.map((order, idx) => {
                   return (
                   <tr key={order.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
@@ -3287,6 +3360,7 @@ const styles = {
   filterOptions: { maxHeight: '180px', minHeight: '40px', overflowY: 'auto', flex: '1' },
   filterOption: { display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', cursor: 'pointer', color: '#333' },
   filterDoneBtn: { marginTop: '6px', padding: '6px 12px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', width: '100%', flexShrink: 0, position: 'sticky', bottom: 0 },
+  filterDoneTopBtn: { padding: '2px 10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: 600, cursor: 'pointer', flexShrink: 0 },
   td: { padding: '8px', borderBottom: '1px solid #eee', borderRight: '1px solid #f0f0f0', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' },
   trEven: { background: '#fff' },
   trOdd: { background: '#f8f9fa' },
