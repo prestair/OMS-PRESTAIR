@@ -180,6 +180,8 @@ CREATE TABLE IF NOT EXISTS login_logs (
   role TEXT,
   ip_address TEXT,
   user_agent TEXT,
+  accuracy NUMERIC,
+  location_inherited BOOLEAN DEFAULT false,
   logged_in_at TIMESTAMPTZ DEFAULT NOW()
 );
 

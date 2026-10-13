@@ -29,9 +29,9 @@ function Login() {
       return
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: pos.coords.accuracy }),
       (err) => reject({ type: err.code === 1 ? 'denied' : err.code === 2 ? 'unavailable' : 'timeout' }),
-      { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
+      { timeout: 12000, maximumAge: 0, enableHighAccuracy: true }
     )
   })
 
@@ -55,8 +55,8 @@ function Login() {
       return
     }
     try {
-      await login(username, password)
-      if (gps) axios.post('/api/auth/log-location', { lat: gps.lat, lon: gps.lon }).catch(() => {})
+      const loggedInUser = await login(username, password)
+      if (gps) axios.post('/api/auth/log-location', { lat: gps.lat, lon: gps.lon, accuracy: gps.accuracy, logId: loggedInUser?.locationLogId }).catch(() => {})
       navigate('/dashboard')
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Please check your credentials.')

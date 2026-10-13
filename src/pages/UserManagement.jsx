@@ -375,18 +375,45 @@ function UserManagement() {
                           <td style={{ ...s.td, fontFamily:'monospace', color:'#2980b9', fontWeight:'600' }}>{log.ip_address || '-'}</td>
                           <td style={{ ...s.td, color:'#555' }}>{deviceStr || '-'}</td>
                           <td style={s.td}>
-                            {log.latitude && log.longitude ? (
-                              <a
-                                href={`https://www.google.com/maps?q=${log.latitude},${log.longitude}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ color:'#27ae60', fontWeight:'600', fontSize:'11px', textDecoration:'none', display:'flex', alignItems:'center', gap:'3px' }}
-                              >
-                                📍 {log.city ? `${log.city}${log.country ? ', ' + log.country : ''}` : 'View Map'}
-                              </a>
-                            ) : (
-                              <span style={{ color:'#bbb', fontSize:'10px' }}>—</span>
-                            )}
+                            {(() => {
+                              const hasAcc = log.accuracy !== null && log.accuracy !== undefined && isFinite(Number(log.accuracy))
+                              const accNum = hasAcc ? Number(log.accuracy) : null
+                              const accStr = hasAcc ? (accNum < 1000 ? `±${Math.round(accNum)} m` : `±${(accNum / 1000).toFixed(1)} km`) : ''
+                              if (log.latitude && log.longitude) {
+                                const cityStr = log.city ? `${log.city}${log.country ? ', ' + log.country : ''}` : 'View Map'
+                                if (log.location_inherited) {
+                                  // Inherited from a prior reliable reading on the SAME IP (same office
+                                  // network). Show the city but label it as network-derived, muted.
+                                  return (
+                                    <a
+                                      href={`https://www.google.com/maps?q=${log.latitude},${log.longitude}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{ color:'#7f8c8d', fontWeight:'500', fontSize:'11px', textDecoration:'none', display:'flex', alignItems:'center', gap:'3px' }}
+                                    >
+                                      📍 {cityStr} (same network)
+                                    </a>
+                                  )
+                                }
+                                // Reliable this-device reading: keep the maps link and city, append the radius.
+                                return (
+                                  <a
+                                    href={`https://www.google.com/maps?q=${log.latitude},${log.longitude}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ color:'#27ae60', fontWeight:'600', fontSize:'11px', textDecoration:'none', display:'flex', alignItems:'center', gap:'3px' }}
+                                  >
+                                    📍 {cityStr}{hasAcc ? ` (${accStr})` : ''}
+                                  </a>
+                                )
+                              }
+                              if (hasAcc) {
+                                // Gated as unreliable — never show a city, no maps link.
+                                return <span style={{ color:'#bbb', fontSize:'10px', fontStyle:'italic' }}>Location not reliable ({accStr})</span>
+                              }
+                              // Legacy row with no accuracy at all.
+                              return <span style={{ color:'#bbb', fontSize:'10px' }}>—</span>
+                            })()}
                           </td>
                           <td style={{ ...s.td, whiteSpace:'nowrap' }}>{dtStr}</td>
                           <td style={s.td}>

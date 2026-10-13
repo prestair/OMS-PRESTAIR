@@ -124,31 +124,104 @@ app.post('/api/auth/login', async (req, res) => {
     // Log this login (fire-and-forget, never block the response)
     const ip = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
     const ua = req.headers['user-agent'] || ''
-    supabase.from('login_logs').insert({ username: user.username, full_name: user.full_name || '', role: user.role, ip_address: ip, user_agent: ua }).then(() => {}).catch(() => {})
-    res.json({ token, user: { id: user.id, username: user.username, fullName: user.full_name, role: user.role, group: user.user_group || '', columnPermissions: isAdmin ? {} : mergedPerms, canEdit: isAdmin || gr('can_edit'), canReceipt: isAdmin || gr('can_receipt'), canAssignReminder: isAdmin || gr('can_assign_reminder'), canDelete: isAdmin || gr('can_delete'), canCreateQuote: isAdmin || gr('can_create_quote'), canColor: isAdmin || gr('can_color'), canComplaints: isAdmin || grAny('can_complaints'), canEditCompleted: isAdmin || grAny('can_edit_completed'), canEditDaily: isAdmin || grAny('can_edit_daily'), canEditReceipt: isAdmin || grAny('can_edit_receipt') } })
+    // Insert the login row and read back its id so the client can post that exact id to
+    // /api/auth/log-location — this binds the location update to THIS login row (race-free),
+    // instead of guessing "most recent row for this user in the last 2 min". Wrapped in
+    // try/catch so a logging failure never blocks auth; locationLogId is simply null then.
+    let locationLogId = null
+    try {
+      const { data: logRow } = await supabase.from('login_logs')
+        .insert({ username: user.username, full_name: user.full_name || '', role: user.role, ip_address: ip, user_agent: ua })
+        .select('id').single()
+      locationLogId = logRow?.id ?? null
+    } catch { /* login logging is best-effort; never block the response */ }
+    res.json({ token, user: { id: user.id, username: user.username, fullName: user.full_name, role: user.role, group: user.user_group || '', locationLogId, columnPermissions: isAdmin ? {} : mergedPerms, canEdit: isAdmin || gr('can_edit'), canReceipt: isAdmin || gr('can_receipt'), canAssignReminder: isAdmin || gr('can_assign_reminder'), canDelete: isAdmin || gr('can_delete'), canCreateQuote: isAdmin || gr('can_create_quote'), canColor: isAdmin || gr('can_color'), canComplaints: isAdmin || grAny('can_complaints'), canEditCompleted: isAdmin || grAny('can_edit_completed'), canEditDaily: isAdmin || grAny('can_edit_daily'), canEditReceipt: isAdmin || grAny('can_edit_receipt') } })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
+// Reject unreliable geolocation (68%-confidence radius worse than this many metres).
+// User requirement: approximations up to ~2 km are acceptable, but 30-40 km blunders
+// (wrong city) must not be shown as a confident location.
+const ACCURACY_THRESHOLD_M = 2000
 app.post('/api/auth/log-location', authenticate, async (req, res) => {
   try {
-    const { lat, lon } = req.body
+    const { lat, lon, accuracy, logId } = req.body
     if (!lat || !lon) return res.status(400).json({ error: 'lat/lon required' })
-    // Reverse-geocode via OpenStreetMap Nominatim (lat/lon → city/country, free, no key)
-    let city = '', country = ''
-    try {
-      const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
-        headers: { 'User-Agent': 'OMS-Prestair/1.0' }
-      })
-      const geoData = await geoRes.json()
-      const addr = geoData.address || {}
-      city = addr.city || addr.town || addr.village || addr.county || addr.state_district || ''
-      country = addr.country || ''
-    } catch {}
-    // Update the most recent login_log row for this user (within last 2 minutes)
-    const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
-    await supabase.from('login_logs')
-      .update({ latitude: lat, longitude: lon, city, country })
-      .eq('username', req.user.username)
-      .gte('logged_in_at', twoMinAgo)
+    const acc = (typeof accuracy === 'number' && isFinite(accuracy)) ? accuracy : null
+
+    // Identify the EXACT login row this reading belongs to. Prefer the id threaded from the login
+    // response (race-free even on rapid re-login); otherwise fall back to the most-recent row for
+    // this user within 2 min. We also need the row's ip_address (captured at login insert, not sent
+    // in this body) for the same-IP fallback below.
+    let currentRow = null
+    if (logId != null) {
+      const { data } = await supabase.from('login_logs').select('id, ip_address').eq('id', logId).single()
+      currentRow = data || null
+    } else {
+      const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
+      const { data } = await supabase.from('login_logs')
+        .select('id, ip_address')
+        .eq('username', req.user.username)
+        .gte('logged_in_at', twoMinAgo)
+        .order('logged_in_at', { ascending: false })
+        .limit(1)
+      currentRow = data?.[0] || null
+    }
+
+    let update
+    if (acc !== null && acc <= ACCURACY_THRESHOLD_M) {
+      // Reliable this-device reading: reverse-geocode via OpenStreetMap Nominatim (free, no key).
+      // This row also becomes a "known good" source for its IP for future same-IP fallbacks.
+      let city = '', country = ''
+      try {
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
+          headers: { 'User-Agent': 'OMS-Prestair/1.0' }
+        })
+        const geoData = await geoRes.json()
+        const addr = geoData.address || {}
+        city = addr.city || addr.town || addr.village || addr.county || addr.state_district || ''
+        country = addr.country || ''
+      } catch {}
+      update = { latitude: lat, longitude: lon, city, country, accuracy: acc, location_inherited: false }
+    } else {
+      // Unreliable (accuracy missing or > threshold). Before recording "not reliable", try to
+      // inherit the MOST RECENT earlier reliable location from the SAME ip_address (same office
+      // network). Match ip_address EXACTLY — never borrow across different IPs.
+      let inherited = null
+      const ip = currentRow?.ip_address || null
+      if (ip) {
+        const { data: priors } = await supabase.from('login_logs')
+          .select('latitude, longitude, city, country, accuracy, logged_in_at')
+          .eq('ip_address', ip)
+          .not('city', 'is', null)
+          .not('latitude', 'is', null)
+          .not('longitude', 'is', null)
+          .lte('accuracy', ACCURACY_THRESHOLD_M)
+          .order('logged_in_at', { ascending: false })
+          .limit(1)
+        inherited = priors?.[0] || null
+      }
+      if (inherited) {
+        // Copy the prior reliable location but keep THIS reading's (bad) accuracy and flag it so the
+        // UI can be honest that the location came from the IP's prior reading, not this device.
+        update = { latitude: inherited.latitude, longitude: inherited.longitude, city: inherited.city, country: inherited.country, accuracy: acc, location_inherited: true }
+      } else {
+        // Nothing to inherit for this IP: record honestly as not reliable.
+        update = { latitude: null, longitude: null, city: null, country: null, accuracy: acc, location_inherited: false }
+      }
+    }
+
+    // Apply the update strictly to the identified row (by id when known, else the same
+    // most-recent-within-2-min predicate used above) so an unrelated older row is never touched.
+    let q = supabase.from('login_logs').update(update)
+    if (currentRow?.id != null) {
+      q = q.eq('id', currentRow.id)
+    } else if (logId != null) {
+      q = q.eq('id', logId)
+    } else {
+      const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
+      q = q.eq('username', req.user.username).gte('logged_in_at', twoMinAgo)
+    }
+    await q
     res.json({ message: 'Location saved' })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
