@@ -1,0 +1,7 @@
+{
+  "task_id": "task-completed-payment-history",
+  "task_description": "Preserve itemized payment/receipt history when orders move Active->Completed (deleted_orders), allow admins and can_edit_receipt holders to view/add/edit/delete receipts on completed orders via the existing PaymentForm, make the Active->Completed->Active round trip lossless (payments re-linked, totals recomputed, permanent-delete cleans up payments), and add a per-order Payment History sheet to the daily emailed Excel report. Backend changes live in api/index.js (production) and are mirrored in server/routes/orders.js. One idempotent migration drops the payments.order_id FK so payment rows can outlive their parent orders row.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
