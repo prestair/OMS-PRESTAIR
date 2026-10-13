@@ -15,14 +15,14 @@ function UserManagement() {
   const [userSearch, setUserSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
-  const [form, setForm] = useState({ username: '', password: '', fullName: '', role: 'user', group: '', columnPermissions: {}, canEdit: false, canReceipt: false, canAssignReminder: false, canDelete: false })
+  const [form, setForm] = useState({ username: '', password: '', fullName: '', role: 'user', group: '', columnPermissions: {}, canEdit: false, canReceipt: false, canAssignReminder: false, canDelete: false, canEditReceipt: false })
   const [resetPassword, setResetPassword] = useState(null)
   const [newPassword, setNewPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
   const [showGroupForm, setShowGroupForm] = useState(false)
   const [editingGroup, setEditingGroup] = useState(null)
-  const [groupForm, setGroupForm] = useState({ name: '', columnPermissions: {}, canEdit: false, canReceipt: false, canAssignReminder: false, canDelete: false })
+  const [groupForm, setGroupForm] = useState({ name: '', columnPermissions: {}, canEdit: false, canReceipt: false, canAssignReminder: false, canDelete: false, canEditReceipt: false })
   const [showRepForm, setShowRepForm] = useState(false)
   const [salesReps, setSalesReps] = useState([])
   const [newRepName, setNewRepName] = useState('')
@@ -64,7 +64,7 @@ function UserManagement() {
   const applyGroupRights = (groupName) => {
     const g = groups.find(x => x.name === groupName)
     if (g) {
-      setForm(prev => ({ ...prev, group: groupName, canEdit: g.canEdit || g.can_edit || false, canReceipt: g.canReceipt || g.can_receipt || false, canAssignReminder: g.canAssignReminder || g.can_assign_reminder || false, canDelete: g.canDelete || g.can_delete || false, canCreateQuote: g.canCreateQuote || g.can_create_quote || false, canColor: g.canColor || g.can_color || false, canComplaints: g.canComplaints || g.can_complaints || false, canEditCompleted: g.canEditCompleted || g.can_edit_completed || false, canEditDaily: g.canEditDaily || g.can_edit_daily || false, columnPermissions: { ...(g.columnPermissions || g.column_permissions || {}) } }))
+      setForm(prev => ({ ...prev, group: groupName, canEdit: g.canEdit || g.can_edit || false, canReceipt: g.canReceipt || g.can_receipt || false, canAssignReminder: g.canAssignReminder || g.can_assign_reminder || false, canDelete: g.canDelete || g.can_delete || false, canCreateQuote: g.canCreateQuote || g.can_create_quote || false, canColor: g.canColor || g.can_color || false, canComplaints: g.canComplaints || g.can_complaints || false, canEditCompleted: g.canEditCompleted || g.can_edit_completed || false, canEditDaily: g.canEditDaily || g.can_edit_daily || false, canEditReceipt: g.canEditReceipt || g.can_edit_receipt || false, columnPermissions: { ...(g.columnPermissions || g.column_permissions || {}) } }))
     } else {
       setForm(prev => ({ ...prev, group: groupName }))
     }
@@ -73,7 +73,7 @@ function UserManagement() {
   const resetToGroupRights = () => {
     const g = groups.find(x => x.name === form.group)
     if (g) {
-      setForm(prev => ({ ...prev, canEdit: g.canEdit || g.can_edit || false, canReceipt: g.canReceipt || g.can_receipt || false, canAssignReminder: g.canAssignReminder || g.can_assign_reminder || false, canDelete: g.canDelete || g.can_delete || false, canCreateQuote: g.canCreateQuote || g.can_create_quote || false, canColor: g.canColor || g.can_color || false, canComplaints: g.canComplaints || g.can_complaints || false, canEditCompleted: g.canEditCompleted || g.can_edit_completed || false, canEditDaily: g.canEditDaily || g.can_edit_daily || false, columnPermissions: { ...(g.columnPermissions || g.column_permissions || {}) } }))
+      setForm(prev => ({ ...prev, canEdit: g.canEdit || g.can_edit || false, canReceipt: g.canReceipt || g.can_receipt || false, canAssignReminder: g.canAssignReminder || g.can_assign_reminder || false, canDelete: g.canDelete || g.can_delete || false, canCreateQuote: g.canCreateQuote || g.can_create_quote || false, canColor: g.canColor || g.can_color || false, canComplaints: g.canComplaints || g.can_complaints || false, canEditCompleted: g.canEditCompleted || g.can_edit_completed || false, canEditDaily: g.canEditDaily || g.can_edit_daily || false, canEditReceipt: g.canEditReceipt || g.can_edit_receipt || false, columnPermissions: { ...(g.columnPermissions || g.column_permissions || {}) } }))
     } else {
       alert('No group selected or group not found')
     }
@@ -85,7 +85,7 @@ function UserManagement() {
     if (!form.group && form.role !== 'admin') { setError('Group is mandatory'); return }
     try {
       if (editingUser) {
-        await axios.put(`/api/users/${editingUser.id}`, { fullName: form.fullName, role: form.role, group: form.group, columnPermissions: form.columnPermissions, canEdit: form.canEdit, canReceipt: form.canReceipt, canAssignReminder: form.canAssignReminder, canDelete: form.canDelete, canCreateQuote: form.canCreateQuote, canColor: form.canColor, canComplaints: form.canComplaints, canEditCompleted: form.canEditCompleted, canEditDaily: form.canEditDaily })
+        await axios.put(`/api/users/${editingUser.id}`, { fullName: form.fullName, role: form.role, group: form.group, columnPermissions: form.columnPermissions, canEdit: form.canEdit, canReceipt: form.canReceipt, canAssignReminder: form.canAssignReminder, canDelete: form.canDelete, canCreateQuote: form.canCreateQuote, canColor: form.canColor, canComplaints: form.canComplaints, canEditCompleted: form.canEditCompleted, canEditDaily: form.canEditDaily, canEditReceipt: form.canEditReceipt })
       } else {
         await axios.post('/api/users', form)
       }
@@ -132,7 +132,7 @@ function UserManagement() {
               <td style={{...s.td,padding:'3px 6px',fontSize:'11px'}}><span style={u.role==='admin'?s.badgeA:s.badgeU}>{u.role}</span></td>
               <td style={{...s.td,padding:'3px 6px',fontSize:'11px'}}>{u.group||'-'}</td>
               <td style={{...s.td,padding:'3px 6px',fontSize:'11px',whiteSpace:'nowrap'}}>
-                <button onClick={() => { setEditingUser(u); setForm({ username:u.username, password:'', fullName:u.fullName, role:u.role, group:u.group||'', columnPermissions:u.columnPermissions||{}, canEdit:u.canEdit!==undefined?u.canEdit:false, canReceipt:u.canReceipt!==undefined?u.canReceipt:false, canAssignReminder:u.canAssignReminder||false, canDelete:u.canDelete||false, canCreateQuote:u.canCreateQuote||false, canColor:u.canColor||false, canComplaints:u.canComplaints||false, canEditCompleted:u.canEditCompleted||false, canEditDaily:u.canEditDaily||false }); setShowForm(true) }} style={s.tBtn}>Edit</button>
+                <button onClick={() => { setEditingUser(u); setForm({ username:u.username, password:'', fullName:u.fullName, role:u.role, group:u.group||'', columnPermissions:u.columnPermissions||{}, canEdit:u.canEdit!==undefined?u.canEdit:false, canReceipt:u.canReceipt!==undefined?u.canReceipt:false, canAssignReminder:u.canAssignReminder||false, canDelete:u.canDelete||false, canCreateQuote:u.canCreateQuote||false, canColor:u.canColor||false, canComplaints:u.canComplaints||false, canEditCompleted:u.canEditCompleted||false, canEditDaily:u.canEditDaily||false, canEditReceipt:u.canEditReceipt||false }); setShowForm(true) }} style={s.tBtn}>Edit</button>
                 <button onClick={() => setResetPassword(u)} style={{...s.tBtn,background:'#f39c12'}}>Pass</button>
                 {u.id!==user.id && <button onClick={async()=>{if(window.confirm('Delete?')){await axios.delete(`/api/users/${u.id}`);fetchUsers()}}} style={{...s.tBtn,background:'#e74c3c'}}>Del</button>}
                 {u.id!==user.id && <button onClick={async()=>{if(window.confirm(`Force logout ${u.fullName||u.username}?`)){await axios.put(`/api/users/${u.id}/force-logout`);alert('User will be logged out on next action')}}} style={{...s.tBtn,background:'#8e44ad'}}>Logout</button>}
@@ -173,6 +173,7 @@ function UserManagement() {
                 <label style={s.tl}><input type="checkbox" checked={form.canComplaints||false} onChange={e=>setForm({...form,canComplaints:e.target.checked})}/><span>Complaint Mgmt</span></label>
                 <label style={s.tl}><input type="checkbox" checked={form.canEditCompleted||false} onChange={e=>setForm({...form,canEditCompleted:e.target.checked})}/><span>Edit Completed</span></label>
                 <label style={s.tl}><input type="checkbox" checked={form.canEditDaily||false} onChange={e=>setForm({...form,canEditDaily:e.target.checked})}/><span>Edit Daily Report</span></label>
+                <label style={s.tl}><input type="checkbox" checked={form.canEditReceipt||false} onChange={e=>setForm({...form,canEditReceipt:e.target.checked})}/><span>Edit/Delete Receipt</span></label>
               </div>
               <div style={{ maxHeight:'200px', overflow:'auto', border:'1px solid #e0e0e0', borderRadius:'6px', padding:'8px' }}>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', gap:'4px' }}>
@@ -225,7 +226,7 @@ function UserManagement() {
             {groups.map(g => (
               <div key={g.id} style={{ display:'flex', alignItems:'center', gap:'4px', padding:'4px 8px', background:'#f0f0f0', borderRadius:'4px', fontSize:'11px' }}>
                 <strong>{g.name}</strong>
-                <button onClick={()=>{setEditingGroup(g);setGroupForm({name:g.name,columnPermissions:g.columnPermissions||g.column_permissions||{},canEdit:g.canEdit||g.can_edit||false,canReceipt:g.canReceipt||g.can_receipt||false,canAssignReminder:g.canAssignReminder||g.can_assign_reminder||false,canDelete:g.canDelete||g.can_delete||false,canCreateQuote:g.canCreateQuote||g.can_create_quote||false,canColor:g.canColor||g.can_color||false,canComplaints:g.canComplaints||g.can_complaints||false,canEditCompleted:g.canEditCompleted||g.can_edit_completed||false,canEditDaily:g.canEditDaily||g.can_edit_daily||false})}} style={{ background:'#2980b9', color:'#fff', border:'none', borderRadius:'2px', fontSize:'9px', padding:'2px 5px', cursor:'pointer' }}>Edit</button>
+                <button onClick={()=>{setEditingGroup(g);setGroupForm({name:g.name,columnPermissions:g.columnPermissions||g.column_permissions||{},canEdit:g.canEdit||g.can_edit||false,canReceipt:g.canReceipt||g.can_receipt||false,canAssignReminder:g.canAssignReminder||g.can_assign_reminder||false,canDelete:g.canDelete||g.can_delete||false,canCreateQuote:g.canCreateQuote||g.can_create_quote||false,canColor:g.canColor||g.can_color||false,canComplaints:g.canComplaints||g.can_complaints||false,canEditCompleted:g.canEditCompleted||g.can_edit_completed||false,canEditDaily:g.canEditDaily||g.can_edit_daily||false,canEditReceipt:g.canEditReceipt||g.can_edit_receipt||false})}} style={{ background:'#2980b9', color:'#fff', border:'none', borderRadius:'2px', fontSize:'9px', padding:'2px 5px', cursor:'pointer' }}>Edit</button>
                 <button onClick={async()=>{if(window.confirm(`Delete ${g.name}?`)){await axios.delete(`/api/users/groups/${g.id}`);fetchGroups()}}} style={{ background:'#e74c3c', color:'#fff', border:'none', borderRadius:'2px', fontSize:'9px', padding:'2px 5px', cursor:'pointer' }}>Del</button>
               </div>
             ))}
@@ -247,6 +248,7 @@ function UserManagement() {
             <label style={s.tl}><input type="checkbox" checked={groupForm.canComplaints||false} onChange={e=>setGroupForm({...groupForm,canComplaints:e.target.checked})}/><span>Complaint Mgmt</span></label>
             <label style={s.tl}><input type="checkbox" checked={groupForm.canEditCompleted||false} onChange={e=>setGroupForm({...groupForm,canEditCompleted:e.target.checked})}/><span>Edit Completed</span></label>
             <label style={s.tl}><input type="checkbox" checked={groupForm.canEditDaily||false} onChange={e=>setGroupForm({...groupForm,canEditDaily:e.target.checked})}/><span>Edit Daily Report</span></label>
+            <label style={s.tl}><input type="checkbox" checked={groupForm.canEditReceipt||false} onChange={e=>setGroupForm({...groupForm,canEditReceipt:e.target.checked})}/><span>Edit/Delete Receipt</span></label>
               </div>
               <div style={{ border:'1px solid #e0e0e0', borderRadius:'5px', padding:'6px' }}>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:'3px' }}>

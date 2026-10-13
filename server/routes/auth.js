@@ -46,7 +46,8 @@ router.post('/login', async (req, res) => {
       canColor: isAdminRole ? true : getUserRight('can_color'),
       canComplaints: isAdminRole ? true : getUserRight('can_complaints'),
       canEditCompleted: isAdminRole ? true : getUserRight('can_edit_completed'),
-      canEditDaily: isAdminRole ? true : getUserRight('can_edit_daily')
+      canEditDaily: isAdminRole ? true : getUserRight('can_edit_daily'),
+      canEditReceipt: isAdminRole ? true : getUserRight('can_edit_receipt')
     }
   })
 })

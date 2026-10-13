@@ -5,6 +5,14 @@ const { authenticate, adminOnly } = require('../middleware/auth.js')
 const router = Router()
 router.use(authenticate)
 
+// Grant check for new-style grantable rights not carried in the JWT.
+// Admins always pass; otherwise look the boolean column up by user id.
+async function userHasRight(req, col) {
+  if (req.user.role === 'admin') return true
+  const { data } = await supabase.from('users').select(col).eq('id', req.user.id)
+  return !!(data?.[0]?.[col])
+}
+
 // Get all orders
 router.get('/', async (req, res) => {
   const { data } = await supabase.from('orders').select('*')
@@ -149,7 +157,8 @@ router.post('/deleted/:id/restore', adminOnly, async (req, res) => {
 })
 
 // Update deleted order data
-router.put('/deleted/:id/update', adminOnly, async (req, res) => {
+router.put('/deleted/:id/update', async (req, res) => {
+  if (!(await userHasRight(req, 'can_edit_completed'))) return res.status(403).json({ error: 'No permission' })
   const { data: dels } = await supabase.from('deleted_orders').select('*').eq('original_id', parseInt(req.params.id))
   if (!dels?.length) return res.status(404).json({ error: 'Not found' })
   const updatedData = { ...dels[0].data, ...req.body }
@@ -543,7 +552,8 @@ router.get('/:id/payments', async (req, res) => {
   res.json(data || [])
 })
 
-router.put('/:id/payments/:paymentId', adminOnly, async (req, res) => {
+router.put('/:id/payments/:paymentId', async (req, res) => {
+  if (!(await userHasRight(req, 'can_edit_receipt'))) return res.status(403).json({ error: 'No permission' })
   const { date, mode, amount, remarks } = req.body
   await supabase.from('payments').update({ date, mode, amount: parseFloat(amount), remarks }).eq('id', parseInt(req.params.paymentId))
   const { data: payments } = await supabase.from('payments').select('amount').eq('order_id', parseInt(req.params.id))
@@ -554,7 +564,8 @@ router.put('/:id/payments/:paymentId', adminOnly, async (req, res) => {
   res.json({ message: 'Updated' })
 })
 
-router.delete('/:id/payments/:paymentId', adminOnly, async (req, res) => {
+router.delete('/:id/payments/:paymentId', async (req, res) => {
+  if (!(await userHasRight(req, 'can_edit_receipt'))) return res.status(403).json({ error: 'No permission' })
   await supabase.from('payments').delete().eq('id', parseInt(req.params.paymentId))
   const { data: payments } = await supabase.from('payments').select('amount').eq('order_id', parseInt(req.params.id))
   const totalReceived = (payments || []).reduce((s, p) => s + (p.amount || 0), 0)

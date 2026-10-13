@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 function PaymentForm({ order, onClose, onSaved }) {
   const { user } = useAuth()
   const isAdmin = user.role === 'admin'
+  const canEditReceipt = isAdmin || user.canEditReceipt
   const [payments, setPayments] = useState([{ date: '', mode: '', amount: '', remarks: '' }])
   const [existingPayments, setExistingPayments] = useState([])
   const [editingPayment, setEditingPayment] = useState(null)
@@ -114,7 +115,7 @@ function PaymentForm({ order, onClose, onSaved }) {
                   <th style={styles.th}>Mode</th>
                   <th style={styles.th}>Amount</th>
                   <th style={styles.th}>Remarks</th>
-                  {isAdmin && <th style={styles.th}>Action</th>}
+                  {canEditReceipt && <th style={styles.th}>Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -124,7 +125,7 @@ function PaymentForm({ order, onClose, onSaved }) {
                     <td style={styles.td}>{p.mode || '-'}</td>
                     <td style={styles.td}>Rs {(p.amount || 0).toLocaleString('en-IN')}</td>
                     <td style={styles.td}>{p.remarks || '-'}</td>
-                    {isAdmin && (
+                    {canEditReceipt && (
                       <td style={styles.td}>
                         <button onClick={() => { setEditingPayment(p); setEditForm({ date: p.date||'', mode: p.mode||'', amount: p.amount||'', remarks: p.remarks||'' }) }} style={{...styles.delBtn,background:'#2980b9',marginRight:'4px'}}>Edit</button>
                         <button onClick={() => handleDeletePayment(p.id)} style={styles.delBtn}>Delete</button>

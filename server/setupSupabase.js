@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS users (
   can_complaints BOOLEAN DEFAULT false,
   can_edit_completed BOOLEAN DEFAULT false,
   can_edit_daily BOOLEAN DEFAULT false,
+  can_edit_receipt BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -60,7 +61,8 @@ CREATE TABLE IF NOT EXISTS groups (
   can_color BOOLEAN DEFAULT false,
   can_complaints BOOLEAN DEFAULT false,
   can_edit_completed BOOLEAN DEFAULT false,
-  can_edit_daily BOOLEAN DEFAULT false
+  can_edit_daily BOOLEAN DEFAULT false,
+  can_edit_receipt BOOLEAN DEFAULT false
 );
 
 CREATE TABLE IF NOT EXISTS orders (
