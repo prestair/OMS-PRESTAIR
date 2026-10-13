@@ -116,12 +116,18 @@ router.post('/deleted/import', adminOnly, async (req, res) => {
     const nextId = maxRow?.length ? (maxRow[0].original_id + 1) : 90000
     const orderData = {
       date: o.date || '', poNo: o.poNo || '', client: o.client || '', orderNo: o.orderNo || '',
-      customerName: o.customerName || '', gst: o.gst || '', photography: o.photography || '',
-      siteVideo: o.siteVideo || '', review: o.review || '', salesRep: o.salesRep || '',
+      customerName: o.customerName || '', gst: o.gst || '', status: o.status || '', followUp: o.followUp || '',
+      photography: o.photography || '', photographyRemarks: o.photographyRemarks || '',
+      siteVideo: o.siteVideo || '', siteVideoRemarks: o.siteVideoRemarks || '',
+      review: o.review || '', reviewRemarks: o.reviewRemarks || '', salesRep: o.salesRep || '',
       deliveryAddress: o.deliveryAddress || '', phoneNo: o.phoneNo || '',
+      siteVerification: o.siteVerification || '', installationStatus: o.installationStatus || '',
+      installationRemarks: o.installationRemarks || '', lop: o.lop || '',
+      sectionDrawing: o.sectionDrawing || '', inProduction: o.inProduction || '',
       totalAmount: o.totalAmount || 0, receivedAmount: o.receivedAmount || 0, balance: o.balance || 0,
       followUpType: o.followUpType || '', paymentRemarks: o.paymentRemarks || '', remarks: o.remarks || '',
-      akhilSirAudit: o.akhilSirAudit || '', advanceBill: o.advanceBill || '', akhilPoints: o.akhilPoints || '', orRecvd: o.orRecvd || ''
+      akhilSirAudit: o.akhilSirAudit || '', advanceBill: o.advanceBill || '', advanceBillRemarks: o.advanceBillRemarks || '',
+      akhilPoints: o.akhilPoints || '', orRecvd: o.orRecvd || ''
     }
     const { error } = await supabase.from('deleted_orders').insert({
       original_id: nextId + added,
