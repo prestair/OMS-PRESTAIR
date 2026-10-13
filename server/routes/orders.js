@@ -135,6 +135,8 @@ router.post('/deleted/import', adminOnly, async (req, res) => {
 
 // Permanently delete from deleted
 router.delete('/deleted/:id', adminOnly, async (req, res) => {
+  // Also delete the preserved payment rows so nothing is orphaned (payments keyed by order_id = original_id)
+  await supabase.from('payments').delete().eq('order_id', parseInt(req.params.id))
   await supabase.from('deleted_orders').delete().eq('original_id', parseInt(req.params.id))
   res.json({ message: 'Permanently deleted' })
 })
@@ -152,6 +154,13 @@ router.post('/deleted/:id/restore', adminOnly, async (req, res) => {
   const { data: inserted, error } = await supabase.from('orders').insert(snaked).select()
   if (error) return res.status(400).json({ error: error.message })
   if (!inserted || !inserted.length) return res.status(400).json({ error: 'Restore failed - order not inserted' })
+  // Re-point preserved payments (keyed by the archived original_id) to the new order id, then recompute totals
+  const newId = inserted[0].id
+  await supabase.from('payments').update({ order_id: newId }).eq('order_id', parseInt(req.params.id))
+  const { data: rPays } = await supabase.from('payments').select('amount').eq('order_id', newId)
+  const rTotal = (rPays || []).reduce((s, p) => s + (p.amount || 0), 0)
+  const rTotalAmt = inserted[0].total_amount || 0
+  await supabase.from('orders').update({ received_amount: rTotal, balance: rTotalAmt - rTotal, percent_received: rTotalAmt ? parseFloat(((rTotal / rTotalAmt) * 100).toFixed(2)) : 0 }).eq('id', newId)
   await supabase.from('deleted_orders').delete().eq('original_id', parseInt(req.params.id))
   res.json({ message: 'Restored' })
 })
@@ -528,7 +537,11 @@ router.delete('/:id', async (req, res) => {
   const { data: insDel, error: insErr } = await supabase.from('deleted_orders').insert({ original_id: delId, data: mapOrder(orders[0]), deleted_by: req.user.username }).select()
   if (insErr) return res.status(400).json({ error: insErr.message })
   if (!insDel || !insDel.length) return res.status(400).json({ error: 'Delete failed - could not archive order' })
-  await supabase.from('payments').delete().eq('order_id', parseInt(req.params.id))
+  // Preserve payment history: keep the payment rows. If the archived key was bumped to avoid a
+  // collision, re-point payments to delId so they follow the key GET /deleted/all exposes as id.
+  if (delId !== orders[0].id) {
+    await supabase.from('payments').update({ order_id: delId }).eq('order_id', orders[0].id)
+  }
   await supabase.from('orders').delete().eq('id', parseInt(req.params.id))
   res.json({ message: 'Deleted' })
 })
@@ -540,10 +553,19 @@ router.post('/:id/payments', async (req, res) => {
   const { data: payments } = await supabase.from('payments').select('amount').eq('order_id', parseInt(req.params.id))
   const totalReceived = (payments || []).reduce((s, p) => s + (p.amount || 0), 0)
   const { data: order } = await supabase.from('orders').select('total_amount').eq('id', parseInt(req.params.id))
-  const totalAmt = order?.[0]?.total_amount || 0
-  const balance = totalAmt - totalReceived
-  const percent = totalAmt ? parseFloat(((totalReceived / totalAmt) * 100).toFixed(2)) : 0
-  await supabase.from('orders').update({ received_amount: totalReceived, balance, percent_received: percent }).eq('id', parseInt(req.params.id))
+  if (order?.length) {
+    const totalAmt = order[0].total_amount || 0
+    await supabase.from('orders').update({ received_amount: totalReceived, balance: totalAmt - totalReceived, percent_received: totalAmt ? parseFloat(((totalReceived / totalAmt) * 100).toFixed(2)) : 0 }).eq('id', parseInt(req.params.id))
+  } else {
+    // Completed order: its snapshot lives in deleted_orders.data keyed by original_id
+    const { data: del } = await supabase.from('deleted_orders').select('data').eq('original_id', parseInt(req.params.id))
+    if (del?.length) {
+      const d = del[0].data || {}
+      const totalAmt = d.total_amount ?? d.totalAmount ?? 0
+      const newData = { ...d, received_amount: totalReceived, balance: totalAmt - totalReceived, percent_received: totalAmt ? parseFloat(((totalReceived / totalAmt) * 100).toFixed(2)) : 0 }
+      await supabase.from('deleted_orders').update({ data: newData }).eq('original_id', parseInt(req.params.id))
+    }
+  }
   res.json(data[0])
 })
 
@@ -559,8 +581,18 @@ router.put('/:id/payments/:paymentId', async (req, res) => {
   const { data: payments } = await supabase.from('payments').select('amount').eq('order_id', parseInt(req.params.id))
   const totalReceived = (payments || []).reduce((s, p) => s + (p.amount || 0), 0)
   const { data: order } = await supabase.from('orders').select('total_amount').eq('id', parseInt(req.params.id))
-  const totalAmt = order?.[0]?.total_amount || 0
-  await supabase.from('orders').update({ received_amount: totalReceived, balance: totalAmt - totalReceived, percent_received: totalAmt ? parseFloat(((totalReceived / totalAmt) * 100).toFixed(2)) : 0 }).eq('id', parseInt(req.params.id))
+  if (order?.length) {
+    const totalAmt = order[0].total_amount || 0
+    await supabase.from('orders').update({ received_amount: totalReceived, balance: totalAmt - totalReceived, percent_received: totalAmt ? parseFloat(((totalReceived / totalAmt) * 100).toFixed(2)) : 0 }).eq('id', parseInt(req.params.id))
+  } else {
+    const { data: del } = await supabase.from('deleted_orders').select('data').eq('original_id', parseInt(req.params.id))
+    if (del?.length) {
+      const d = del[0].data || {}
+      const totalAmt = d.total_amount ?? d.totalAmount ?? 0
+      const newData = { ...d, received_amount: totalReceived, balance: totalAmt - totalReceived, percent_received: totalAmt ? parseFloat(((totalReceived / totalAmt) * 100).toFixed(2)) : 0 }
+      await supabase.from('deleted_orders').update({ data: newData }).eq('original_id', parseInt(req.params.id))
+    }
+  }
   res.json({ message: 'Updated' })
 })
 
@@ -570,8 +602,18 @@ router.delete('/:id/payments/:paymentId', async (req, res) => {
   const { data: payments } = await supabase.from('payments').select('amount').eq('order_id', parseInt(req.params.id))
   const totalReceived = (payments || []).reduce((s, p) => s + (p.amount || 0), 0)
   const { data: order } = await supabase.from('orders').select('total_amount').eq('id', parseInt(req.params.id))
-  const totalAmt = order?.[0]?.total_amount || 0
-  await supabase.from('orders').update({ received_amount: totalReceived, balance: totalAmt - totalReceived, percent_received: totalAmt ? parseFloat(((totalReceived / totalAmt) * 100).toFixed(2)) : 0 }).eq('id', parseInt(req.params.id))
+  if (order?.length) {
+    const totalAmt = order[0].total_amount || 0
+    await supabase.from('orders').update({ received_amount: totalReceived, balance: totalAmt - totalReceived, percent_received: totalAmt ? parseFloat(((totalReceived / totalAmt) * 100).toFixed(2)) : 0 }).eq('id', parseInt(req.params.id))
+  } else {
+    const { data: del } = await supabase.from('deleted_orders').select('data').eq('original_id', parseInt(req.params.id))
+    if (del?.length) {
+      const d = del[0].data || {}
+      const totalAmt = d.total_amount ?? d.totalAmount ?? 0
+      const newData = { ...d, received_amount: totalReceived, balance: totalAmt - totalReceived, percent_received: totalAmt ? parseFloat(((totalReceived / totalAmt) * 100).toFixed(2)) : 0 }
+      await supabase.from('deleted_orders').update({ data: newData }).eq('original_id', parseInt(req.params.id))
+    }
+  }
   res.json({ message: 'Payment deleted' })
 })
 

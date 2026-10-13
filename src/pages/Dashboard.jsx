@@ -201,6 +201,7 @@ function Dashboard() {
   const canColor = isAdmin || user.canColor
   // Assignable rights for editing completed/deleted orders and daily-report fields (photography/site video/review)
   const canEditCompleted = isAdmin || user.canEditCompleted
+  const canEditReceipt = isAdmin || user.canEditReceipt
   const canEditDaily = isAdmin || user.canEditDaily
 
   // Helper to get full name from username
@@ -1056,7 +1057,7 @@ function Dashboard() {
   }
 
   const handleOrderSaved = () => { setShowOrderForm(false); setEditingOrder(null); setEditingDeleted(false); setDailyEditFields(null); fetchOrders(); fetchDeletedOrders() }
-  const handlePaymentSaved = () => { setShowPaymentForm(null); fetchOrders() }
+  const handlePaymentSaved = () => { setShowPaymentForm(null); fetchOrders(); fetchDeletedOrders() }
 
   const getDailyFilteredData = () => {
     let filtered = (dailyFilter === 'siteVideo' || dailyFilter === 'review' || dailyFilter === 'photography') ? [...orders, ...deletedOrders] : orders
@@ -2182,7 +2183,7 @@ function Dashboard() {
                       </th>
                     )
                   })}
-                  {(isAdmin || canEditCompleted) && <th style={{...styles.th, position:'sticky', top:0, right:0, zIndex:25, minWidth:'220px', background:'#1a1a2e'}}>Action</th>}
+                  {(isAdmin || canEditCompleted || canEditReceipt) && <th style={{...styles.th, position:'sticky', top:0, right:0, zIndex:25, minWidth:'220px', background:'#1a1a2e'}}>Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -2235,8 +2236,9 @@ function Dashboard() {
                     })}
                     <td style={styles.td}>{order.deletedBy}</td>
                     <td style={styles.td}>{order.deletedAt ? (() => { const d = new Date(order.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''}</td>
-                    {(isAdmin || canEditCompleted) && (
+                    {(isAdmin || canEditCompleted || canEditReceipt) && (
                       <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff' }}>
+                        {(isAdmin || canEditReceipt) && <button onClick={() => setShowPaymentForm(order)} style={{ ...styles.tblBtn, background: '#27ae60' }} title="Receipt">Receipt</button>}
                         {(isAdmin || canEditCompleted) && <button onClick={() => { setEditingOrder(order); setEditingDeleted(true); setShowOrderForm(true) }} style={{ ...styles.tblBtn, background: '#2980b9' }}>Edit</button>}
                         {isAdmin && <button onClick={() => handleRestore(order.id)} style={{ ...styles.tblBtn, background: '#27ae60' }}>Restore</button>}
                         {isAdmin && <button onClick={() => setPermanentDeleteConfirm(order)} style={{ ...styles.tblBtn, background: '#e74c3c' }}>Permanent Delete</button>}
