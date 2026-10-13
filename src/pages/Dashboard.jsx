@@ -2762,6 +2762,7 @@ function Dashboard() {
           </div>
           ) : (
           <div style={styles.tableWrap}>
+            {(() => { const DAILY_EDITABLE = ['photography','siteVideo','review','siteVerification','installationStatus','sectionDrawing','inProduction','akhilSirAudit','advanceBill']; return (
             <table style={styles.table}>
               <thead>
                 <tr>
@@ -2789,7 +2790,7 @@ function Dashboard() {
                   {dailyFilter === 'photography' && <th style={styles.th}>Photography Remarks</th>}
                   {dailyFilter === 'siteVideo' && <th style={styles.th}>Site Video Remarks</th>}
                   {dailyFilter === 'review' && <th style={styles.th}>Review Remarks</th>}
-                  {(dailyFilter === 'photography' || dailyFilter === 'siteVideo' || dailyFilter === 'review') && canEditDaily && <th style={styles.th}>Action</th>}
+                  {DAILY_EDITABLE.includes(dailyFilter) && canEditDaily && <th style={styles.th}>Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -2826,10 +2827,20 @@ function Dashboard() {
                       {dailyFilter === 'photography' && <td style={styles.td}>{o.photographyRemarks}</td>}
                       {dailyFilter === 'siteVideo' && <td style={styles.td}>{o.siteVideoRemarks}</td>}
                       {dailyFilter === 'review' && <td style={styles.td}>{o.reviewRemarks}</td>}
-                      {(dailyFilter === 'photography' || dailyFilter === 'siteVideo' || dailyFilter === 'review') && canEditDaily && (
+                      {DAILY_EDITABLE.includes(dailyFilter) && canEditDaily && (
                         <td style={styles.td}>
                           <button onClick={() => {
-                            const fieldMap = { photography: ['photography','photographyRemarks'], siteVideo: ['siteVideo','siteVideoRemarks'], review: ['review','reviewRemarks'] }
+                            const fieldMap = {
+                              photography: ['photography','photographyRemarks'],
+                              siteVideo: ['siteVideo','siteVideoRemarks'],
+                              review: ['review','reviewRemarks'],
+                              siteVerification: ['siteVerification','siteVerificationRemarks'],
+                              installationStatus: ['installationStatus','installationRemarks'],
+                              sectionDrawing: ['sectionDrawing','lop','sectionDrawingRemarks'],
+                              inProduction: ['inProduction'],
+                              akhilSirAudit: ['akhilSirAudit','remarks'],
+                              advanceBill: ['advanceBill','advanceBillRemarks','akhilSirAudit','remarks']
+                            }
                             setEditingOrder(o); setEditingDeleted(isFromDeleted); setDailyEditFields(fieldMap[dailyFilter]); setShowOrderForm(true)
                           }} style={{ ...styles.tblBtn, background: '#2980b9' }} title="Edit">Edit</button>
                         </td>
@@ -2840,6 +2851,7 @@ function Dashboard() {
                 })()}
               </tbody>
             </table>
+            ) })()}
           </div>
           )}
         </div>
