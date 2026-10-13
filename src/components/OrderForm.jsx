@@ -148,6 +148,11 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted,
     setSaving(true)
     // Convert all text fields to uppercase
     const upperForm = { ...form }
+    // Never send rowColor from the edit form — row color is managed only by the
+    // color buttons in the table (set/clear). Sending it here (and uppercasing it)
+    // would overwrite/invalidate the saved color on every edit.
+    delete upperForm.rowColor
+    delete upperForm.row_color
     Object.keys(upperForm).forEach(key => {
       if (typeof upperForm[key] === 'string' && key !== 'paymentProofUrl' && key !== 'auditProofUrl' && key !== 'followUpType') {
         upperForm[key] = upperForm[key].toUpperCase()
