@@ -13,17 +13,29 @@ const RECEIVER = 'agm.prestairsystem@gmail.com'
 module.exports = async (req, res) => {
   try {
     // Fetch all data
-    const [ordersRes, deletedRes, paperRes, remindersRes] = await Promise.all([
+    const [ordersRes, deletedRes, paperRes, remindersRes, paymentsRes] = await Promise.all([
       supabase.from('orders').select('*').order('id', { ascending: false }),
       supabase.from('deleted_orders').select('*').order('id', { ascending: false }),
       supabase.from('paper_requests').select('*').order('id', { ascending: false }),
-      supabase.from('reminders').select('*').order('created_at', { ascending: false })
+      supabase.from('reminders').select('*').order('created_at', { ascending: false }),
+      supabase.from('payments').select('*')
     ])
 
     const orders = ordersRes.data || []
     const deleted = deletedRes.data || []
     const paper = paperRes.data || []
     const reminders = remindersRes.data || []
+    const payments = paymentsRes.data || []
+
+    // Build order_id -> payments map, each list sorted oldest-first by date
+    const byOrderId = {}
+    payments.forEach(p => {
+      if (!byOrderId[p.order_id]) byOrderId[p.order_id] = []
+      byOrderId[p.order_id].push(p)
+    })
+    Object.keys(byOrderId).forEach(k => {
+      byOrderId[k].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
+    })
 
     // Create workbook
     const wb = XLSX.utils.book_new()
@@ -39,7 +51,7 @@ module.exports = async (req, res) => {
       'Customer Name': o.customer_name || '',
       'Sales Rep': o.sales_rep || '',
       'Total Amount': o.total_amount || 0,
-      'Received': o.received_amount || 0,
+      'Received': fmtPayments(byOrderId[o.id], o.received_amount || 0),
       'Balance': (o.total_amount || 0) - (o.received_amount || 0),
       '% Rcv': o.total_amount ? parseFloat(((o.received_amount || 0) / o.total_amount * 100).toFixed(2)) : 0,
       'Payment Remarks': o.payment_remarks || '',
@@ -50,6 +62,7 @@ module.exports = async (req, res) => {
     }))
     const ws1 = XLSX.utils.json_to_sheet(activeData)
     autoWidth(ws1, activeData)
+    wrapReceivedColumn(ws1, activeData)
     XLSX.utils.book_append_sheet(wb, ws1, 'Active Orders')
 
     // Sheet 2: Completed Orders
@@ -59,12 +72,13 @@ module.exports = async (req, res) => {
       'Client': d.data?.client || '',
       'Customer': d.data?.customer_name || d.data?.customerName || '',
       'Total Amount': d.data?.total_amount || d.data?.totalAmount || 0,
-      'Received': d.data?.received_amount || d.data?.receivedAmount || 0,
+      'Received': fmtPayments(byOrderId[d.original_id], d.data?.received_amount || d.data?.receivedAmount || 0),
       'Deleted By': d.deleted_by || '',
       'Deleted On': d.deleted_at ? new Date(d.deleted_at).toLocaleDateString('en-IN') : ''
     }))
     const ws2 = XLSX.utils.json_to_sheet(completedData)
     autoWidth(ws2, completedData)
+    wrapReceivedColumn(ws2, completedData)
     XLSX.utils.book_append_sheet(wb, ws2, 'Completed Orders')
 
     // Sheet 3: Paper Issue Report
@@ -134,6 +148,39 @@ module.exports = async (req, res) => {
   } catch (e) {
     console.error(e)
     res.status(500).json({ error: e.message })
+  }
+}
+
+function fmtDate(s) {
+  if (!s) return ''
+  const str = String(s)
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  let d, mo, y
+  if (m) {
+    y = m[1]; mo = m[2]; d = m[3]
+  } else {
+    const dt = new Date(str)
+    if (isNaN(dt.getTime())) return str
+    y = String(dt.getFullYear())
+    mo = String(dt.getMonth() + 1).padStart(2, '0')
+    d = String(dt.getDate()).padStart(2, '0')
+  }
+  return `${d}.${mo}.${y.slice(-2)}`
+}
+
+function fmtPayments(list, fallback) {
+  if (!list || !list.length) return fallback
+  return list.map(p => `${fmtDate(p.date)}  ${Number(p.amount || 0)}/-`).join('\n')
+}
+
+function wrapReceivedColumn(ws, data) {
+  if (!data.length) return
+  const headers = Object.keys(data[0])
+  const colIdx = headers.indexOf('Received')
+  if (colIdx === -1) return
+  for (let r = 0; r < data.length; r++) {
+    const ref = XLSX.utils.encode_cell({ c: colIdx, r: r + 1 })
+    if (ws[ref]) ws[ref].s = { ...(ws[ref].s || {}), alignment: { wrapText: true, vertical: 'top' } }
   }
 }
 
