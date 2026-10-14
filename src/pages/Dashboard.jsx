@@ -8,6 +8,7 @@ import PaymentForm from '../components/PaymentForm'
 import ReminderForm from '../components/ReminderForm'
 import ReminderPopup from '../components/ReminderPopup'
 import ComplaintsManagement from '../components/ComplaintsManagement'
+import { startPolling } from '../lib/polling.mjs'
 
 const ALL_COLUMNS = [
   { key: 'date', label: 'Date' },
@@ -245,9 +246,10 @@ function Dashboard() {
 
   // Change-detection refs for the egress-saving signal polls
   const lastOrdersSignal = useRef(null)       // `${count}_${maxId}` from /api/orders/signal
-  const ordersPollTicks = useRef(0)           // safety-net counter (every 5th tick = ~10 min full refetch)
-  const lastRemindersSignal = useRef(null)    // reminders-tab live view: `${count}_${maxId}_${maxResponseDate}`
-  const lastResponseSignal = useRef(null)     // checkNewResponses notifier: independent so tab polling can't swallow a notification
+  const lastOrdersFullRefresh = useRef(Date.now()) // wall-clock safety net, including time spent hidden
+  const lastResponseSignal = useRef(null)     // shared by the reminders table and response notifier
+  const allUsersRef = useRef(allUsers)
+  useEffect(() => { allUsersRef.current = allUsers }, [allUsers])
 
   useEffect(() => {
     fetchOrders(); fetchDeletedOrders(); fetchPaperRequests()
@@ -256,93 +258,73 @@ function Dashboard() {
   }, [])
 
   // Auto-refresh every 2 minutes — gated on /api/orders/signal to avoid shipping the full
-  // orders payload when nothing changed. Every 5th tick (~10 min) forces a full refetch as a
+  // orders payload when nothing changed. Every ~10 min forces a full refetch as a
   // safety net for in-place edits (which the count/maxId signal cannot detect).
   useEffect(() => {
-    const interval = setInterval(async () => {
-      ordersPollTicks.current += 1
-      const forceFull = ordersPollTicks.current % 5 === 0
+    return startPolling(async (signal) => {
+      const forceFull = Date.now() - lastOrdersFullRefresh.current >= 10 * 60 * 1000
       try {
-        const sig = await axios.get('/api/orders/signal')
+        const sig = await axios.get('/api/orders/signal', { signal, timeout: 15000 })
         const key = `${sig.data.count}_${sig.data.maxId}`
         if (forceFull || lastOrdersSignal.current === null || lastOrdersSignal.current !== key) {
-          fetchOrders(); fetchDeletedOrders(); fetchPaperRequests()
+          const refreshed = await Promise.all([fetchOrders(signal), fetchDeletedOrders(signal), fetchPaperRequests(signal)])
+          if (!refreshed.every(Boolean)) return
+          lastOrdersFullRefresh.current = Date.now()
         }
         lastOrdersSignal.current = key
-      } catch {
+      } catch (error) {
+        if (axios.isCancel(error)) return
         // Signal failed — fall back to the original full refetch so data never goes stale
-        fetchOrders(); fetchDeletedOrders(); fetchPaperRequests()
+        const refreshed = await Promise.all([fetchOrders(signal), fetchDeletedOrders(signal), fetchPaperRequests(signal)])
+        if (refreshed.every(Boolean)) lastOrdersFullRefresh.current = Date.now()
       }
-    }, 120000)
-    return () => clearInterval(interval)
+    }, { intervalMs: 120000, hiddenIntervalMs: null, immediate: false })
   }, [])
 
-  // Auto-refresh reminders tab every 30 seconds — load immediately on entering the tab, then
-  // only refetch the full list when the reminders signal changes.
+  // Load on entry. The response notifier below also updates this table, avoiding
+  // a second reminders-signal request on every tick while this tab is open.
   useEffect(() => {
-    if (activeTab === 'reminders') {
-      fetchAllReminders()
-      const interval = setInterval(async () => {
-        try {
-          const sig = await axios.get('/api/orders/reminders/signal')
-          const key = `${sig.data.count}_${sig.data.maxId}_${sig.data.maxResponseDate}`
-          if (lastRemindersSignal.current === null || lastRemindersSignal.current !== key) {
-            fetchAllReminders()
-          }
-          lastRemindersSignal.current = key
-        } catch {
-          fetchAllReminders()
-        }
-      }, 30000)
-      return () => clearInterval(interval)
-    }
+    if (activeTab === 'reminders') fetchAllReminders()
   }, [activeTab])
 
   // Check for new reminder responses (for reminder senders)
   useEffect(() => {
     let lastCheckedResponses = {}
-    const checkNewResponses = async () => {
+    let initialized = false
+    let lastFullRefresh = 0
+    const checkNewResponses = async (signal) => {
       try {
+        let signalKey = null
         // Change-detection: only pull the full reminders list when the signal moved.
         // count/maxId catch new reminders, maxResponseDate catches new responses/reassigns.
         try {
-          const sig = await axios.get('/api/orders/reminders/signal')
-          const key = `${sig.data.count}_${sig.data.maxId}_${sig.data.maxResponseDate}`
-          if (lastResponseSignal.current !== null && lastResponseSignal.current === key) return
-          lastResponseSignal.current = key
-        } catch {}
-        const res = await axios.get('/api/orders/reminders/all')
+          const sig = await axios.get('/api/orders/reminders/signal', { signal, timeout: 15000 })
+          signalKey = `${sig.data.count}_${sig.data.maxId}_${sig.data.maxResponseDate}`
+          // The periodic full fetch also catches edits hidden by another
+          // function instance's short-lived signal or reminders cache.
+          if (initialized && lastResponseSignal.current === signalKey && Date.now() - lastFullRefresh < 5 * 60 * 1000) return
+        } catch (error) { if (axios.isCancel(error)) return }
+        const res = await axios.get('/api/orders/reminders/all', { signal, timeout: 15000 })
+        setAllReminders(res.data)
         const myReminders = res.data.filter(r => r.createdBy === user.username || r.created_by === user.username)
         myReminders.forEach(r => {
-          const key = `${r.id}_${r.respondedBy || r.responded_by || ''}`
-          if ((r.respondedBy || r.responded_by) && !lastCheckedResponses[r.id] && lastCheckedResponses[r.id] !== undefined) {
+          if (initialized && (r.respondedBy || r.responded_by) && !lastCheckedResponses[r.id] && lastCheckedResponses[r.id] !== undefined) {
             const responder = r.respondedBy || r.responded_by
-            const responderName = allUsers.find(u => u.username === responder)
+            const responderName = allUsersRef.current.find(u => u.username === responder)
             const name = responderName ? (responderName.full_name || responderName.fullName || responder) : responder
             setReminderNotification({ name, id: r.id })
             setTimeout(() => setReminderNotification(null), 10000)
           }
           lastCheckedResponses[r.id] = r.respondedBy || r.responded_by || null
         })
+        // Commit only after a successful full fetch so a failed request retries.
+        if (signalKey !== null) lastResponseSignal.current = signalKey
+        initialized = true
+        lastFullRefresh = Date.now()
       } catch {}
     }
-    // Initialize on first load — fetch the full list once (as today) and seed the signal
-    // so subsequent 30s ticks skip the full fetch until something actually changes.
-    const init = async () => {
-      try {
-        const res = await axios.get('/api/orders/reminders/all')
-        const myReminders = res.data.filter(r => r.createdBy === user.username || r.created_by === user.username)
-        myReminders.forEach(r => { lastCheckedResponses[r.id] = r.respondedBy || r.responded_by || null })
-      } catch {}
-      try {
-        const sig = await axios.get('/api/orders/reminders/signal')
-        lastResponseSignal.current = `${sig.data.count}_${sig.data.maxId}_${sig.data.maxResponseDate}`
-      } catch {}
-    }
-    init()
-    const interval = setInterval(checkNewResponses, 30000)
-    return () => clearInterval(interval)
-  }, [allUsers])
+    return startPolling(checkNewResponses, { intervalMs: 30000 })
+  }, [user.username])
   // Persist active tab and daily filter to survive auto-refresh
   useEffect(() => { sessionStorage.setItem('oms_activeTab', activeTab) }, [activeTab])
   useEffect(() => { sessionStorage.setItem('oms_dailyFilter', dailyFilter) }, [dailyFilter])
@@ -362,19 +344,21 @@ function Dashboard() {
     }
   }, [])
 
-  // Paper issue popup - check every 2 minutes
+  // Keep the 30s foreground notifications; check every 5 min in background.
   useEffect(() => {
     let prevCount = 0
-    const checkPaperRequests = async () => {
+    const checkPaperRequests = async (signal) => {
       try {
         const [issueRes, returnRes] = await Promise.all([
-          axios.get('/api/orders/paper-requests/my'),
-          axios.get('/api/orders/return-requests/my')
+          axios.get('/api/orders/paper-requests/my', { signal, timeout: 15000 }),
+          axios.get('/api/orders/return-requests/my', { signal, timeout: 15000 })
         ])
         const issueData = issueRes.data || []
         const returnData = returnRes.data || []
         const totalCount = issueData.length + returnData.length
-        if (issueData.length > 0) setPaperIssuePopup(issueData)
+        setPaperIssuePopup(issueData)
+        setMyPaperRequests(issueData)
+        setMyReturnRequests(returnData)
         // Send desktop notification if new requests arrived
         if (totalCount > prevCount && prevCount !== 0) {
           if ('Notification' in window && Notification.permission === 'granted') {
@@ -394,9 +378,7 @@ function Dashboard() {
         prevCount = totalCount
       } catch {}
     }
-    checkPaperRequests()
-    const interval = setInterval(checkPaperRequests, 30000)
-    return () => clearInterval(interval)
+    return startPolling(checkPaperRequests, { intervalMs: 30000 })
   }, [])
 
   useEffect(() => {
@@ -473,21 +455,25 @@ function Dashboard() {
     localStorage.setItem(`oms_completed_columns_${user.username}`, JSON.stringify(completedVisibleColumns))
   }, [completedVisibleColumns])
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (signal) => {
     try {
-      const res = await axios.get('/api/orders')
+      const res = await axios.get('/api/orders', { signal, timeout: 15000 })
       setOrders(res.data)
+      return true
     } catch (err) {
-      console.error('Failed to fetch orders', err)
+      if (!axios.isCancel(err)) console.error('Failed to fetch orders', err)
+      return false
     }
   }
 
-  const fetchDeletedOrders = async () => {
+  const fetchDeletedOrders = async (signal) => {
     try {
-      const res = await axios.get('/api/orders/deleted/all')
+      const res = await axios.get('/api/orders/deleted/all', { signal, timeout: 15000 })
       setDeletedOrders(res.data)
+      return true
     } catch (err) {
-      console.error('Failed to fetch deleted orders', err)
+      if (!axios.isCancel(err)) console.error('Failed to fetch deleted orders', err)
+      return false
     }
   }
 
@@ -507,21 +493,26 @@ function Dashboard() {
     } catch (err) { console.error(err) }
   }
 
-  const fetchPaperRequests = async () => {
+  const fetchPaperRequests = async (signal) => {
     try {
+      const config = { signal, timeout: 15000 }
       const [all, my, users, retAll, retMy] = await Promise.all([
-        axios.get('/api/orders/paper-requests/all'),
-        axios.get('/api/orders/paper-requests/my'),
-        axios.get('/api/users/list'),
-        axios.get('/api/orders/return-requests/all'),
-        axios.get('/api/orders/return-requests/my')
+        axios.get('/api/orders/paper-requests/all', config),
+        axios.get('/api/orders/paper-requests/my', config),
+        axios.get('/api/users/list', config),
+        axios.get('/api/orders/return-requests/all', config),
+        axios.get('/api/orders/return-requests/my', config)
       ])
       setPaperRequests(all.data)
       setMyPaperRequests(my.data)
       setAllUsers(users.data)
       setReturnRequests(retAll.data)
       setMyReturnRequests(retMy.data)
-    } catch (err) { console.error(err) }
+      return true
+    } catch (err) {
+      if (!axios.isCancel(err)) console.error(err)
+      return false
+    }
   }
 
   const fetchEditLogs = async (order) => {

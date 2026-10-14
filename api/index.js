@@ -14,13 +14,14 @@ const supabase = createClient(
   process.env.SUPABASE_URL || '',
   process.env.SUPABASE_KEY || ''
 )
-const JWT_SECRET = 'oms-prestair-secret-key-2026'
+const JWT_SECRET = process.env.JWT_SECRET
 
 // ---------------------------------------------------------------------------
 // Simple in-memory TTL cache — reduces Supabase Egress & Log Ingestion
 // All 15-20 users share the same cached response instead of each hitting DB
 // ---------------------------------------------------------------------------
 const _cache = {}
+const pendingReads = new Map()
 function cacheGet(key) {
   const entry = _cache[key]
   if (!entry) return null
@@ -31,10 +32,31 @@ function cacheSet(key, data, ttlMs) {
   _cache[key] = { data, expiresAt: Date.now() + ttlMs }
 }
 function cacheDel(...keys) {
-  keys.forEach(k => delete _cache[k])
+  const related = { orders: 'orders_signal', reminders_all: 'reminders_signal' }
+  keys.forEach(k => {
+    delete _cache[k]
+    pendingReads.delete(k)
+    if (related[k]) { delete _cache[related[k]]; pendingReads.delete(related[k]) }
+  })
 }
 function cacheClear(prefix) {
-  Object.keys(_cache).forEach(k => { if (k.startsWith(prefix)) delete _cache[k] })
+  new Set([...Object.keys(_cache), ...pendingReads.keys()]).forEach(k => { if (k.startsWith(prefix)) cacheDel(k) })
+}
+// Share in-flight reads between simultaneous requests on a Fluid instance.
+// An invalidation also removes the pending read so a late result cannot replace
+// newer data after an edit.
+async function cachedRead(key, ttlMs, load) {
+  const cached = cacheGet(key)
+  if (cached !== null) return cached
+  if (pendingReads.has(key)) return pendingReads.get(key)
+  const pending = Promise.resolve().then(load).then(data => {
+    if (pendingReads.get(key) === pending) cacheSet(key, data, ttlMs)
+    return data
+  }).finally(() => {
+    if (pendingReads.get(key) === pending) pendingReads.delete(key)
+  })
+  pendingReads.set(key, pending)
+  return pending
 }
 // TTLs
 const TTL_ORDERS       = 10 * 60 * 1000  // 10 min — main orders list
@@ -48,6 +70,7 @@ const TTL_APP_VERSION  = 5  * 60 * 1000  // 5 min  — app version
 // ---------------------------------------------------------------------------
 
 function generateToken(user) {
+  if (!JWT_SECRET) throw new Error('Server authentication is not configured: set JWT_SECRET')
   return jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '24h' })
 }
 // Cache for force_logout_at: { [userId]: { value: <iso|null>, fetchedAt: <ms> } }
@@ -56,6 +79,7 @@ const forceLogoutCache = {}
 const FORCE_LOGOUT_TTL = 30 * 1000 // 30 seconds
 
 async function authenticate(req, res, next) {
+  if (!JWT_SECRET) return res.status(503).json({ error: 'Server authentication is not configured' })
   const h = req.headers.authorization
   if (!h || !h.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' })
   try {
@@ -174,7 +198,8 @@ app.post('/api/auth/log-location', authenticate, async (req, res) => {
       let city = '', country = ''
       try {
         const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
-          headers: { 'User-Agent': 'OMS-Prestair/1.0' }
+          headers: { 'User-Agent': 'OMS-Prestair/1.0' },
+          signal: AbortSignal.timeout(3000)
         })
         const geoData = await geoRes.json()
         const addr = geoData.address || {}
@@ -262,7 +287,19 @@ app.get('/api/orders', authenticate, async (req, res) => { try { const cached=ca
 // (mapOrder reads only created_at), so we use { count, maxId } — this catches INSERTs and DELETEs.
 // LIMITATION: in-place edits that change neither row count nor max id are not reflected here; the
 // frontend compensates with a periodic safety-net full refetch (~10 min, matching TTL_ORDERS).
-app.get('/api/orders/signal', authenticate, async (req, res) => { try { const { count } = await supabase.from('orders').select('id',{count:'exact',head:true}); const { data: maxRow } = await supabase.from('orders').select('id').order('id',{ascending:false}).limit(1); res.json({ count: count || 0, maxId: maxRow?.[0]?.id || 0 }) } catch(e){ res.status(500).json({ error: e.message }) } })
+app.get('/api/orders/signal', authenticate, async (req, res) => {
+  try {
+    const result = await cachedRead('orders_signal', 15000, async () => {
+      const [countResult, maxResult] = await Promise.all([
+        supabase.from('orders').select('id', { count: 'exact', head: true }).abortSignal(AbortSignal.timeout(10000)),
+        supabase.from('orders').select('id').order('id', { ascending: false }).limit(1).abortSignal(AbortSignal.timeout(10000))
+      ])
+      if (countResult.error || maxResult.error) throw countResult.error || maxResult.error
+      return { count: countResult.count || 0, maxId: maxResult.data?.[0]?.id || 0 }
+    })
+    res.json(result)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
 app.get('/api/orders/deleted/all', authenticate, async (req, res) => { try { const cached=cacheGet('deleted_orders'); if(cached) return res.json(cached); const{data}=await supabase.from('deleted_orders').select('*'); const getOrderParts=(orderNo)=>{if(!orderNo)return{fy:0,num:0};const parts=orderNo.split('/');let fy=0;let num=0;if(parts.length>=3){const fyDigits=parts[1].match(/^(\d{4})/);if(fyDigits)fy=parseInt(fyDigits[1]);const numDigits=parts[2].match(/^(\d+)/);if(numDigits)num=parseInt(numDigits[1])}return{fy,num}}; const mapped=(data||[]).map(d=>({...d.data,id:d.original_id,deletedBy:d.deleted_by,deletedAt:d.deleted_at})); mapped.sort((a,b)=>{const pa=getOrderParts(a.orderNo);const pb=getOrderParts(b.orderNo);if(pb.fy!==pa.fy)return pb.fy-pa.fy;return pb.num-pa.num}); cacheSet('deleted_orders',mapped,TTL_DELETED); res.json(mapped) } catch(e){res.status(500).json({error:e.message})} })
 app.post('/api/orders/deleted/import', authenticate, adminOnly, async (req, res) => { try { const{orders}=req.body; if(!orders?.length)return res.status(400).json({error:'No orders provided'}); let added=0; const duplicates=[]; for(const o of orders){ const{data:existing}=await supabase.from('deleted_orders').select('original_id').eq('data->>order_no',o.orderNo); if(existing?.length){duplicates.push(o.orderNo);continue} const{data:maxRow}=await supabase.from('deleted_orders').select('original_id').order('original_id',{ascending:false}).limit(1); const nextId=maxRow?.length?(maxRow[0].original_id+1):90000; const orderData={date:o.date||'',poNo:o.poNo||'',client:o.client||'',orderNo:o.orderNo||'',status:o.status||'',deliveryDate:o.deliveryDate||'',deliveryRemarks:o.deliveryRemarks||'',customerName:o.customerName||'',gst:o.gst||'',billingAddress:o.billingAddress||'',followUp:o.followUp||'',photography:o.photography||'',photographyRemarks:o.photographyRemarks||'',siteVideo:o.siteVideo||'',siteVideoRemarks:o.siteVideoRemarks||'',review:o.review||'',reviewRemarks:o.reviewRemarks||'',salesRep:o.salesRep||'',deliveryAddress:o.deliveryAddress||'',phoneNo:o.phoneNo||'',siteVerification:o.siteVerification||'',siteVerificationRemarks:o.siteVerificationRemarks||'',installationStatus:o.installationStatus||'',installationRemarks:o.installationRemarks||'',lop:o.lop||'',sectionDrawing:o.sectionDrawing||'',sectionDrawingRemarks:o.sectionDrawingRemarks||'',inProduction:o.inProduction||'',installation:o.installation||'',totalAmount:o.totalAmount||0,receivedAmount:o.receivedAmount||0,balance:o.balance||0,percentReceived:o.percentReceived||0,followUpType:o.followUpType||'',paymentRemarks:o.paymentRemarks||'',akhilPoints:o.akhilPoints||'',daysToOrder:o.daysToOrder||0,akhilSirAudit:o.akhilSirAudit||'',remarks:o.remarks||'',advanceBill:o.advanceBill||'',advanceBillRemarks:o.advanceBillRemarks||'',orRecvd:o.orRecvd||''}; const{error}=await supabase.from('deleted_orders').insert({original_id:nextId+added,data:orderData,deleted_by:o.deletedBy||req.user.username}); if(!error)added++ } res.json({added,duplicates}) } catch(e){res.status(500).json({error:e.message})} })
 app.get('/api/orders/payments/all', authenticate, async (req, res) => { try { const cached=cacheGet('payments_all'); if(cached) return res.json(cached); const{data:payments}=await supabase.from('payments').select('id,order_id,date,amount,mode,remarks').order('date',{ascending:false}); const{data:allOrders}=await supabase.from('orders').select('id,order_no,client,date,total_amount,received_amount,balance'); const om={};(allOrders||[]).forEach(o=>{om[o.id]=o}); const result=(payments||[]).map(p=>{const o=om[p.order_id]||{};return{id:p.id,orderId:p.order_id,paymentDate:p.date,amount:p.amount,mode:p.mode,remarks:p.remarks,orderNo:o.order_no||'',client:o.client||'',orderDate:o.date||'',totalAmount:o.total_amount||0,receivedAmount:o.received_amount||0,balance:o.balance||0}}); cacheSet('payments_all',result,TTL_PAYMENTS_ALL); res.json(result) } catch(e){res.status(500).json({error:e.message})} })
@@ -275,7 +312,21 @@ app.put('/api/orders/reminders/:id/reassign', authenticate, async (req, res) => 
 app.get('/api/orders/reminders/all', authenticate, async (req, res) => { try { const cached=cacheGet('reminders_all'); const raw=cached||(await (async()=>{const{data}=await supabase.from('reminders').select('id,order_id,order_no,client,description,date,visible_to,assigned_to,created_by,response_text,response_date,responded_by,created_at').order('created_at',{ascending:false}); cacheSet('reminders_all',data||[],TTL_REMINDERS); return data||[]})()) ; const isAdmin=req.user.role==='admin'; const filtered=(raw||[]).filter(r=>{if(isAdmin)return true;return r.created_by===req.user.username}); res.json(filtered.map(r=>({...r,orderNo:r.order_no,createdBy:r.created_by,orderId:r.order_id,visibleTo:r.visible_to,assignedTo:r.assigned_to,responseText:r.response_text,responseDate:r.response_date,respondedBy:r.responded_by}))) } catch(e){res.status(500).json({error:e.message})} })
 // Lightweight change-detection signal for reminders. { count, maxId } catches new/deleted reminders;
 // maxResponseDate = max(response_date) catches responses/reassigns (what checkNewResponses watches).
-app.get('/api/orders/reminders/signal', authenticate, async (req, res) => { try { const { count } = await supabase.from('reminders').select('id',{count:'exact',head:true}); const { data: maxIdRow } = await supabase.from('reminders').select('id').order('id',{ascending:false}).limit(1); const { data: maxRespRow } = await supabase.from('reminders').select('response_date').order('response_date',{ascending:false,nullsFirst:false}).limit(1); res.json({ count: count || 0, maxId: maxIdRow?.[0]?.id || 0, maxResponseDate: maxRespRow?.[0]?.response_date || null }) } catch(e){ res.status(500).json({ error: e.message }) } })
+app.get('/api/orders/reminders/signal', authenticate, async (req, res) => {
+  try {
+    const result = await cachedRead('reminders_signal', 15000, async () => {
+      const [countResult, maxResult, responseResult] = await Promise.all([
+        supabase.from('reminders').select('id', { count: 'exact', head: true }).abortSignal(AbortSignal.timeout(10000)),
+        supabase.from('reminders').select('id').order('id', { ascending: false }).limit(1).abortSignal(AbortSignal.timeout(10000)),
+        supabase.from('reminders').select('response_date').order('response_date', { ascending: false, nullsFirst: false }).limit(1).abortSignal(AbortSignal.timeout(10000))
+      ])
+      const error = countResult.error || maxResult.error || responseResult.error
+      if (error) throw error
+      return { count: countResult.count || 0, maxId: maxResult.data?.[0]?.id || 0, maxResponseDate: responseResult.data?.[0]?.response_date || null }
+    })
+    res.json(result)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
 app.get('/api/orders/paper-requests/all', authenticate, async (req, res) => { try { const cached=cacheGet('paper_requests_all'); if(cached) return res.json(cached); const{data}=await supabase.from('paper_requests').select('*').order('id',{ascending:false}); const result=(data||[]).map(r=>({...r,orderNo:r.order_no,requestedBy:r.requested_by,issueTo:r.issue_to,acceptedBy:r.accepted_by,acceptedAt:r.accepted_at,rejectRemarks:r.reject_remarks,createdAt:r.created_at})); cacheSet('paper_requests_all',result,TTL_PAPER); res.json(result) } catch(e){res.status(500).json({error:e.message})} })
 app.get('/api/orders/paper-requests/my', authenticate, async (req, res) => { try { const{data}=await supabase.from('paper_requests').select('*').eq('issue_to',req.user.username).eq('status','PENDING'); res.json((data||[]).map(r=>({...r,orderNo:r.order_no,requestedBy:r.requested_by,issueTo:r.issue_to}))) } catch(e){res.status(500).json({error:e.message})} })
 app.post('/api/orders/paper-requests', authenticate, async (req, res) => { try { const{orderNo,issueTo}=req.body; if(!orderNo||!issueTo)return res.status(400).json({error:'Order No and Issue To required'}); const{data:pendingReturn}=await supabase.from('return_requests').select('*').eq('order_no',orderNo).eq('status','PENDING'); if(pendingReturn&&pendingReturn.length>0)return res.status(400).json({error:`${(pendingReturn[0].requested_by||'').toUpperCase()}'s return request is pending for ${orderNo}. Please close it first.`}); const{data:pendingReqs}=await supabase.from('paper_requests').select('*').eq('order_no',orderNo).eq('status','PENDING'); if(pendingReqs&&pendingReqs.length>0){const pendingWith=pendingReqs[0].issue_to;return res.status(400).json({error:`Order ${orderNo} is already pending with ${pendingWith.toUpperCase()}`})} const{data:acceptedReqs}=await supabase.from('paper_requests').select('*').eq('order_no',orderNo).eq('status','ACCEPTED'); if(acceptedReqs&&acceptedReqs.length>0){const{data:returnAccepted}=await supabase.from('return_requests').select('*').eq('order_no',orderNo).eq('status','ACCEPTED');if(!returnAccepted||returnAccepted.length===0){const issuedTo=acceptedReqs[0].requested_by||acceptedReqs[0].issue_to;return res.status(400).json({error:`Order ${orderNo} is already issued to ${issuedTo.toUpperCase()} (not returned yet)`,issuedTo:issuedTo,canReissue:true})}else{await supabase.from('paper_requests').update({status:'RETURNED'}).eq('order_no',orderNo).eq('status','ACCEPTED')}} const{data:orders}=await supabase.from('orders').select('client').eq('order_no',orderNo); let client=orders?.[0]?.client||''; if(!client){const{data:delOrd}=await supabase.from('deleted_orders').select('data').eq('data->>order_no',orderNo).limit(1); client=delOrd?.[0]?.data?.client||''} const{data,error}=await supabase.from('paper_requests').insert({order_no:orderNo,client,requested_by:req.user.username,issue_to:issueTo,status:'PENDING'}).select(); if(error)return res.status(400).json({error:error.message}); cacheDel('paper_requests_all'); res.json(data[0]) } catch(e){res.status(500).json({error:e.message})} })
