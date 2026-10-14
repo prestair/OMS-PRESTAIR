@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useAuth } from '../context/AuthContext'
+import { startPolling } from '../lib/polling.mjs'
 
 function ReminderPopup({ onClose }) {
   const { user } = useAuth()
@@ -12,20 +13,19 @@ function ReminderPopup({ onClose }) {
   const [submitting, setSubmitting] = useState({})
 
   useEffect(() => {
-    fetchDueReminders()
-    // Auto-check for new reminders every 30 seconds
-    const interval = setInterval(fetchDueReminders, 30000)
-    return () => clearInterval(interval)
-  }, [])
+    // Admins never see this popup, so they do not need a due-reminders poll.
+    if (isAdmin) { setLoading(false); return }
+    return startPolling(fetchDueReminders, { intervalMs: 30000 })
+  }, [currentUsername, isAdmin])
 
-  const fetchDueReminders = async () => {
+  const fetchDueReminders = async (signal) => {
     try {
-      const res = await axios.get('/api/orders/reminders/due')
+      const res = await axios.get('/api/orders/reminders/due', { signal, timeout: 15000 })
       // Only show reminders where: responded_by is null (pending), user is receiver, not creator, not admin
-      const pending = res.data.filter(r => !r.responded_by && r.createdBy !== currentUsername && !isAdmin)
+      const pending = res.data.filter(r => !(r.respondedBy || r.responded_by) && (r.createdBy || r.created_by) !== currentUsername && !isAdmin)
       setReminders(pending)
     } catch (err) {
-      console.error(err)
+      if (!axios.isCancel(err)) console.error(err)
     } finally {
       setLoading(false)
     }

@@ -1,17 +1,38 @@
-const nodemailer = require('nodemailer')
-const XLSX = require('xlsx-js-style')
-const { createClient } = require('@supabase/supabase-js')
+const { authorizeReport } = require('../server/report-authorization.cjs')
 
-const supabaseUrl = process.env.SUPABASE_URL || 'https://ttbyhawdgwwqemcqwjen.supabase.co'
-const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0YnloYXdkZ3d3cWVtY3F3amVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3MjU3ODcsImV4cCI6MjEwMTMwMTc4N30.V_d9mK8Bv6Sx6w89VE4Pzt6KRKvIAeHI7Dz6SbaLyh8'
-const supabase = createClient(supabaseUrl, supabaseKey)
-
-const GMAIL_USER = 'oms.prestair@gmail.com'
-const GMAIL_PASS = 'sweveeorgfotyyhr'
-const RECEIVER = 'agm.prestairsystem@gmail.com'
+let XLSX
 
 module.exports = async (req, res) => {
+  res.setHeader('Cache-Control', 'private, no-store')
+  const access = authorizeReport(req)
+  if (access.status) {
+    if (access.status === 405) res.setHeader('Allow', 'GET, POST')
+    return res.status(access.status).json({ error: access.error })
+  }
+  const required = ['SUPABASE_URL', 'SUPABASE_KEY', 'GMAIL_USER', 'GMAIL_APP_PASSWORD']
+  if (required.some(name => !process.env[name])) {
+    return res.status(503).json({ error: 'Daily report is not configured. Check the required environment variables.' })
+  }
   try {
+    // Reject unauthorized requests before loading report libraries or reading data.
+    const { createClient } = require('@supabase/supabase-js')
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY, {
+      global: { fetch: (url, options = {}) => fetch(url, { ...options, signal: options.signal || AbortSignal.timeout(10000) }) }
+    })
+    if (!access.cron) {
+      const { data, error } = await supabase.from('users').select('role,force_logout_at').eq('id', access.user.id).limit(1)
+      if (error) throw error
+      const currentUser = data?.[0]
+      if (!currentUser || currentUser.role !== 'admin') return res.status(403).json({ error: 'Admin only' })
+      if (currentUser.force_logout_at && (!access.user.iat || new Date(currentUser.force_logout_at).getTime() / 1000 > access.user.iat)) {
+        return res.status(401).json({ error: 'Session expired. Please login again.' })
+      }
+    }
+    const nodemailer = require('nodemailer')
+    XLSX = XLSX || require('xlsx-js-style')
+    const GMAIL_USER = process.env.GMAIL_USER
+    const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
+
     // Fetch all data
     const [ordersRes, deletedRes, paperRes, remindersRes, paymentsRes] = await Promise.all([
       supabase.from('orders').select('*').order('id', { ascending: false }),
@@ -21,6 +42,8 @@ module.exports = async (req, res) => {
       supabase.from('payments').select('*')
     ])
 
+    const queryError = [ordersRes, deletedRes, paperRes, remindersRes, paymentsRes].find(result => result.error)?.error
+    if (queryError) throw queryError
     const orders = ordersRes.data || []
     const deleted = deletedRes.data || []
     const paper = paperRes.data || []
@@ -119,7 +142,10 @@ module.exports = async (req, res) => {
     // Send email
     const transporter = nodemailer.createTransport({
       service: 'gmail',
-      auth: { user: GMAIL_USER, pass: GMAIL_PASS }
+      auth: { user: GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000
     })
 
     const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })
