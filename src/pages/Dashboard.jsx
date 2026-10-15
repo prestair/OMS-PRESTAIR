@@ -245,7 +245,7 @@ function Dashboard() {
   }
 
   // Change-detection refs for the egress-saving signal polls
-  const lastOrdersSignal = useRef(null)       // `${count}_${maxId}` from /api/orders/signal
+  const lastOrdersSignal = useRef(null)       // `${count}_${maxId}_${sumId}` from /api/orders/signal (sumId makes it delete-aware)
   const lastOrdersFullRefresh = useRef(Date.now()) // wall-clock safety net, including time spent hidden
   const lastResponseSignal = useRef(null)     // shared by the reminders table and response notifier
   const allUsersRef = useRef(allUsers)
@@ -254,7 +254,7 @@ function Dashboard() {
   useEffect(() => {
     fetchOrders(); fetchDeletedOrders(); fetchPaperRequests()
     // Seed the orders signal so the first 2-min tick doesn't trigger a redundant full refetch
-    axios.get('/api/orders/signal').then(sig => { lastOrdersSignal.current = `${sig.data.count}_${sig.data.maxId}` }).catch(() => {})
+    axios.get('/api/orders/signal').then(sig => { lastOrdersSignal.current = `${sig.data.count}_${sig.data.maxId}_${sig.data.sumId}` }).catch(() => {})
   }, [])
 
   // Auto-refresh every 2 minutes — gated on /api/orders/signal to avoid shipping the full
@@ -265,7 +265,7 @@ function Dashboard() {
       const forceFull = Date.now() - lastOrdersFullRefresh.current >= 10 * 60 * 1000
       try {
         const sig = await axios.get('/api/orders/signal', { signal, timeout: 15000 })
-        const key = `${sig.data.count}_${sig.data.maxId}`
+        const key = `${sig.data.count}_${sig.data.maxId}_${sig.data.sumId}`
         if (forceFull || lastOrdersSignal.current === null || lastOrdersSignal.current !== key) {
           const refreshed = await Promise.all([fetchOrders(signal), fetchDeletedOrders(signal), fetchPaperRequests(signal)])
           if (!refreshed.every(Boolean)) return
@@ -1044,6 +1044,10 @@ function Dashboard() {
       // Immediately remove from local state
       setOrders(prev => prev.filter(o => o.id !== id))
       setDeleteConfirm(null)
+      // Null the signal baseline so the next poll can't skip the refetch, and refetch the active
+      // list so a stale cross-instance cached GET can't re-add the moved order.
+      lastOrdersSignal.current = null
+      fetchOrders()
       fetchDeletedOrders()
     } catch (err) {
       alert('Delete failed: ' + (err.response?.data?.error || 'Permission denied'))
@@ -1056,6 +1060,7 @@ function Dashboard() {
     try {
       await axios.delete(`/api/orders/deleted/${id}`)
       setPermanentDeleteConfirm(null)
+      lastOrdersSignal.current = null
       await fetchDeletedOrders()
     } catch (err) {
       alert('Permanent delete failed: ' + (err.response?.data?.error || 'Admin access required'))
@@ -1066,6 +1071,7 @@ function Dashboard() {
     if (!window.confirm('Restore this order back to active orders?')) return
     try {
       await axios.post(`/api/orders/deleted/${id}/restore`)
+      lastOrdersSignal.current = null
       fetchOrders()
       fetchDeletedOrders()
     } catch (err) {
@@ -1073,7 +1079,7 @@ function Dashboard() {
     }
   }
 
-  const handleOrderSaved = () => { setShowOrderForm(false); setEditingOrder(null); setEditingDeleted(false); setDailyEditFields(null); fetchOrders(); fetchDeletedOrders() }
+  const handleOrderSaved = () => { setShowOrderForm(false); setEditingOrder(null); setEditingDeleted(false); setDailyEditFields(null); lastOrdersSignal.current = null; fetchOrders(); fetchDeletedOrders() }
   const handlePaymentSaved = () => { setShowPaymentForm(null); fetchOrders(); fetchDeletedOrders() }
 
   const getDailyFilteredData = () => {

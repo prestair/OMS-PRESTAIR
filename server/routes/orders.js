@@ -438,6 +438,23 @@ router.post('/return-requests/:id/reject', async (req, res) => {
   res.json({ message: 'Rejected' })
 })
 
+// Lightweight DELETE-AWARE change-detection signal for the orders list (mirrors api/index.js).
+// Returns { count, maxId, sumId } where sumId = SUM(id); deleting any row changes sumId even if a
+// later insert restores count. Fetches ONLY the id column and computes the scalars in JS.
+// MUST stay before router.get('/:id') so '/signal' is not captured by the :id param route.
+router.get('/signal', async (req, res) => {
+  try {
+    const { data: idRows } = await supabase.from('orders').select('id')
+    const rows = idRows || []
+    const count = rows.length
+    const maxId = rows.reduce((m, r) => (r.id > m ? r.id : m), 0)
+    const sumId = rows.reduce((s, r) => s + (r.id || 0), 0)
+    res.json({ count, maxId, sumId })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // Get single order
 router.get('/:id', async (req, res) => {
   const { data } = await supabase.from('orders').select('*').eq('id', parseInt(req.params.id))

@@ -59,7 +59,7 @@ async function cachedRead(key, ttlMs, load) {
   return pending
 }
 // TTLs
-const TTL_ORDERS       = 10 * 60 * 1000  // 10 min — main orders list
+const TTL_ORDERS       = 60 * 1000       // 60s — main orders list. Egress-neutral: the only recurring caller of GET /api/orders is the signal-gated 2-min poll which rarely does a full GET, and back-to-back pollers within a minute still hit the cache. The shorter TTL only bounds how long a cross-instance stale cache (Vercel per-instance cacheDel miss) can live.
 const TTL_DELETED      = 15 * 60 * 1000  // 15 min — deleted orders (rarely changes)
 const TTL_PAYMENTS_ALL = 10 * 60 * 1000  // 10 min — all payments
 const TTL_REMINDERS    = 5  * 60 * 1000  // 5 min  — reminders
@@ -284,18 +284,25 @@ app.delete('/api/users/groups/:id', authenticate, adminOnly, async (req, res) =>
 // ORDERS
 app.get('/api/orders', authenticate, async (req, res) => { try { const cached=cacheGet('orders'); if(cached) return res.json(cached); const{data}=await supabase.from('orders').select('id,date,po_no,client,order_no,status,delivery_date,delivery_remarks,customer_name,gst,billing_address,follow_up,sales_rep,delivery_address,phone_no,site_verification,site_verification_remarks,installation_status,installation_remarks,lop,section_drawing,section_drawing_remarks,in_production,billing,installation,akhil_points,total_amount,received_amount,follow_up_type,payment_remarks,payment_proof_url,days_to_order,remarks,audit_proof_url,akhil_sir_audit,advance_bill,advance_bill_remarks,or_recvd,photography,photography_remarks,site_video,site_video_remarks,review,review_remarks,row_color,created_at'); const mapped=(data||[]).map(o=>mapOrder(o)); const getOrderParts=(orderNo)=>{if(!orderNo)return{fy:0,num:0};const parts=orderNo.split('/');let fy=0;let num=0;if(parts.length>=3){const fyDigits=parts[1].match(/^(\d{4})/);if(fyDigits)fy=parseInt(fyDigits[1]);const numDigits=parts[2].match(/^(\d+)/);if(numDigits)num=parseInt(numDigits[1])}return{fy,num}}; mapped.sort((a,b)=>{const pa=getOrderParts(a.orderNo);const pb=getOrderParts(b.orderNo);if(pb.fy!==pa.fy)return pb.fy-pa.fy;return pb.num-pa.num}); cacheSet('orders',mapped,TTL_ORDERS); res.json(mapped) } catch(e){res.status(500).json({error:e.message})} })
 // Lightweight change-detection signal for the orders list. Orders table has NO reliable updated_at
-// (mapOrder reads only created_at), so we use { count, maxId } — this catches INSERTs and DELETEs.
-// LIMITATION: in-place edits that change neither row count nor max id are not reflected here; the
-// frontend compensates with a periodic safety-net full refetch (~10 min, matching TTL_ORDERS).
+// (mapOrder reads only created_at), so we return { count, maxId, sumId } where sumId = SUM(id).
+// This is DELETE-AWARE: deleting any row (even a non-max row) changes sumId even if a later insert
+// restores count, so the frontend always detects the change. We fetch ONLY the `id` column
+// (select('id') — tiny vs the full ~50-column rows) and compute all three scalars in JS; the
+// response is still just a few integers, never full rows, so egress stays minimal. The read is
+// shared/coalesced and briefly cached (cachedRead, 15s) and bounded by a timeout to limit Vercel
+// function work.
+// LIMITATION: in-place edits that change neither row count, max id, nor id sum are not reflected
+// here; the frontend compensates with a periodic safety-net full refetch.
 app.get('/api/orders/signal', authenticate, async (req, res) => {
   try {
     const result = await cachedRead('orders_signal', 15000, async () => {
-      const [countResult, maxResult] = await Promise.all([
-        supabase.from('orders').select('id', { count: 'exact', head: true }).abortSignal(AbortSignal.timeout(10000)),
-        supabase.from('orders').select('id').order('id', { ascending: false }).limit(1).abortSignal(AbortSignal.timeout(10000))
-      ])
-      if (countResult.error || maxResult.error) throw countResult.error || maxResult.error
-      return { count: countResult.count || 0, maxId: maxResult.data?.[0]?.id || 0 }
+      const { data: idRows, error } = await supabase.from('orders').select('id').abortSignal(AbortSignal.timeout(10000))
+      if (error) throw error
+      const rows = idRows || []
+      const count = rows.length
+      const maxId = rows.reduce((m, r) => r.id > m ? r.id : m, 0)
+      const sumId = rows.reduce((s, r) => s + (r.id || 0), 0)
+      return { count, maxId, sumId }
     })
     res.json(result)
   } catch (e) { res.status(500).json({ error: e.message }) }
