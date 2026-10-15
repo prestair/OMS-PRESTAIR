@@ -2945,7 +2945,7 @@ function Dashboard() {
                       continue
                     }
                     if (accepted.issueTo !== user.username && accepted.requestedBy !== user.username) {
-                      errors.push(`${on}: Paper is with ${(accepted.issueTo || '').toUpperCase()}, only they can return`)
+                      errors.push(`${on}: Paper is with ${getFullName(accepted.requestedBy || accepted.issueTo)}, only they can return`)
                       continue
                     }
                     try {
