@@ -256,7 +256,10 @@ router.get('/paper-requests/my', async (req, res) => {
 })
 
 router.post('/paper-requests', async (req, res) => {
-  const { orderNo, issueTo } = req.body
+  const { orderNo, issueTo, onBehalfOf, requestDate } = req.body
+  const effectiveRequester = (req.user.role === 'admin' && onBehalfOf) ? onBehalfOf : req.user.username
+  const placedByAdmin = (req.user.role === 'admin' && onBehalfOf) ? req.user.username : null
+  const backDate = (req.user.role === 'admin' && requestDate && !isNaN(new Date(requestDate).getTime())) ? new Date(requestDate).toISOString() : null
   if (!orderNo || !issueTo) return res.status(400).json({ error: 'Order No and Issue To required' })
   const { data: pendingReturn } = await supabase.from('return_requests').select('*').eq('order_no', orderNo).eq('status', 'PENDING')
   if (pendingReturn && pendingReturn.length > 0) return res.status(400).json({ error: `${(pendingReturn[0].requested_by||'').toUpperCase()}'s return request is pending for ${orderNo}. Please close it first.` })
@@ -280,7 +283,7 @@ router.post('/paper-requests', async (req, res) => {
   const { data: orders } = await supabase.from('orders').select('client').eq('order_no', orderNo)
   let client = orders?.[0]?.client || ''
   if (!client) { const { data: delOrd } = await supabase.from('deleted_orders').select('data').eq('data->>order_no', orderNo).limit(1); client = delOrd?.[0]?.data?.client || '' }
-  const { data, error } = await supabase.from('paper_requests').insert({ order_no: orderNo, client, requested_by: req.user.username, issue_to: issueTo, status: 'PENDING' }).select()
+  const { data, error } = await supabase.from('paper_requests').insert({ order_no: orderNo, client, requested_by: effectiveRequester, issue_to: issueTo, status: 'PENDING', placed_by_admin: placedByAdmin, ...(backDate ? { created_at: backDate } : {}) }).select()
   if (error) return res.status(400).json({ error: error.message })
   res.json(mapPaperReq(data[0]))
 })
@@ -379,7 +382,7 @@ router.delete('/paper-requests/:id', adminOnly, async (req, res) => {
 // Return requests
 router.get('/return-requests/all', async (req, res) => {
   const { data } = await supabase.from('return_requests').select('*').order('id', { ascending: false })
-  res.json((data || []).map(r => ({ ...r, orderNo: r.order_no, requestedBy: r.requested_by, returnTo: r.return_to, acceptedBy: r.accepted_by, acceptedAt: r.accepted_at, rejectRemarks: r.reject_remarks })))
+  res.json((data || []).map(r => ({ ...r, orderNo: r.order_no, requestedBy: r.requested_by, returnTo: r.return_to, acceptedBy: r.accepted_by, acceptedAt: r.accepted_at, rejectRemarks: r.reject_remarks, placedByAdmin: r.placed_by_admin })))
 })
 
 router.get('/return-requests/my', async (req, res) => {
@@ -388,7 +391,11 @@ router.get('/return-requests/my', async (req, res) => {
 })
 
 router.post('/return-requests', async (req, res) => {
-  const { orderNo, returnTo } = req.body
+  const { orderNo, returnTo, onBehalfOf, requestDate } = req.body
+  const actor = (req.user.role === 'admin' && onBehalfOf) ? onBehalfOf : req.user.username
+  const effectiveRequester = (req.user.role === 'admin' && onBehalfOf) ? onBehalfOf : req.user.username
+  const placedByAdmin = (req.user.role === 'admin' && onBehalfOf) ? req.user.username : null
+  const backDate = (req.user.role === 'admin' && requestDate && !isNaN(new Date(requestDate).getTime())) ? new Date(requestDate).toISOString() : null
   if (!orderNo || !returnTo) return res.status(400).json({ error: 'Required' })
 
   // Check: requester ke paas ye order ka paper hai ya nahi
@@ -402,7 +409,7 @@ router.post('/return-requests', async (req, res) => {
 
   const holder = acceptedReqs[0].requested_by || acceptedReqs[0].issue_to
   const requester = acceptedReqs[0].requested_by
-  if (holder !== req.user.username && requester !== req.user.username) {
+  if (holder !== actor && requester !== actor) {
     return res.status(400).json({ error: `Order ${orderNo} paper is with ${holder.toUpperCase()}, only they can submit a return request` })
   }
 
@@ -417,7 +424,7 @@ router.post('/return-requests', async (req, res) => {
   const { data: orders } = await supabase.from('orders').select('client').eq('order_no', orderNo)
   let rtClient = orders?.[0]?.client || ''
   if (!rtClient) { const { data: delOrd } = await supabase.from('deleted_orders').select('data').eq('data->>order_no', orderNo).limit(1); rtClient = delOrd?.[0]?.data?.client || '' }
-  const { data } = await supabase.from('return_requests').insert({ order_no: orderNo, client: rtClient, requested_by: req.user.username, return_to: returnTo, status: 'PENDING' }).select()
+  const { data } = await supabase.from('return_requests').insert({ order_no: orderNo, client: rtClient, requested_by: effectiveRequester, return_to: returnTo, status: 'PENDING', placed_by_admin: placedByAdmin, ...(backDate ? { created_at: backDate } : {}) }).select()
   res.json(data[0])
 })
 
@@ -737,7 +744,7 @@ function snakeOrder(o) {
 }
 
 function mapPaperReq(r) {
-  return { ...r, orderNo: r.order_no, requestedBy: r.requested_by, issueTo: r.issue_to, acceptedBy: r.accepted_by, acceptedAt: r.accepted_at, rejectedBy: r.rejected_by, rejectedAt: r.rejected_at, rejectRemarks: r.reject_remarks, reroutedBy: r.rerouted_by, reroutedAt: r.rerouted_at, createdAt: r.created_at }
+  return { ...r, orderNo: r.order_no, requestedBy: r.requested_by, issueTo: r.issue_to, acceptedBy: r.accepted_by, acceptedAt: r.accepted_at, rejectedBy: r.rejected_by, rejectedAt: r.rejected_at, rejectRemarks: r.reject_remarks, reroutedBy: r.rerouted_by, reroutedAt: r.rerouted_at, createdAt: r.created_at, placedByAdmin: r.placed_by_admin }
 }
 
 module.exports = router

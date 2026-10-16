@@ -1,0 +1,30 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Server-side 'placed_by_admin' plumbing: data model + both backends + daily report. Adds the nullable column to paper_requests and return_requests, makes POST paper-requests and return-requests accept an admin-gated onBehalfOf (effective requested_by = behalf user; placed_by_admin = admin username; non-admin onBehalfOf ignored), exposes placedByAdmin in the /all mappers, and appends '(admin)' to the requester cell in the daily Excel. Mirror everything across api/index.js (production) and server/routes/orders.js. Independent of FEAT-002 except that FEAT-002 depends on the placedByAdmin field this feature adds to the /all responses, so FEAT-001 goes first.",
+  "status": "completed",
+  "steps": [
+    "Create api/behalf-of-migration.sql containing exactly two idempotent statements: `ALTER TABLE paper_requests ADD COLUMN IF NOT EXISTS placed_by_admin TEXT;` and `ALTER TABLE return_requests ADD COLUMN IF NOT EXISTS placed_by_admin TEXT;`. Do NOT run it — it is for manual Supabase SQL-editor execution by the user.",
+    "In server/setupSupabase.js printSQL(), add `placed_by_admin TEXT,` to both the paper_requests and return_requests CREATE TABLE blocks (after the reject_remarks/status lines, before created_at).",
+    "In api/index.js POST /api/orders/paper-requests (line 339): read onBehalfOf from req.body; compute effectiveRequester = (req.user.role==='admin' && onBehalfOf) ? onBehalfOf : req.user.username and placedByAdmin = (req.user.role==='admin' && onBehalfOf) ? req.user.username : null; set requested_by: effectiveRequester and add placed_by_admin: placedByAdmin in the insert. Do not weaken the existing pending/accepted/return guards.",
+    "In api/index.js POST /api/orders/return-requests (line 351): read onBehalfOf; compute actor = (req.user.role==='admin' && onBehalfOf) ? onBehalfOf : req.user.username; change the holder guard to `if (holder !== actor && requester !== actor)`; keep the existing holder message verbatim; insert requested_by: effectiveRequester, placed_by_admin: placedByAdmin (same admin-gated computation).",
+    "In api/index.js add `placedByAdmin: r.placed_by_admin` to the paper-requests/all mapper (line 337) and the return-requests/all mapper (line 350).",
+    "In server/routes/orders.js mirror all of the above: paper POST (~258), return POST (~390, incl. actor in holder guard and preserved message), add `placedByAdmin: r.placed_by_admin` to mapPaperReq (~739) and to the inline return-requests/all mapper (~380).",
+    "In api/cron-daily-report.js paperData map (~109), change `'Requested By': r.requested_by || ''` to `'Requested By': (r.requested_by || '') + (r.placed_by_admin ? ' (admin)' : '')`. Touch only the requester cell."
+  ],
+  "acceptance_criteria": [
+    "api/behalf-of-migration.sql exists with both ADD COLUMN IF NOT EXISTS statements and is NOT executed by the workflow.",
+    "An admin POST with onBehalfOf sets requested_by to the behalf user and placed_by_admin to the admin username in both paper and return inserts; a request without onBehalfOf (or from a non-admin) sets requested_by to the caller and placed_by_admin null.",
+    "Both /all responses include placedByAdmin in api/index.js and server/routes/orders.js.",
+    "The return holder guard treats the behalf user as actor and still blocks genuine non-holders with the original message.",
+    "The daily report requester cell shows '<value> (admin)' only when placed_by_admin is set.",
+    "`npm run build` succeeds and `node --check` passes for api/index.js, api/cron-daily-report.js, server/routes/orders.js."
+  ],
+  "verification": [
+    "cd to project root, run `node --check api/index.js`, `node --check api/cron-daily-report.js`, `node --check server/routes/orders.js` — all exit 0.",
+    "Run `npm run build` — Vite build exits 0.",
+    "Confirm api/behalf-of-migration.sql contains both ALTER statements."
+  ],
+  "blocked_reason": null,
+  "findings": "COMPLETED. Backend field name for admin-marker in /all responses is camelCase `placedByAdmin` (DB column `placed_by_admin`), present in all four mappers: api/index.js paper /all + return /all, server/routes/orders.js mapPaperReq + inline return /all mapper. FEAT-002's requesterLabel helper should read `r.placedByAdmin || r.placed_by_admin` (both present since mappers spread `...r`). POST bodies now accept `onBehalfOf` (admin-gated; non-admin ignored) on both /paper-requests and /return-requests. Return holder guard now uses `actor` (= onBehalfOf when admin, else caller); original holder message kept verbatim in both backends. Daily report (cron-daily-report.js) requester cell appends ' (admin)'. NEW: BACK-DATE added per mid-task requirement — both POST handlers now also accept optional `requestDate` (YYYY-MM-DD). When req.user.role==='admin' AND requestDate parses as a valid date, insert sets `created_at` to that date (ISO); otherwise DB default now() is used. No new migration/column needed for back-date (created_at already exists). Reports derive Issue/request date from created_at (OR report uses acceptedAt||createdAt; daily report reads created_at), so the back date surfaces automatically. FRONTEND HANDOFF (FEAT-002): in addition to the onBehalfOf autocompletes, add an admin-only optional date input (type=date, label 'Request Date (optional)' / back date) on BOTH the Issue and Return forms, gated by isAdmin, hidden for non-admins; include `requestDate: <YYYY-MM-DD>` in the respective POST body when the admin picks one (empty = today), and reset it on submit success. Anchor line drift: no line numbers shifted in a way that breaks FEAT-002's anchors — edits were in-place single-line (api/index.js) and localized multi-line (server/routes/orders.js); Dashboard.jsx was not touched. All verification green: node --check on api/index.js, api/cron-daily-report.js, server/routes/orders.js, server/setupSupabase.js all exit 0; `npm run build` exits 0."
+}

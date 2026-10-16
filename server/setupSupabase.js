@@ -155,6 +155,7 @@ CREATE TABLE IF NOT EXISTS paper_requests (
   rejected_by TEXT,
   rejected_at TIMESTAMPTZ,
   reject_remarks TEXT,
+  placed_by_admin TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -170,6 +171,7 @@ CREATE TABLE IF NOT EXISTS return_requests (
   rejected_by TEXT,
   rejected_at TIMESTAMPTZ,
   reject_remarks TEXT,
+  placed_by_admin TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

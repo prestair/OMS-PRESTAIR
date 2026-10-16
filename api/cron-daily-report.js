@@ -109,7 +109,7 @@ module.exports = async (req, res) => {
       '#': i + 1,
       'Order No': r.order_no || '',
       'Client': r.client || '',
-      'Requested By': r.requested_by || '',
+      'Requested By': (r.requested_by || '') + (r.placed_by_admin ? ' (admin)' : ''),
       'Issue To': r.issue_to || '',
       'Status': r.status || '',
       'Date': r.created_at ? new Date(r.created_at).toLocaleDateString('en-IN') : ''

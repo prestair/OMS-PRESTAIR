@@ -1,0 +1,26 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Frontend: admin-only 'on behalf of' autocompletes on both the Issue and Return forms in src/pages/Dashboard.jsx, wiring onBehalfOf into the POST calls, and a requesterLabel helper that appends ' (admin)' used across every requester display (All Requests table, OR Issue Report on-screen, OR export, OR print, and the ISSUED TO status strings). Depends on FEAT-001 because requesterLabel reads placedByAdmin returned by the /all mappers added there.",
+  "status": "pending",
+  "steps": [
+    "Add state near Dashboard.jsx lines 128-146: paperBehalfOf/setPaperBehalfOf (''), paperBehalfSearch/setPaperBehalfSearch (''), showPaperBehalfDrop/setShowPaperBehalfDrop (false); returnBehalfOf/setReturnBehalfOf, returnBehalfSearch/setReturnBehalfSearch, showReturnBehalfDrop/setShowReturnBehalfDrop.",
+    "Add helper near the other render helpers: `const requesterLabel = (r) => getFullName(r.requestedBy || r.requested_by) + ((r.placedByAdmin || r.placed_by_admin) ? ' (admin)' : '')`.",
+    "Issue form (~2890): before the 'Request To' field, render (only when isAdmin) an autocomplete mirroring the Request To one, bound to paperBehalfSearch/paperBehalfOf/showPaperBehalfDrop, placeholder 'Request on behalf of...', filtering allUsers excluding user.username. In the Issue button handler include `onBehalfOf: paperBehalfOf` in the POST body when isAdmin && paperBehalfOf, and change the duplicate pre-check comparison `r.requestedBy === user.username` to compare against `(isAdmin && paperBehalfOf) ? paperBehalfOf : user.username`. Reset paperBehalfOf/paperBehalfSearch on success.",
+    "Return form (~2923): before the 'Return To' field, render (only when isAdmin) an autocomplete bound to returnBehalfSearch/returnBehalfOf/showReturnBehalfDrop, placeholder 'Return on behalf of...'. In the Return button handler compute `const actor = (isAdmin && returnBehalfOf) ? returnBehalfOf : user.username` and change the client pre-check to `if (accepted.issueTo !== actor && accepted.requestedBy !== actor)`, keeping the message `Paper is with ${getFullName(accepted.requestedBy || accepted.issueTo)}, only they can return` (do NOT regress the full-name holder message). Include `onBehalfOf: returnBehalfOf` in the POST when isAdmin && returnBehalfOf. Reset returnBehalfOf/returnBehalfSearch on success.",
+    "Replace requester rendering with requesterLabel(...): All Requests 'Requested By' cell (~2976) getFullName(r.requestedBy) -> requesterLabel(r); OR on-screen 'Requested By' (~2776) -> requesterLabel(pr); ISSUED TO status at lines 1217, 1431, 2711 -> `ISSUED TO ${requesterLabel(latestIssue)}`; OR export 'Requested By' (~1238) -> requesterLabel(pr); OR print 'Requested By' (~1470) -> requesterLabel(pr). Leave all target (Issued By / Return To) cells as plain getFullName(...). Do NOT change the orTabUserSearch filter lines."
+  ],
+  "acceptance_criteria": [
+    "When logged in as admin, both the Issue and Return forms show an 'on behalf of' autocomplete before the target field; non-admins do not see it (gated by isAdmin).",
+    "Selecting a behalf user sends onBehalfOf in the POST; the Issue duplicate pre-check and the Return holder pre-check both use the behalf user as the actor when set.",
+    "The Return holder pre-check still shows the holder's full name (recent fix not regressed).",
+    "Every requester display (All Requests, OR on-screen, OR export, OR print, ISSUED TO status) shows '(admin)' when placedByAdmin is set, and target cells remain plain full names.",
+    "`npm run build` succeeds."
+  ],
+  "verification": [
+    "Run `npm run build` from project root — Vite build exits 0.",
+    "Grep is NOT sufficient; rely on the build. Optionally confirm no leftover getFullName requester usages at the five report anchors by reviewing the diff."
+  ],
+  "blocked_reason": null,
+  "findings": "FROM FEAT-001: backend admin-marker field is `placedByAdmin` (DB `placed_by_admin`); requesterLabel should read `r.placedByAdmin || r.placed_by_admin`. ADDED MID-TASK REQUIREMENT (admin BACK-DATE) — fold into this frontend work: backend (both /paper-requests and /return-requests POST) already accepts an optional admin-only `requestDate` (YYYY-MM-DD) and, when the caller is admin and the date is valid, stores it as the request's created_at (which drives Issue/request date in reports). FRONTEND TODO: on BOTH the Issue form (~2890) and Return form (~2923), when isAdmin, render an optional date input (type=date), e.g. label 'Request Date (optional)' or 'Back date', with its own state (e.g. paperRequestDate/setPaperRequestDate, returnRequestDate/setReturnRequestDate). Hidden for non-admins. When the admin picks a date, include `requestDate: <YYYY-MM-DD>` in the respective POST body (Issue uses paperRequestDate, Return uses returnRequestDate). Empty = today (current behavior). Reset the date state on submit success alongside the behalfOf resets. No report changes needed on the frontend for back-date — the OR Issue Report and daily Excel already derive the date from created_at/acceptedAt, so the back date surfaces automatically."
+}
