@@ -256,6 +256,76 @@ function Dashboard() {
     return combined
   }
 
+  // Shared OR Issue Report helpers — single source of truth for status + filter + sort,
+  // used by the on-screen table, Excel export, and Print so all three stay row-for-row identical.
+  const getOrRequestStatus = (orderNo) => {
+    const pr = (paperRequests || []).filter(r => r.orderNo === orderNo)
+    const rt = (returnRequests || []).find(r => r.orderNo === orderNo)
+    const latestIssue = pr.length > 0 ? pr[0] : null
+    if (rt && rt.status === 'ACCEPTED') return 'RECEIVED'
+    if (rt && rt.status === 'PENDING') return 'RETURN PENDING'
+    if (latestIssue) {
+      if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${requesterLabel(latestIssue)}`
+      if (latestIssue.status === 'PENDING') return 'PENDING'
+      if (latestIssue.status === 'REJECTED') return 'REJECTED'
+      if (latestIssue.status === 'ISSUE') return 'ISSUE'
+      if ((latestIssue.status || '').startsWith('REROUTED')) return `REROUTED TO ${getFullName((latestIssue.status || '').replace('REROUTED TO ','').trim())}`
+      return latestIssue.status || '-'
+    }
+    return '-'
+  }
+
+  const getOrFilteredSortedOrders = () => {
+    let filtered = getIssueReturnOrders()
+    // Apply search filter
+    if (orTabSearch.trim()) {
+      const term = orTabSearch.toLowerCase()
+      filtered = filtered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term))
+    }
+    // Apply user search filter
+    if (orTabUserSearch.trim()) {
+      const uTerm = orTabUserSearch.toLowerCase()
+      filtered = filtered.filter(o => {
+        const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING'))
+        if (!pr) return false
+        const issuedToName = getFullName(pr.requestedBy || pr.requested_by).toLowerCase()
+        const issueToName = getFullName(pr.issueTo || pr.issue_to).toLowerCase()
+        return issuedToName.includes(uTerm) || issueToName.includes(uTerm)
+      })
+    }
+    // Apply status filter
+    if (orTabStatusFilter.length > 0) {
+      filtered = filtered.filter(o => {
+        const status = getOrRequestStatus(o.orderNo).toUpperCase()
+        return orTabStatusFilter.some(f => {
+          if (f === 'ISSUED') return status.startsWith('ISSUED TO')
+          if (f === 'NO REQUEST') return status === '-'
+          return status === f
+        })
+      })
+    }
+    // Sort: ISSUE first, then PENDING, then ISSUED TO (alphabetically), then RECEIVED
+    filtered = filtered.sort((a, b) => {
+      const getOrder = (orderNo) => {
+        const v = getOrRequestStatus(orderNo).toUpperCase()
+        if (v === '-' || v === '') return 5
+        if (v === 'ISSUE') return 0
+        if (v === 'PENDING' || v === 'RETURN PENDING') return 1
+        if (v.startsWith('ISSUED TO')) return 2
+        if (v.startsWith('REROUTED')) return 1
+        if (v === 'RECEIVED') return 3
+        if (v === 'REJECTED') return 4
+        return 2
+      }
+      const aOrder = getOrder(a.orderNo)
+      const bOrder = getOrder(b.orderNo)
+      if (aOrder !== bOrder) return aOrder - bOrder
+      if (aOrder === 2) return getOrRequestStatus(a.orderNo).localeCompare(getOrRequestStatus(b.orderNo))
+      return 0
+    })
+    return filtered
+  }
+
   // Change-detection refs for the egress-saving signal polls
   const lastOrdersSignal = useRef(null)       // `${count}_${maxId}_${sumId}` from /api/orders/signal (sumId makes it delete-aware)
   const lastOrdersFullRefresh = useRef(Date.now()) // wall-clock safety net, including time spent hidden
@@ -1219,32 +1289,12 @@ function Dashboard() {
 
     // Handle OR tab export separately
     if (dailyFilter === 'orRecvd') {
-      const getRequestStatus = (orderNo) => {
-        const pr = (paperRequests || []).filter(r => r.orderNo === orderNo)
-        const rt = (returnRequests || []).find(r => r.orderNo === orderNo)
-        const latestIssue = pr.length > 0 ? pr[0] : null
-        if (rt && rt.status === 'ACCEPTED') return 'RECEIVED'
-        if (rt && rt.status === 'PENDING') return 'RETURN PENDING'
-        if (latestIssue) {
-          if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${requesterLabel(latestIssue)}`
-          if (latestIssue.status === 'PENDING') return 'PENDING'
-          if (latestIssue.status === 'REJECTED') return 'REJECTED'
-          if (latestIssue.status === 'ISSUE') return 'ISSUE'
-          if ((latestIssue.status || '').startsWith('REROUTED')) return `REROUTED TO ${getFullName((latestIssue.status || '').replace('REROUTED TO ','').trim())}`
-          return latestIssue.status || '-'
-        }
-        return '-'
-      }
-      let orFiltered = getIssueReturnOrders()
-      if (orTabSearch.trim()) { const term = orTabSearch.toLowerCase(); orFiltered = orFiltered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) }
-      if (orTabUserSearch.trim()) { const uTerm = orTabUserSearch.toLowerCase(); orFiltered = orFiltered.filter(o => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING')); if (!pr) return false; const n1 = getFullName(pr.requested_by || pr.requestedBy).toLowerCase(); const n2 = getFullName(pr.issue_to || pr.issueTo).toLowerCase(); return n1.includes(uTerm) || n2.includes(uTerm) }) }
-      if (orTabStatusFilter.length > 0) { orFiltered = orFiltered.filter(o => { const status = getRequestStatus(o.orderNo).toUpperCase(); return orTabStatusFilter.some(f => { if (f === 'ISSUED') return status.startsWith('ISSUED TO'); if (f === 'NO REQUEST') return status === '-'; return status === f }) }) }
-      orFiltered.sort((a, b) => { const getOrd = (orderNo) => { const v = getRequestStatus(orderNo).toUpperCase(); if (v === '-') return 5; if (v === 'ISSUE') return 0; if (v === 'PENDING' || v === 'RETURN PENDING') return 1; if (v.startsWith('ISSUED TO')) return 2; if (v.startsWith('REROUTED')) return 1; if (v === 'RECEIVED') return 3; if (v === 'REJECTED') return 4; return 2 }; return getOrd(a.orderNo) - getOrd(b.orderNo) })
+      const orFiltered = getOrFilteredSortedOrders()
       const completedFlags = []
       const exportData = orFiltered.map((o, idx) => {
         const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
         const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
-        const stat = getRequestStatus(o.orderNo)
+        const stat = getOrRequestStatus(o.orderNo)
         const isRecv = stat.toUpperCase() === 'RECEIVED'
         completedFlags.push(!!o._isCompleted)
         return { '#': idx + 1, 'Date': formatDate(o.date), 'Order No': (o.orderNo || '') + (o._isCompleted ? ' (COMPLETED)' : ''), 'Client': o.client || '', 'Issue Date': pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-', 'Requested By': pr ? requesterLabel(pr) : '-', 'Issued By': pr ? getFullName(pr.issueTo || pr.issue_to) : '-', 'Status': stat, 'Collected By': isRecv && rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-', 'Return Date': isRecv && rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' }
@@ -1433,27 +1483,7 @@ function Dashboard() {
 
     // Handle OR tab print separately
     if (dailyFilter === 'orRecvd') {
-      const getRequestStatus = (orderNo) => {
-        const pr = (paperRequests || []).filter(r => r.orderNo === orderNo)
-        const rt = (returnRequests || []).find(r => r.orderNo === orderNo)
-        const latestIssue = pr.length > 0 ? pr[0] : null
-        if (rt && rt.status === 'ACCEPTED') return 'RECEIVED'
-        if (rt && rt.status === 'PENDING') return 'RETURN PENDING'
-        if (latestIssue) {
-          if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${requesterLabel(latestIssue)}`
-          if (latestIssue.status === 'PENDING') return 'PENDING'
-          if (latestIssue.status === 'REJECTED') return 'REJECTED'
-          if (latestIssue.status === 'ISSUE') return 'ISSUE'
-          if ((latestIssue.status || '').startsWith('REROUTED')) return `REROUTED TO ${getFullName((latestIssue.status || '').replace('REROUTED TO ','').trim())}`
-          return latestIssue.status || '-'
-        }
-        return '-'
-      }
-      let orFiltered = getIssueReturnOrders()
-      if (orTabSearch.trim()) { const term = orTabSearch.toLowerCase(); orFiltered = orFiltered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) }
-      if (orTabUserSearch.trim()) { const uTerm = orTabUserSearch.toLowerCase(); orFiltered = orFiltered.filter(o => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING')); if (!pr) return false; const n1 = getFullName(pr.requested_by || pr.requestedBy).toLowerCase(); const n2 = getFullName(pr.issue_to || pr.issueTo).toLowerCase(); return n1.includes(uTerm) || n2.includes(uTerm) }) }
-      if (orTabStatusFilter.length > 0) { orFiltered = orFiltered.filter(o => { const status = getRequestStatus(o.orderNo).toUpperCase(); return orTabStatusFilter.some(f => { if (f === 'ISSUED') return status.startsWith('ISSUED TO'); if (f === 'NO REQUEST') return status === '-'; return status === f }) }) }
-      orFiltered.sort((a, b) => { const getOrd = (orderNo) => { const v = getRequestStatus(orderNo).toUpperCase(); if (v === '-') return 5; if (v === 'ISSUE') return 0; if (v === 'PENDING' || v === 'RETURN PENDING') return 1; if (v.startsWith('ISSUED TO')) return 2; if (v.startsWith('REROUTED')) return 1; if (v === 'RECEIVED') return 3; if (v === 'REJECTED') return 4; return 2 }; return getOrd(a.orderNo) - getOrd(b.orderNo) })
+      const orFiltered = getOrFilteredSortedOrders()
       let html = `<html><head><title>OR Report - OMS Prestair</title><style>
         @page { size: A4 ${orientation}; margin: 10mm; }
         body { font-family: Arial, sans-serif; margin: 0; padding: 5px; }
@@ -1477,7 +1507,7 @@ function Dashboard() {
       orFiltered.forEach((o, idx) => {
         const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
         const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
-        const status = getRequestStatus(o.orderNo)
+        const status = getOrRequestStatus(o.orderNo)
         const isReceived = status.toUpperCase() === 'RECEIVED'
         html += `<tr class="${o._isCompleted ? 'completed-row' : ''}"><td>${idx+1}</td><td>${formatDate(o.date)}</td><td>${(o.orderNo||'')}${o._isCompleted?' (COMPLETED)':''}</td><td>${o.client||''}</td><td>${pr&&pr.acceptedAt?formatDate(pr.acceptedAt.split('T')[0]):pr&&pr.createdAt?formatDate(pr.createdAt.split('T')[0]):'-'}</td><td>${pr?requesterLabel(pr):'-'}</td><td>${pr?getFullName(pr.issueTo||pr.issue_to):'-'}</td><td>${status}</td><td>${isReceived&&rt?getFullName(rt.acceptedBy||rt.accepted_by):'-'}</td><td>${isReceived&&rt&&rt.acceptedAt?formatDate(rt.acceptedAt.split('T')[0]):'-'}</td></tr>`
       })
@@ -2711,70 +2741,8 @@ function Dashboard() {
               </thead>
               <tbody>
                 {(() => {
-                  let filtered = getIssueReturnOrders()
-                  // Build status from paper requests
-                  const getRequestStatus = (orderNo) => {
-                    const pr = (paperRequests || []).filter(r => r.orderNo === orderNo)
-                    const rt = (returnRequests || []).find(r => r.orderNo === orderNo)
-                    const latestIssue = pr.length > 0 ? pr[0] : null
-                    if (rt && rt.status === 'ACCEPTED') return 'RECEIVED'
-                    if (rt && rt.status === 'PENDING') return 'RETURN PENDING'
-                    if (latestIssue) {
-                      if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${requesterLabel(latestIssue)}`
-                      if (latestIssue.status === 'PENDING') return 'PENDING'
-                      if (latestIssue.status === 'REJECTED') return 'REJECTED'
-                      if (latestIssue.status === 'ISSUE') return 'ISSUE'
-                      if ((latestIssue.status || '').startsWith('REROUTED')) return `REROUTED TO ${getFullName((latestIssue.status || '').replace('REROUTED TO ','').trim())}`
-                      return latestIssue.status || '-'
-                    }
-                    return '-'
-                  }
-                  // Apply search filter
-                  if (orTabSearch.trim()) {
-                    const term = orTabSearch.toLowerCase()
-                    filtered = filtered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term))
-                  }
-                  // Apply user search filter
-                  if (orTabUserSearch.trim()) {
-                    const uTerm = orTabUserSearch.toLowerCase()
-                    filtered = filtered.filter(o => {
-                      const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING'))
-                      if (!pr) return false
-                      const issuedToName = getFullName(pr.requestedBy || pr.requested_by).toLowerCase()
-                      const issueToName = getFullName(pr.issueTo || pr.issue_to).toLowerCase()
-                      return issuedToName.includes(uTerm) || issueToName.includes(uTerm)
-                    })
-                  }
-                  // Apply status filter
-                  if (orTabStatusFilter.length > 0) {
-                    filtered = filtered.filter(o => {
-                      const status = getRequestStatus(o.orderNo).toUpperCase()
-                      return orTabStatusFilter.some(f => {
-                        if (f === 'ISSUED') return status.startsWith('ISSUED TO')
-                        if (f === 'NO REQUEST') return status === '-'
-                        return status === f
-                      })
-                    })
-                  }
-                  // Sort: ISSUE first, then PENDING, then ISSUED TO (alphabetically), then RECEIVED
-                  filtered = filtered.sort((a, b) => {
-                    const getOrder = (orderNo) => {
-                      const v = getRequestStatus(orderNo).toUpperCase()
-                      if (v === '-' || v === '') return 5
-                      if (v === 'ISSUE') return 0
-                      if (v === 'PENDING' || v === 'RETURN PENDING') return 1
-                      if (v.startsWith('ISSUED TO')) return 2
-                      if (v.startsWith('REROUTED')) return 1
-                      if (v === 'RECEIVED') return 3
-                      if (v === 'REJECTED') return 4
-                      return 2
-                    }
-                    const aOrder = getOrder(a.orderNo)
-                    const bOrder = getOrder(b.orderNo)
-                    if (aOrder !== bOrder) return aOrder - bOrder
-                    if (aOrder === 2) return getRequestStatus(a.orderNo).localeCompare(getRequestStatus(b.orderNo))
-                    return 0
-                  })
+                  const getRequestStatus = getOrRequestStatus
+                  const filtered = getOrFilteredSortedOrders()
                   return filtered.map((o, idx) => {
                     const status = getRequestStatus(o.orderNo)
                     const statusColor = status === 'RECEIVED' ? '#27ae60' : status.startsWith('ISSUED TO') ? '#8e44ad' : status === 'PENDING' || status === 'RETURN PENDING' ? '#f39c12' : status === 'ISSUE' ? '#e74c3c' : status === 'REJECTED' ? '#e74c3c' : '#888'
