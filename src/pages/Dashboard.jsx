@@ -143,6 +143,14 @@ function Dashboard() {
   const [showReturnUserDrop, setShowReturnUserDrop] = useState(false)
   const [returnRequests, setReturnRequests] = useState([])
   const [myReturnRequests, setMyReturnRequests] = useState([])
+  const [paperBehalfOf, setPaperBehalfOf] = useState('')
+  const [paperBehalfSearch, setPaperBehalfSearch] = useState('')
+  const [showPaperBehalfDrop, setShowPaperBehalfDrop] = useState(false)
+  const [paperRequestDate, setPaperRequestDate] = useState('')
+  const [returnBehalfOf, setReturnBehalfOf] = useState('')
+  const [returnBehalfSearch, setReturnBehalfSearch] = useState('')
+  const [showReturnBehalfDrop, setShowReturnBehalfDrop] = useState(false)
+  const [returnRequestDate, setReturnRequestDate] = useState('')
   const [editRequestId, setEditRequestId] = useState(null)
   const [editRequestType, setEditRequestType] = useState('')
   const [editRequestUser, setEditRequestUser] = useState('')
@@ -211,6 +219,10 @@ function Dashboard() {
     const u = allUsers.find(x => x.username === username)
     return u ? (u.full_name || u.fullName || u.username) : username
   }
+
+  // Requester label with admin-placed marker: appends ' (admin)' when the request
+  // was placed by an admin on behalf of the requester.
+  const requesterLabel = (r) => getFullName(r.requestedBy || r.requested_by) + ((r.placedByAdmin || r.placed_by_admin) ? ' (admin)' : '')
 
   const getAllowedColumns = () => {
     if (isAdmin) return ALL_COLUMNS
@@ -1214,7 +1226,7 @@ function Dashboard() {
         if (rt && rt.status === 'ACCEPTED') return 'RECEIVED'
         if (rt && rt.status === 'PENDING') return 'RETURN PENDING'
         if (latestIssue) {
-          if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${getFullName(latestIssue.requestedBy || latestIssue.requested_by)}`
+          if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${requesterLabel(latestIssue)}`
           if (latestIssue.status === 'PENDING') return 'PENDING'
           if (latestIssue.status === 'REJECTED') return 'REJECTED'
           if (latestIssue.status === 'ISSUE') return 'ISSUE'
@@ -1235,7 +1247,7 @@ function Dashboard() {
         const stat = getRequestStatus(o.orderNo)
         const isRecv = stat.toUpperCase() === 'RECEIVED'
         completedFlags.push(!!o._isCompleted)
-        return { '#': idx + 1, 'Date': formatDate(o.date), 'Order No': (o.orderNo || '') + (o._isCompleted ? ' (COMPLETED)' : ''), 'Client': o.client || '', 'Issue Date': pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-', 'Requested By': pr ? getFullName(pr.requestedBy || pr.requested_by) : '-', 'Issued By': pr ? getFullName(pr.issueTo || pr.issue_to) : '-', 'Status': stat, 'Collected By': isRecv && rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-', 'Return Date': isRecv && rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' }
+        return { '#': idx + 1, 'Date': formatDate(o.date), 'Order No': (o.orderNo || '') + (o._isCompleted ? ' (COMPLETED)' : ''), 'Client': o.client || '', 'Issue Date': pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-', 'Requested By': pr ? requesterLabel(pr) : '-', 'Issued By': pr ? getFullName(pr.issueTo || pr.issue_to) : '-', 'Status': stat, 'Collected By': isRecv && rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-', 'Return Date': isRecv && rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' }
       })
       const headers = Object.keys(exportData[0] || {})
       let html = `<html><head><title>Excel Preview - OR Report</title><style>body{font-family:Arial,sans-serif;margin:10px;font-size:9px}h2{text-align:center;font-size:14px;margin-bottom:4px}.subtitle{text-align:center;font-size:11px;color:#555;margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:3px 5px;text-align:center;font-size:8px;word-wrap:break-word}th{background:#FFD700;font-weight:bold;font-size:9px}tr:nth-child(even){background:#f9f9f9}.completed-row td{color:#e74c3c !important}.no-print{text-align:center;margin:12px 0}.no-print button{padding:10px 24px;font-size:14px;font-weight:700;border:none;border-radius:6px;cursor:pointer;margin:0 8px}.dl-btn{background:#27ae60;color:#fff}.cancel-btn{background:#eee;color:#333}</style></head><body>`
@@ -1428,7 +1440,7 @@ function Dashboard() {
         if (rt && rt.status === 'ACCEPTED') return 'RECEIVED'
         if (rt && rt.status === 'PENDING') return 'RETURN PENDING'
         if (latestIssue) {
-          if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${getFullName(latestIssue.requestedBy || latestIssue.requested_by)}`
+          if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${requesterLabel(latestIssue)}`
           if (latestIssue.status === 'PENDING') return 'PENDING'
           if (latestIssue.status === 'REJECTED') return 'REJECTED'
           if (latestIssue.status === 'ISSUE') return 'ISSUE'
@@ -1467,7 +1479,7 @@ function Dashboard() {
         const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
         const status = getRequestStatus(o.orderNo)
         const isReceived = status.toUpperCase() === 'RECEIVED'
-        html += `<tr class="${o._isCompleted ? 'completed-row' : ''}"><td>${idx+1}</td><td>${formatDate(o.date)}</td><td>${(o.orderNo||'')}${o._isCompleted?' (COMPLETED)':''}</td><td>${o.client||''}</td><td>${pr&&pr.acceptedAt?formatDate(pr.acceptedAt.split('T')[0]):pr&&pr.createdAt?formatDate(pr.createdAt.split('T')[0]):'-'}</td><td>${pr?getFullName(pr.requestedBy||pr.requested_by):'-'}</td><td>${pr?getFullName(pr.issueTo||pr.issue_to):'-'}</td><td>${status}</td><td>${isReceived&&rt?getFullName(rt.acceptedBy||rt.accepted_by):'-'}</td><td>${isReceived&&rt&&rt.acceptedAt?formatDate(rt.acceptedAt.split('T')[0]):'-'}</td></tr>`
+        html += `<tr class="${o._isCompleted ? 'completed-row' : ''}"><td>${idx+1}</td><td>${formatDate(o.date)}</td><td>${(o.orderNo||'')}${o._isCompleted?' (COMPLETED)':''}</td><td>${o.client||''}</td><td>${pr&&pr.acceptedAt?formatDate(pr.acceptedAt.split('T')[0]):pr&&pr.createdAt?formatDate(pr.createdAt.split('T')[0]):'-'}</td><td>${pr?requesterLabel(pr):'-'}</td><td>${pr?getFullName(pr.issueTo||pr.issue_to):'-'}</td><td>${status}</td><td>${isReceived&&rt?getFullName(rt.acceptedBy||rt.accepted_by):'-'}</td><td>${isReceived&&rt&&rt.acceptedAt?formatDate(rt.acceptedAt.split('T')[0]):'-'}</td></tr>`
       })
       html += `</tbody></table></body></html>`
       const printWindow = window.open('', '_blank')
@@ -2708,7 +2720,7 @@ function Dashboard() {
                     if (rt && rt.status === 'ACCEPTED') return 'RECEIVED'
                     if (rt && rt.status === 'PENDING') return 'RETURN PENDING'
                     if (latestIssue) {
-                      if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${getFullName(latestIssue.requestedBy || latestIssue.requested_by)}`
+                      if (latestIssue.status === 'ACCEPTED') return `ISSUED TO ${requesterLabel(latestIssue)}`
                       if (latestIssue.status === 'PENDING') return 'PENDING'
                       if (latestIssue.status === 'REJECTED') return 'REJECTED'
                       if (latestIssue.status === 'ISSUE') return 'ISSUE'
@@ -2773,7 +2785,7 @@ function Dashboard() {
                       <td style={styles.td}><span onClick={() => setOrHistoryPopup(o)} style={{ cursor: 'pointer', color: '#2980b9', fontWeight: '600', textDecoration: 'underline' }}>{o.orderNo}{o._isCompleted ? ' (COMPLETED)' : ''}</span></td>
                       <td style={{...styles.td, textAlign:'left'}}>{o.client}</td>
                       <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-' })()}</td>
-                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.requestedBy || pr.requested_by) : '-' })()}</td>
+                      <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? requesterLabel(pr) : '-' })()}</td>
                       <td style={styles.td}>{(() => { const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return pr ? getFullName(pr.issueTo || pr.issue_to) : '-' })()}</td>
                       <td style={{ ...styles.td, fontWeight: '600', color: statusColor }}>{status}</td>
                       <td style={styles.td}>{(() => { if (status.toUpperCase() !== 'RECEIVED') return '-'; const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED'); return rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-' })()}</td>
@@ -2894,6 +2906,15 @@ function Dashboard() {
                   <input value={paperOrderSearch} onChange={e => { setPaperOrderSearch(e.target.value); setShowOrderDropdown(true); setPaperIssueError('') }} onFocus={() => setShowOrderDropdown(true)} onBlur={() => setTimeout(() => setShowOrderDropdown(false), 300)} placeholder="Order No..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} disabled={paperOrderNo.length >= 5} />
                   {showOrderDropdown && paperOrderSearch && paperOrderNo.length < 5 && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)', minWidth: '300px' }}>{getIssueReturnOrders().filter(o => !paperOrderNo.includes(o.orderNo) && ((o.orderNo || '').toLowerCase().includes(paperOrderSearch.toLowerCase()) || (o.client || '').toLowerCase().includes(paperOrderSearch.toLowerCase()))).slice(0, 8).map(o => (<div key={o.id} onMouseDown={e => e.preventDefault()} onClick={() => { setPaperOrderNo([...paperOrderNo, o.orderNo]); setPaperOrderSearch(''); setShowOrderDropdown(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background='#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{o.orderNo} - {o.client || ''}</div>))}</div>)}
                 </div>
+                {isAdmin && (<div style={{ flex: '1', position: 'relative', minWidth: '100px' }}>
+                  <input value={paperBehalfSearch} onChange={e => { setPaperBehalfSearch(e.target.value); setShowPaperBehalfDrop(true); setPaperBehalfOf(''); setPaperIssueError('') }} onFocus={() => setShowPaperBehalfDrop(true)} onBlur={() => setTimeout(() => setShowPaperBehalfDrop(false), 300)} placeholder="Request on behalf of..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
+                  {paperBehalfOf && <span style={{ fontSize: '9px', color: '#27ae60' }}>{getFullName(paperBehalfOf)}</span>}
+                  {showPaperBehalfDrop && paperBehalfSearch && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>{allUsers.filter(u => u.username !== user.username && ((u.fullName || '').toLowerCase().includes(paperBehalfSearch.toLowerCase()) || u.username.toLowerCase().includes(paperBehalfSearch.toLowerCase()))).map(u => (<div key={u.id} onMouseDown={e => e.preventDefault()} onClick={() => { setPaperBehalfOf(u.username); setPaperBehalfSearch(u.fullName || u.username); setShowPaperBehalfDrop(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background='#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{u.fullName || u.username}</div>))}</div>)}
+                </div>)}
+                {isAdmin && (<div style={{ flex: '1', minWidth: '100px' }}>
+                  <input type="date" value={paperRequestDate} onChange={e => setPaperRequestDate(e.target.value)} title="Request Date (optional) - back date" style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
+                  <span style={{ fontSize: '9px', color: '#888' }}>Request Date (optional)</span>
+                </div>)}
                 <div style={{ flex: '1', position: 'relative', minWidth: '100px' }}>
                   <input value={paperUserSearch} onChange={e => { setPaperUserSearch(e.target.value); setShowUserDropdown(true); setPaperIssueTo(''); setPaperIssueError('') }} onFocus={() => setShowUserDropdown(true)} onBlur={() => setTimeout(() => setShowUserDropdown(false), 300)} placeholder="Request To..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
                   {paperIssueTo && <span style={{ fontSize: '9px', color: '#27ae60' }}>{getFullName(paperIssueTo)}</span>}
@@ -2903,8 +2924,9 @@ function Dashboard() {
                   if (!paperOrderNo.length || !paperIssueTo) { setPaperIssueError(!paperOrderNo.length ? 'Select Order No' : 'Select User'); return }
                   if (paperIssuing) return
                   // Pre-check: same user ka koi order already pending/issued toh nahi hai
+                  const behalfActor = (isAdmin && paperBehalfOf) ? paperBehalfOf : user.username
                   const alreadyPending = paperOrderNo.filter(on => {
-                    return paperRequests.some(r => r.orderNo === on && r.requestedBy === user.username && (r.status === 'PENDING' || r.status === 'ACCEPTED'))
+                    return paperRequests.some(r => r.orderNo === on && r.requestedBy === behalfActor && (r.status === 'PENDING' || r.status === 'ACCEPTED'))
                   })
                   if (alreadyPending.length > 0) {
                     setPaperIssueError(`Already pending/issued: ${alreadyPending.join(', ')} — duplicate request blocked`)
@@ -2912,8 +2934,8 @@ function Dashboard() {
                   }
                   setPaperIssuing(true)
                   setPaperIssueError(''); setReissueOrderNo(''); const errors = []; const success = []; let reissueON = '';
-                  for (const on of paperOrderNo) { try { await axios.post('/api/orders/paper-requests', { orderNo: on, issueTo: paperIssueTo }); success.push(on) } catch (err) { const errData = err.response?.data; if (errData?.canReissue) { reissueON = on; errors.push(errData.error + ' — Use Reissue button below') } else { errors.push(errData?.error || `${on}: Failed`) } } }
-                  if (success.length > 0) { setPaperOrderNo(prev => prev.filter(o => !success.includes(o))); setPaperIssueTo(''); setPaperOrderSearch(''); setPaperUserSearch(''); fetchPaperRequests() }
+                  for (const on of paperOrderNo) { try { await axios.post('/api/orders/paper-requests', { orderNo: on, issueTo: paperIssueTo, ...(isAdmin && paperBehalfOf ? { onBehalfOf: paperBehalfOf } : {}), ...(isAdmin && paperRequestDate ? { requestDate: paperRequestDate } : {}) }); success.push(on) } catch (err) { const errData = err.response?.data; if (errData?.canReissue) { reissueON = on; errors.push(errData.error + ' — Use Reissue button below') } else { errors.push(errData?.error || `${on}: Failed`) } } }
+                  if (success.length > 0) { setPaperOrderNo(prev => prev.filter(o => !success.includes(o))); setPaperIssueTo(''); setPaperOrderSearch(''); setPaperUserSearch(''); setPaperBehalfOf(''); setPaperBehalfSearch(''); setPaperRequestDate(''); fetchPaperRequests() }
                   if (errors.length > 0) { setPaperIssueError(errors.join(' | ')); if (reissueON) setReissueOrderNo(reissueON) } else { setPaperOrderNo([]); setPaperIssueError('') }
                   setPaperIssuing(false)
                 }} disabled={paperIssuing} style={{ padding: '6px 10px', background: paperIssuing ? '#aaa' : '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: paperIssuing ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: paperIssuing ? 0.7 : 1 }}>{paperIssuing ? 'Sending...' : 'Issue'}</button>
@@ -2928,6 +2950,15 @@ function Dashboard() {
                   <input value={returnOrderSearch} onChange={e => { setReturnOrderSearch(e.target.value); setShowReturnOrderDrop(true) }} onFocus={() => setShowReturnOrderDrop(true)} onBlur={() => setTimeout(() => setShowReturnOrderDrop(false), 300)} placeholder="Order No..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} disabled={returnOrderNo.length >= 5} />
                   {showReturnOrderDrop && returnOrderSearch && returnOrderNo.length < 5 && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)', minWidth: '300px' }}>{getIssueReturnOrders().filter(o => !returnOrderNo.includes(o.orderNo) && ((o.orderNo || '').toLowerCase().includes(returnOrderSearch.toLowerCase()) || (o.client || '').toLowerCase().includes(returnOrderSearch.toLowerCase()))).slice(0, 8).map(o => (<div key={o.id} onMouseDown={e => e.preventDefault()} onClick={() => { setReturnOrderNo([...returnOrderNo, o.orderNo]); setReturnOrderSearch(''); setShowReturnOrderDrop(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background='#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{o.orderNo} - {o.client || ''}</div>))}</div>)}
                 </div>
+                {isAdmin && (<div style={{ flex: '1', position: 'relative', minWidth: '100px' }}>
+                  <input value={returnBehalfSearch} onChange={e => { setReturnBehalfSearch(e.target.value); setShowReturnBehalfDrop(true); setReturnBehalfOf('') }} onFocus={() => setShowReturnBehalfDrop(true)} onBlur={() => setTimeout(() => setShowReturnBehalfDrop(false), 300)} placeholder="Return on behalf of..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
+                  {returnBehalfOf && <span style={{ fontSize: '9px', color: '#27ae60' }}>{getFullName(returnBehalfOf)}</span>}
+                  {showReturnBehalfDrop && returnBehalfSearch && (<div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', maxHeight: '120px', overflow: 'auto', zIndex: 50, boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>{allUsers.filter(u => u.username !== user.username && ((u.fullName || '').toLowerCase().includes(returnBehalfSearch.toLowerCase()) || u.username.toLowerCase().includes(returnBehalfSearch.toLowerCase()))).map(u => (<div key={u.id} onMouseDown={e => e.preventDefault()} onClick={() => { setReturnBehalfOf(u.username); setReturnBehalfSearch(u.fullName || u.username); setShowReturnBehalfDrop(false) }} style={{ padding: '4px 8px', cursor: 'pointer', fontSize: '10px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background='#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{u.fullName || u.username}</div>))}</div>)}
+                </div>)}
+                {isAdmin && (<div style={{ flex: '1', minWidth: '100px' }}>
+                  <input type="date" value={returnRequestDate} onChange={e => setReturnRequestDate(e.target.value)} title="Request Date (optional) - back date" style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
+                  <span style={{ fontSize: '9px', color: '#888' }}>Request Date (optional)</span>
+                </div>)}
                 <div style={{ flex: '1', position: 'relative', minWidth: '100px' }}>
                   <input value={returnUserSearch} onChange={e => { setReturnUserSearch(e.target.value); setShowReturnUserDrop(true); setReturnIssueTo('') }} onFocus={() => setShowReturnUserDrop(true)} onBlur={() => setTimeout(() => setShowReturnUserDrop(false), 300)} placeholder="Return To..." style={{ padding: '6px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
                   {returnIssueTo && <span style={{ fontSize: '9px', color: '#27ae60' }}>{getFullName(returnIssueTo)}</span>}
@@ -2935,6 +2966,7 @@ function Dashboard() {
                 </div>
                 <button onClick={async () => {
                   if (!returnOrderNo.length || !returnIssueTo) { alert('Select Order & User'); return }
+                  const actor = (isAdmin && returnBehalfOf) ? returnBehalfOf : user.username
                   const errors = []
                   const success = []
                   for (const on of returnOrderNo) {
@@ -2944,18 +2976,18 @@ function Dashboard() {
                       errors.push(`${on}: Not currently issued to anyone`)
                       continue
                     }
-                    if (accepted.issueTo !== user.username && accepted.requestedBy !== user.username) {
+                    if (accepted.issueTo !== actor && accepted.requestedBy !== actor) {
                       errors.push(`${on}: Paper is with ${getFullName(accepted.requestedBy || accepted.issueTo)}, only they can return`)
                       continue
                     }
                     try {
-                      await axios.post('/api/orders/return-requests', { orderNo: on, returnTo: returnIssueTo })
+                      await axios.post('/api/orders/return-requests', { orderNo: on, returnTo: returnIssueTo, ...(isAdmin && returnBehalfOf ? { onBehalfOf: returnBehalfOf } : {}), ...(isAdmin && returnRequestDate ? { requestDate: returnRequestDate } : {}) })
                       success.push(on)
                     } catch (err) {
                       errors.push(err.response?.data?.error || `${on}: Failed`)
                     }
                   }
-                  if (success.length > 0) { setReturnOrderNo([]); setReturnIssueTo(''); setReturnOrderSearch(''); setReturnUserSearch(''); fetchPaperRequests() }
+                  if (success.length > 0) { setReturnOrderNo([]); setReturnIssueTo(''); setReturnOrderSearch(''); setReturnUserSearch(''); setReturnBehalfOf(''); setReturnBehalfSearch(''); setReturnRequestDate(''); fetchPaperRequests() }
                   if (errors.length > 0) alert(errors.join('\n'))
                   else alert('Return submitted!')
                 }} style={{ padding: '6px 10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}>Return</button>
@@ -2973,7 +3005,7 @@ function Dashboard() {
             {myPaperRequests.length > 0 && (<div style={{ ...styles.reportSection, marginBottom: 0, padding: '10px', border: '2px solid #f39c12' }}><h4 style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700', color: '#f39c12' }}>Issue Requests ({myPaperRequests.length})</h4><table style={{ ...styles.table, fontSize: '10px' }}><thead><tr><th style={styles.th}>Order</th><th style={styles.th}>By</th><th style={styles.th}>Action</th></tr></thead><tbody>{myPaperRequests.map(r => (<tr key={r.id}><td style={styles.td}>{r.orderNo}</td><td style={styles.td}>{getFullName(r.requestedBy)}</td><td style={{...styles.td,whiteSpace:'nowrap'}}><button onClick={async()=>{await axios.post(`/api/orders/paper-requests/${r.id}/accept`);fetchPaperRequests();fetchOrders();alert('Accepted!')}} style={{...styles.tblBtn,background:'#27ae60'}}>Accept</button><button onClick={()=>{setRejectModal({id:r.id,type:'paper',orderNo:r.orderNo});setRejectReason('')}} style={{...styles.tblBtn,background:'#e74c3c'}}>Reject</button></td></tr>))}</tbody></table></div>)}
             {myReturnRequests.length > 0 && (<div style={{ ...styles.reportSection, marginBottom: 0, padding: '10px', border: '2px solid #27ae60' }}><h4 style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700', color: '#27ae60' }}>Return Requests ({myReturnRequests.length})</h4><table style={{ ...styles.table, fontSize: '10px' }}><thead><tr><th style={styles.th}>Order</th><th style={styles.th}>By</th><th style={styles.th}>Action</th></tr></thead><tbody>{myReturnRequests.map(r => (<tr key={r.id}><td style={styles.td}>{r.orderNo}</td><td style={styles.td}>{r.requestedBy}</td><td style={{...styles.td,whiteSpace:'nowrap'}}><button onClick={async()=>{await axios.post(`/api/orders/return-requests/${r.id}/accept`);fetchPaperRequests();fetchOrders();alert('Returned!')}} style={{...styles.tblBtn,background:'#27ae60'}}>Accept</button><button onClick={()=>{setRejectModal({id:r.id,type:'return',orderNo:r.orderNo});setRejectReason('')}} style={{...styles.tblBtn,background:'#e74c3c'}}>Reject</button></td></tr>))}</tbody></table></div>)}
           </div>)}
-          <div style={{ ...styles.reportSection, padding: '10px' }}><h4 style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700' }}>All Requests</h4><div style={styles.tableWrap}><table style={{ ...styles.table, fontSize: '10px' }}><thead><tr><th style={styles.th}>#</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th><th style={styles.th}>Issue Date</th><th style={styles.th}>Requested By</th><th style={styles.th}>Issued By</th><th style={styles.th}>Status</th><th style={styles.th}>Return Date</th><th style={styles.th}>Return By</th><th style={styles.th}>Return To</th><th style={styles.th}>Rejection Remark</th><th style={styles.th}>Action</th></tr></thead><tbody>{paperRequests.filter(r => !paperRequestSearch.trim() || (r.orderNo || '').toLowerCase().includes(paperRequestSearch.toLowerCase()) || (r.client || '').toLowerCase().includes(paperRequestSearch.toLowerCase())).map((r, idx) => { const ret = returnRequests.find(rt => rt.orderNo === r.orderNo); return (<tr key={r.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}><td style={styles.td}>{idx + 1}</td><td style={styles.td}>{r.orderNo}</td><td style={styles.td}>{r.client}</td><td style={styles.td}>{r.createdAt ? formatDate(r.createdAt.split('T')[0]) : ''}</td><td style={styles.td}>{getFullName(r.requestedBy)}</td><td style={styles.td}>{getFullName(r.issueTo)}</td><td style={{ ...styles.td, fontWeight: '600', color: r.status === 'PENDING' ? '#f39c12' : r.status === 'ACCEPTED' ? '#27ae60' : r.status === 'ISSUE' ? '#e74c3c' : (r.status||'').startsWith('REROUTED') ? '#8e44ad' : '#e74c3c' }}>{r.status}{ret ? ` / ${ret.status}` : ''}</td><td style={styles.td}>{ret ? (ret.createdAt ? formatDate(ret.createdAt.split('T')[0]) : '') : '-'}</td><td style={styles.td}>{ret ? getFullName(ret.requestedBy) : '-'}</td><td style={styles.td}>{ret ? getFullName(ret.returnTo) : '-'}</td><td style={styles.td}>{(() => { const parts = []; if (r.rejectRemarks) parts.push(<span key='i' style={{color:'#8e44ad'}}>ISSUE (R): {r.rejectRemarks}</span>); if (ret && ret.rejectRemarks) parts.push(<span key='r' style={{color:'#e74c3c'}}>RETURN (R): {ret.rejectRemarks}</span>); return parts.length > 0 ? parts.reduce((a,b) => [a, <br key='br'/>, b]) : '-' })()}</td><td style={{...styles.td,whiteSpace:'nowrap'}}>{r.status==='PENDING'&&(r.requestedBy===user.username||isAdmin)&&<button onClick={()=>{setEditRequestId(r.id);setEditRequestType('issue');setEditRequestUser('');setEditRequestSearch('')}} style={{...styles.tblBtn,background:'#2980b9',fontSize:'9px'}}>Change</button>}{ret&&ret.status==='PENDING'&&(ret.requestedBy===user.username||isAdmin)&&<button onClick={()=>{setEditRequestId(ret.id);setEditRequestType('return');setEditRequestUser('');setEditRequestSearch('')}} style={{...styles.tblBtn,background:'#27ae60',fontSize:'9px'}}>Change Ret</button>}{isAdmin&&<button onClick={async()=>{if(window.confirm(`Delete paper request for ${r.orderNo}?`)){try{await axios.delete(`/api/orders/paper-requests/${r.id}`);fetchPaperRequests();alert('Deleted!')}catch(err){alert(err.response?.data?.error||'Failed')}}}} style={{...styles.tblBtn,background:'#e74c3c',fontSize:'9px'}}>Del</button>}</td></tr>) })}</tbody></table>{paperRequests.length === 0 && <p style={{ textAlign: 'center', padding: '15px', color: '#888', fontSize: '11px' }}>No requests yet</p>}</div></div>
+          <div style={{ ...styles.reportSection, padding: '10px' }}><h4 style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700' }}>All Requests</h4><div style={styles.tableWrap}><table style={{ ...styles.table, fontSize: '10px' }}><thead><tr><th style={styles.th}>#</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th><th style={styles.th}>Issue Date</th><th style={styles.th}>Requested By</th><th style={styles.th}>Issued By</th><th style={styles.th}>Status</th><th style={styles.th}>Return Date</th><th style={styles.th}>Return By</th><th style={styles.th}>Return To</th><th style={styles.th}>Rejection Remark</th><th style={styles.th}>Action</th></tr></thead><tbody>{paperRequests.filter(r => !paperRequestSearch.trim() || (r.orderNo || '').toLowerCase().includes(paperRequestSearch.toLowerCase()) || (r.client || '').toLowerCase().includes(paperRequestSearch.toLowerCase())).map((r, idx) => { const ret = returnRequests.find(rt => rt.orderNo === r.orderNo); return (<tr key={r.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}><td style={styles.td}>{idx + 1}</td><td style={styles.td}>{r.orderNo}</td><td style={styles.td}>{r.client}</td><td style={styles.td}>{r.createdAt ? formatDate(r.createdAt.split('T')[0]) : ''}</td><td style={styles.td}>{requesterLabel(r)}</td><td style={styles.td}>{getFullName(r.issueTo)}</td><td style={{ ...styles.td, fontWeight: '600', color: r.status === 'PENDING' ? '#f39c12' : r.status === 'ACCEPTED' ? '#27ae60' : r.status === 'ISSUE' ? '#e74c3c' : (r.status||'').startsWith('REROUTED') ? '#8e44ad' : '#e74c3c' }}>{r.status}{ret ? ` / ${ret.status}` : ''}</td><td style={styles.td}>{ret ? (ret.createdAt ? formatDate(ret.createdAt.split('T')[0]) : '') : '-'}</td><td style={styles.td}>{ret ? getFullName(ret.requestedBy) : '-'}</td><td style={styles.td}>{ret ? getFullName(ret.returnTo) : '-'}</td><td style={styles.td}>{(() => { const parts = []; if (r.rejectRemarks) parts.push(<span key='i' style={{color:'#8e44ad'}}>ISSUE (R): {r.rejectRemarks}</span>); if (ret && ret.rejectRemarks) parts.push(<span key='r' style={{color:'#e74c3c'}}>RETURN (R): {ret.rejectRemarks}</span>); return parts.length > 0 ? parts.reduce((a,b) => [a, <br key='br'/>, b]) : '-' })()}</td><td style={{...styles.td,whiteSpace:'nowrap'}}>{r.status==='PENDING'&&(r.requestedBy===user.username||isAdmin)&&<button onClick={()=>{setEditRequestId(r.id);setEditRequestType('issue');setEditRequestUser('');setEditRequestSearch('')}} style={{...styles.tblBtn,background:'#2980b9',fontSize:'9px'}}>Change</button>}{ret&&ret.status==='PENDING'&&(ret.requestedBy===user.username||isAdmin)&&<button onClick={()=>{setEditRequestId(ret.id);setEditRequestType('return');setEditRequestUser('');setEditRequestSearch('')}} style={{...styles.tblBtn,background:'#27ae60',fontSize:'9px'}}>Change Ret</button>}{isAdmin&&<button onClick={async()=>{if(window.confirm(`Delete paper request for ${r.orderNo}?`)){try{await axios.delete(`/api/orders/paper-requests/${r.id}`);fetchPaperRequests();alert('Deleted!')}catch(err){alert(err.response?.data?.error||'Failed')}}}} style={{...styles.tblBtn,background:'#e74c3c',fontSize:'9px'}}>Del</button>}</td></tr>) })}</tbody></table>{paperRequests.length === 0 && <p style={{ textAlign: 'center', padding: '15px', color: '#888', fontSize: '11px' }}>No requests yet</p>}</div></div>
 
           {/* Edit Request User Modal */}
           {editRequestId && (
