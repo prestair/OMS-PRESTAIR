@@ -1,0 +1,22 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "id": "reminders-reassign-signal-gap",
+      "severity": "non-blocking",
+      "confidence": "possible",
+      "area": "P3 reminders signal",
+      "summary": "The reminders signal {count,maxId,maxResponseDate} does not reliably detect a reassign: PUT /api/orders/reminders/:id/reassign nulls response_date and responded_by and changes neither count nor maxId, so unless the reassigned row held the global max(response_date) the key is unchanged and another user's passively-open reminders tab won't refetch until the next detectable change or manual refresh. Non-blocking because the actor sees it immediately via a direct fetchAllReminders(), and the response-notification path (checkNewResponses) is unaffected since responses always advance max(response_date). The plan comment 'maxResponseDate catches responses/reassigns' overstates the reassign case.",
+      "recommendation": "Add a max-last-write term to the reminders signal (e.g. max(id) is insufficient; a max(updated-at) or max(date) term) or explicitly document the reassign staleness bound."
+    },
+    {
+      "id": "orders-inplace-edit-staleness",
+      "severity": "informational",
+      "confidence": "confirmed",
+      "area": "P3 orders signal",
+      "summary": "The orders signal {count,maxId} cannot detect in-place edits that change neither row count nor max id. Bounded to ~10 min by the every-5th-tick safety-net full refetch, matching the existing TTL_ORDERS 10-min cache window; no regression versus current behavior. By design.",
+      "recommendation": "None required; behavior is intentional and documented in the impact doc."
+    }
+  ],
+  "reviewDoc": "d:\\OMS PRESTAIR SYSTEMS LLP\\oms-dashboard/.agents/tasks/egress-review.md"
+}

@@ -1,1 +1,24 @@
-{"verdict":"APPROVED","findings":[],"reviewDoc":"no-findings"}
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "id": 1,
+      "severity": "non-blocking",
+      "label": "Static date-header chevron",
+      "description": "Date section headers always show ▼ regardless of state. Dates are not collapsible; clicking the header does nothing. Fix: add date-level collapse state or remove ▼ from date headers and keep the toggle only on IP rows."
+    },
+    {
+      "id": 2,
+      "severity": "non-blocking",
+      "label": "IST date / UTC bulk-delete mismatch",
+      "description": "Logins in the first 5h30m of an IST day (before midnight UTC) are displayed under that IST date but fall outside the UTC window the bulk-delete endpoint sends to Supabase. Those rows survive a 'Del All' on their displayed date. Pre-existing tension between IST display and UTC storage; no code fix required but worth documenting."
+    },
+    {
+      "id": 3,
+      "severity": "non-blocking",
+      "label": "Excel filename uses UTC date",
+      "description": "new Date().toISOString().slice(0,10) gives the UTC date. After 18:30 IST the filename will show tomorrow's date. Fix: derive the filename date in IST."
+    }
+  ],
+  "reviewDoc": "d:\\OMS PRESTAIR SYSTEMS LLP\\oms-dashboard\\.agents\\tasks\\login-activity-review.md"
+}

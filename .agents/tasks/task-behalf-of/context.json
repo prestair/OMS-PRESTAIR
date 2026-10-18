@@ -1,0 +1,23 @@
+{
+  "project_type": "React (Vite) SPA + Express/Vercel-serverless backend + Supabase (Postgres). Also packaged as an Electron app.",
+  "language": "JavaScript (ESM, JSX)",
+  "build_system": "Vite 5. Scripts in package.json: `npm run build` = `vite build`. Backend files are plain Node ESM, not bundled; validate with `node --check`.",
+  "test_framework": "None configured. No test runner in package.json; there is a tests/ directory but no npm test script. Verification is build + node --check only.",
+  "build_command": "npm run build",
+  "test_command": "node --check api/index.js; node --check api/cron-daily-report.js; node --check server/routes/orders.js",
+  "verification_instructions": "From project root d:\\OMS PRESTAIR SYSTEMS LLP\\oms-dashboard run: 1) `npm run build` (Vite build must succeed, exits 0); 2) `node --check` on api/index.js, api/cron-daily-report.js, server/routes/orders.js (all exit 0). Baseline confirmed green before changes.",
+  "snapshot_or_generated_files": "Vite build writes to dist/. Not committed as part of this task's logic; do not hand-edit dist/. No other generated/checked-in snapshots relevant here.",
+  "environment_constraints": "Windows + PowerShell. api/index.js is the ONLY production backend (Vercel). server/routes/orders.js is the local-dev/Electron mirror and MUST be kept in sync. Supabase schema change (placed_by_admin) must be applied MANUALLY by the user via api/behalf-of-migration.sql in the Supabase SQL editor — the workflow MUST NOT run it. Do not touch unrelated features (orders, payments, filters, rights, egress, login, stale-list).",
+  "contribution_requirements": "No AGENTS.md / CONTRIBUTING / .kiro steering present. Convention: match the existing minified single-line handler style in api/index.js; match the readable multi-line style in server/routes/orders.js. All work on main, no worktree. Commit locally; never push.",
+  "key_patterns": "Admin check: api/index.js uses `req.user.role === 'admin'`; Dashboard.jsx uses `const isAdmin = user.role === 'admin'` (line 193). requested_by = the user who holds the paper and can return it; issue_to/return_to = counterparty. /all GET handlers map snake_case DB columns to camelCase (requestedBy, issueTo, returnTo). User autocompletes in Dashboard.jsx filter `allUsers` excluding `user.username` and resolve names via `getFullName(username)`. Recent fix to preserve: return pre-check shows holder as `getFullName(accepted.requestedBy || accepted.issueTo)`.",
+  "relevant_files": [
+    "api/index.js — POST /api/orders/paper-requests (line 339), POST /api/orders/return-requests (line 351), /all mappers (lines 337 paper, 350 return). Minified single-line handlers.",
+    "server/routes/orders.js — paper POST (~258), return POST (~390), mapPaperReq (~739), return /all inline mapper (~380). Readable multi-line.",
+    "server/setupSupabase.js — printSQL() CREATE TABLE for paper_requests and return_requests.",
+    "api/cron-daily-report.js — 'Paper Issue Report' sheet paperData map (~109); requester cell `'Requested By': r.requested_by || ''` (line 112).",
+    "src/pages/Dashboard.jsx — isAdmin line 193; state block 128-146; Issue form ~2890; Return form ~2923; All Requests table ~2975; ISSUED TO status strings 1217/1431/2711; OR export Requested By ~1238; OR print Requested By ~1470; OR on-screen Requested By ~2776; return pre-check inside Return button handler ~2930.",
+    "api/behalf-of-migration.sql — NEW FILE to create (both ALTER ... ADD COLUMN IF NOT EXISTS). Flag for manual Supabase run; do not execute.",
+    ".agents/tasks/behalf-of-plan.md — the full ordered plan this task is derived from."
+  ],
+  "directory_structure": "api/ = Vercel serverless backend (index.js production, cron-daily-report.js daily email). server/ = local/Electron Express server (routes/orders.js mirror, setupSupabase.js schema). src/pages/Dashboard.jsx = the entire dashboard UI incl. the paperIssue tab. portable-app/ and release/ are packaged copies — do NOT edit them."
+}

@@ -1,0 +1,9 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    "Non-blocking: api/new-rights-migration.sql (idempotent ALTERs adding can_edit_receipt to users and groups) is written but intentionally not run by this task. It must be executed once in the Supabase SQL Editor before non-admins can be granted the right in production; until then the column is absent and the right silently falls back to false. Admins are unaffected (every gate short-circuits on role).",
+    "Non-blocking / out of scope: userHasRight resolves the right via a fresh DB lookup (no stale-flag risk), but still reads req.user.role==='admin' from the JWT, so a revoked-admin's unexpired token retains admin access. This is the pre-existing system-wide pattern (matches the can_delete precedent) and is not introduced by this change.",
+    "Informational: the task brief named a second new right canEditCompletedOrder/can_edit_completed_order. It was intentionally dropped per the plan's documented 'Option 2' correction and the user's choice; completed/deleted-order edit instead reuses the EXISTING can_edit_completed right, with the only change being removal of adminOnly on PUT /orders/deleted/:id/update. Verified absent from the entire codebase. The existing can_edit_completed right is unchanged and not repurposed."
+  ],
+  "reviewDoc": "d:\\OMS PRESTAIR SYSTEMS LLP\\oms-dashboard\\.agents\\tasks\\new-rights-review.md"
+}

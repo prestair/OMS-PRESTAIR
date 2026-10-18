@@ -1,0 +1,11 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "non-blocking",
+      "label": "Signal query scales with row count",
+      "detail": "GET /api/orders/signal now selects every order's id to compute sumId in JS, instead of a constant-cost count(head) + 1-row max. The response to the client is still three integers, but the Supabase-side read grows linearly with the orders table. Negligible at current scale; if the table grows large, move the aggregation into a Postgres RPC (select count(*), max(id), sum(id)) to keep the read constant-size."
+    }
+  ],
+  "reviewDoc": "d:\\OMS PRESTAIR SYSTEMS LLP\\oms-dashboard\\.agents\\tasks\\stale-order-fix-review.md"
+}

@@ -1,0 +1,12 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "label": "(With Image) can't match pre-upload deletions",
+      "severity": "informational",
+      "confidence": "confirmed",
+      "detail": "On the Completed tab, orders deleted before a proof image was uploaded lack paymentProofUrl/auditProofUrl in their delete-time snapshot, so the (With Image) filter will not surface them. Documented and expected per the plan; the truthy check correctly excludes them. No action required."
+    }
+  ],
+  "reviewDoc": "d:\\OMS PRESTAIR SYSTEMS LLP\\oms-dashboard\\.agents\\tasks\\filter-changes-review.md"
+}

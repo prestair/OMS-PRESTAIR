@@ -1,0 +1,18 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "label": "Inheritance path exceeds the brief",
+      "severity": "non-blocking",
+      "confidence": "confirmed",
+      "detail": "The brief specified unreliable -> always null city; the code instead inherits the most recent same-IP reliable location and shows it muted as '(same network)'. Deliberate, documented in the commit, and aligned with the original user intent (same office IP resolving to one precise place). Confirm this is the intended product behaviour rather than the strict null-city spec."
+    },
+    {
+      "label": "Migration not applied",
+      "severity": "non-blocking",
+      "confidence": "confirmed",
+      "detail": "New accuracy/location_inherited columns will not populate until api/login-accuracy-migration.sql is run manually in Supabase. Idempotent (ADD COLUMN IF NOT EXISTS) and called out in the commit; ensure it runs before deploy."
+    }
+  ],
+  "reviewDoc": "d:\\OMS PRESTAIR SYSTEMS LLP\\oms-dashboard/.agents/tasks/location-accuracy-review.md"
+}

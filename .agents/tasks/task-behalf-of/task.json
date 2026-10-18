@@ -1,0 +1,7 @@
+{
+  "task_id": "task-behalf-of",
+  "task_description": "Add admin-only 'request on behalf of another user' to Paper Issue and Return flows. Admin picks a behalf user (becomes effective requested_by / paper holder) plus the normal target. Record the placing admin in a new nullable column placed_by_admin on both paper_requests and return_requests. Show '<behalf full name> (admin)' in the report screen, OR export/print, and the daily Excel. Non-admin behavior unchanged; server ignores onBehalfOf from non-admins. Mirror backend changes in api/index.js (production) and server/routes/orders.js.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

@@ -1,0 +1,10 @@
+{
+  "verdict": "APPROVED",
+  "findings": [],
+  "reviewDoc": ".agents/tasks/2026-10-13-185058-review.md",
+  "notes": [
+    "Non-blocking: dropping payments_order_id_fkey shifts referential integrity entirely to application code (move/restore/permanent-delete). All three paths verified consistent; any future payment-touching endpoint must keep order_id in sync.",
+    "Non-blocking: portable-app/server/* mirrors were intentionally left out of scope and still delete payments on move. Port the same changes if that deployment is ever used.",
+    "Non-blocking: an unrelated completed import/export field-set expansion (commit f72d0ef, incl. installation<-'Seasonal Discount') is bundled into the same branch."
+  ]
+}

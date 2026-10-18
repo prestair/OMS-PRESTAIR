@@ -342,10 +342,13 @@ app.delete('/api/users/login-logs/bulk', authenticate, adminOnly, async (req, re
   try {
     const { ipAddress, date } = req.body
     if (!ipAddress || !date) return res.status(400).json({ error: 'ipAddress and date required' })
+    // date is YYYY-MM-DD in IST. Convert IST day boundaries to UTC (IST = UTC+5:30).
+    const istStart = new Date(date + 'T00:00:00+05:30').toISOString()
+    const istEnd   = new Date(date + 'T23:59:59.999+05:30').toISOString()
     const { error } = await supabase.from('login_logs').delete()
       .eq('ip_address', ipAddress)
-      .gte('logged_in_at', date + 'T00:00:00.000Z')
-      .lte('logged_in_at', date + 'T23:59:59.999Z')
+      .gte('logged_in_at', istStart)
+      .lte('logged_in_at', istEnd)
     if (error) return res.status(400).json({ error: error.message })
     res.json({ deleted: true })
   } catch(e) { res.status(500).json({ error: e.message }) }

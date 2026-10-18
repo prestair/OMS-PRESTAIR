@@ -170,7 +170,7 @@ function UserManagement() {
       ws['!cols'] = [6,12,10,14,18,8,18,12,20,22,10,40,22].map(w => ({ wch: w }))
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Login Activity')
-      const today = new Date().toISOString().slice(0,10)
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
       XLSX.writeFile(wb, `OMS_Login_Activity_${today}.xlsx`)
     } catch(e) { alert('Excel export failed: ' + e.message) }
   }

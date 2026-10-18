@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_1o5luxtgljhTG0hlM9Bx8sgwE9xD",
+      "name": "oms-prestair",
+      "directory": ".",
+      "orgId": "team_q9y6PjfFcwpmTLC1vR3eBQ1N"
+    }
+  ]
+}
