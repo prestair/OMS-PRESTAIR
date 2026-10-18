@@ -33,13 +33,18 @@ let XLSX
 const C = {
   // Sheet header rows
   GREEN_HDR:  'D6F5D6', // Active Orders header  — light green
-  ORANGE_HDR: 'FFE5CC', // Completed Orders header — light orange
+  ORANGE_HDR: 'FFE5CC', // Completed Orders header — light orange (unused now)
+  RED_HDR:    'FFB3B3', // Completed Orders header — light red
   BLUE_HDR:   'D0E8FF', // Paper Issue header     — light blue
   PURPLE_HDR: 'EDE0FF', // Reminders header       — light purple
 
   // Alternating data rows
   ROW_ALT:    'F7F7F7', // very light grey
   ROW_EVEN:   'FFFFFF', // white
+
+  // Completed Orders alternating orange shades
+  COMP_ROW1:  'FFF3E6', // light orange
+  COMP_ROW2:  'FFE0B2', // slightly deeper orange
 
   // Accent fills
   AMOUNT_POS: 'E8F8E8', // light green for positive balance
@@ -131,11 +136,14 @@ const COL_WIDTHS = {
 }
 
 // Apply full formatting — all cells center+wrap, headers bold with hdrFill
-function applySheetStyle(ws, data, hdrFill) {
+// altRows: optional [evenFill, oddFill] to override default white/grey alternation
+function applySheetStyle(ws, data, hdrFill, altRows) {
   if (!data || !data.length) return
   const headers = Object.keys(data[0])
   const numRows = data.length
   const numCols = headers.length
+  const rowEven = altRows ? altRows[0] : C.ROW_EVEN
+  const rowOdd  = altRows ? altRows[1] : C.ROW_ALT
 
   // Fixed column widths from lookup table, fallback to 12
   ws['!cols'] = headers.map(key => ({ wch: COL_WIDTHS[key] || 12 }))
@@ -153,7 +161,7 @@ function applySheetStyle(ws, data, hdrFill) {
 
   // Data rows — all center + wrap
   for (let r = 0; r < numRows; r++) {
-    const rowFill = r % 2 === 0 ? C.ROW_EVEN : C.ROW_ALT
+    const rowFill = r % 2 === 0 ? rowEven : rowOdd
     for (let c = 0; c < numCols; c++) {
       const ref = XLSX.utils.encode_cell({ r: r + 1, c })
       if (!ws[ref]) ws[ref] = { v: '', t: 's' }
@@ -322,7 +330,7 @@ module.exports = async (req, res) => {
     })
 
     const ws2 = XLSX.utils.json_to_sheet(completedData)
-    applySheetStyle(ws2, completedData, C.ORANGE_HDR)
+    applySheetStyle(ws2, completedData, C.RED_HDR, [C.COMP_ROW1, C.COMP_ROW2])
     XLSX.utils.book_append_sheet(wb, ws2, 'Completed Orders')
 
     // -----------------------------------------------------------------------
