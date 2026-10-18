@@ -191,8 +191,9 @@ app.post('/api/auth/login', async (req, res) => {
         const normalised = clientIp.toLowerCase().trim()
         const isAllowed = allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
         if (!isAllowed) {
-          // Fire-and-forget alert — do NOT await, wrap in try/catch
-          try { sendUnauthorisedLoginAlert(clientIp, user.username) } catch {}
+          // Await the alert before returning — Vercel kills the function as soon as res is sent,
+          // so fire-and-forget emails never complete on serverless.
+          await sendUnauthorisedLoginAlert(clientIp, user.username)
           return res.status(403).json({ error: 'Login not allowed from this IP address.' })
         }
       }

@@ -160,7 +160,7 @@ function UserManagement() {
           makeCell(locationStr, { fill: rowFill }),
           makeCell(accStr, { fill: rowFill }),
           makeCell(mapLink, { fill: rowFill, font: { color: { rgb: '2980B9' } } }),
-          makeCell(log.logged_in_at || '', { fill: rowFill })
+          makeCell(dt ? dt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : (log.logged_in_at || ''), { fill: rowFill })
         ]
       })
       const ws = XLSX.utils.aoa_to_sheet([
