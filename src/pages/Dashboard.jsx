@@ -105,6 +105,11 @@ function Dashboard() {
   const [showReminderForm, setShowReminderForm] = useState(null)
   const [showReminderPopup, setShowReminderPopup] = useState(true)
   const [paperIssuePopup, setPaperIssuePopup] = useState([])
+  const [showAuthorisedIPs, setShowAuthorisedIPs] = useState(false)
+  const [authorisedIPs, setAuthorisedIPs] = useState([])
+  const [authorisedIPsLoading, setAuthorisedIPsLoading] = useState(false)
+  const [authorisedIPForm, setAuthorisedIPForm] = useState({ ipAddress: '', label: '' })
+  const [authorisedIPError, setAuthorisedIPError] = useState('')
   const [activeTab, setActiveTab] = useState(() => {
     return sessionStorage.getItem('oms_activeTab') || 'active'
   })
@@ -594,6 +599,18 @@ function Dashboard() {
     } catch (err) {
       if (!axios.isCancel(err)) console.error(err)
       return false
+    }
+  }
+
+  const fetchAuthorisedIPs = async () => {
+    setAuthorisedIPsLoading(true)
+    try {
+      const res = await axios.get('/api/authorised-ips')
+      setAuthorisedIPs(res.data)
+    } catch (err) {
+      setAuthorisedIPError(err.response?.data?.error || 'Failed to load')
+    } finally {
+      setAuthorisedIPsLoading(false)
     }
   }
 
@@ -1784,6 +1801,7 @@ function Dashboard() {
           {isAdmin && <button onClick={() => navigate('/users')} style={styles.headerBtn}>Manage Users</button>}
           {isAdmin && <button onClick={async () => { if (window.confirm('Send daily report email now?')) { try { const res = await axios.get('/api/cron-daily-report'); alert('Report sent to agm.prestairsystem@gmail.com') } catch(e) { alert('Error: ' + (e.response?.data?.error || e.message)) } } }} style={{ ...styles.headerBtn, background: '#27ae60' }}>Send Report</button>}
           {isAdmin && <button onClick={async () => { if (window.confirm('Force refresh ALL users now? Everyone will auto-reload within a minute.')) { try { const res = await axios.post('/api/force-refresh'); localStorage.setItem('oms_app_version', String(res.data?.version || '')); alert('Done! All users will refresh within ~1 minute.'); setTimeout(() => window.location.reload(true), 800) } catch(e) { alert('Error: ' + (e.response?.data?.error || e.message)) } } }} style={{ ...styles.headerBtn, background: '#8e44ad' }}>Force Refresh All</button>}
+          {isAdmin && <button onClick={() => { setShowAuthorisedIPs(true); fetchAuthorisedIPs() }} style={{ ...styles.headerBtn, background: '#16a085' }}>Authorised IP</button>}
           <button onClick={logout} style={{ ...styles.headerBtn, background: '#e74c3c' }}>Logout</button>
         </div>
       </header>
@@ -3353,6 +3371,138 @@ function Dashboard() {
               <button onClick={() => { setImportDuplicates(null); setPendingImport(null) }} style={styles.cancelBtn}>Cancel</button>
               <button onClick={confirmImportOverwrite} style={styles.dangerBtn}>Overwrite All</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Authorised IP Management Modal */}
+      {showAuthorisedIPs && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',
+                     display:'flex',justifyContent:'center',alignItems:'center',zIndex:1000}}
+             onClick={() => setShowAuthorisedIPs(false)}>
+          <div style={{background:'#1a1a2e',color:'#fff',borderRadius:'10px',padding:'24px',
+                       maxWidth:'700px',width:'95%',maxHeight:'85vh',overflow:'auto'}}
+               onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+              <h3 style={{margin:0,fontSize:'16px',fontWeight:'700'}}>Authorised IP Management</h3>
+              <button onClick={() => setShowAuthorisedIPs(false)}
+                      style={{background:'none',border:'none',fontSize:'20px',cursor:'pointer',
+                              fontWeight:'700',color:'#fff'}}>✕</button>
+            </div>
+
+            {/* Info */}
+            <p style={{margin:'0 0 16px',fontSize:'12px',color:'#aaa'}}>
+              When this list is empty, logins from all IPs are allowed.
+            </p>
+
+            {/* Add IP Form */}
+            <div style={{display:'flex',gap:'8px',marginBottom:'16px',flexWrap:'wrap',
+                         background:'#0d0d1a',padding:'12px',borderRadius:'8px'}}>
+              <input
+                value={authorisedIPForm.ipAddress}
+                onChange={e => setAuthorisedIPForm(f => ({ ...f, ipAddress: e.target.value }))}
+                placeholder="e.g. 192.168.1.1"
+                required
+                style={{flex:'1',minWidth:'160px',padding:'8px 10px',border:'1px solid #333',
+                        borderRadius:'5px',background:'#1a1a2e',color:'#fff',fontSize:'12px'}}
+              />
+              <input
+                value={authorisedIPForm.label}
+                onChange={e => setAuthorisedIPForm(f => ({ ...f, label: e.target.value }))}
+                placeholder="e.g. Office (optional)"
+                style={{flex:'1',minWidth:'140px',padding:'8px 10px',border:'1px solid #333',
+                        borderRadius:'5px',background:'#1a1a2e',color:'#fff',fontSize:'12px'}}
+              />
+              <button
+                onClick={async () => {
+                  setAuthorisedIPError('')
+                  if (!authorisedIPForm.ipAddress.trim()) {
+                    setAuthorisedIPError('IP address is required')
+                    return
+                  }
+                  try {
+                    await axios.post('/api/authorised-ips', {
+                      ipAddress: authorisedIPForm.ipAddress.trim(),
+                      label: authorisedIPForm.label.trim()
+                    })
+                    setAuthorisedIPForm({ ipAddress: '', label: '' })
+                    fetchAuthorisedIPs()
+                  } catch (err) {
+                    setAuthorisedIPError(err.response?.data?.error || 'Failed to add IP')
+                  }
+                }}
+                style={{padding:'8px 16px',background:'#16a085',color:'#fff',border:'none',
+                        borderRadius:'5px',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>
+                Add
+              </button>
+            </div>
+            {authorisedIPError && (
+              <p style={{margin:'0 0 12px',color:'#e74c3c',fontSize:'12px'}}>{authorisedIPError}</p>
+            )}
+
+            {/* IP Table */}
+            {authorisedIPsLoading ? (
+              <p style={{textAlign:'center',color:'#aaa',fontSize:'12px',padding:'20px'}}>Loading...</p>
+            ) : authorisedIPs.length === 0 ? (
+              <p style={{textAlign:'center',color:'#aaa',fontSize:'12px',padding:'20px'}}>
+                No IPs added yet. All logins are currently allowed.
+              </p>
+            ) : (
+              <div style={{overflowX:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:'12px'}}>
+                  <thead>
+                    <tr>
+                      {['#','IP Address','Label','Added By','Added On','Action'].map(h => (
+                        <th key={h} style={{padding:'8px 10px',background:'#0d0d1a',color:'#fff',
+                                           fontWeight:'600',textAlign:'left',whiteSpace:'nowrap'}}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {authorisedIPs.map((row, idx) => (
+                      <tr key={row.id} style={{background: idx % 2 === 0 ? '#111126' : '#1a1a2e'}}>
+                        <td style={{padding:'7px 10px',borderBottom:'1px solid #2a2a3e'}}>{idx + 1}</td>
+                        <td style={{padding:'7px 10px',borderBottom:'1px solid #2a2a3e',
+                                    fontFamily:'monospace'}}>{row.ip_address}</td>
+                        <td style={{padding:'7px 10px',borderBottom:'1px solid #2a2a3e',
+                                    color:'#aaa'}}>{row.label || '-'}</td>
+                        <td style={{padding:'7px 10px',borderBottom:'1px solid #2a2a3e',
+                                    color:'#aaa'}}>{row.created_by || '-'}</td>
+                        <td style={{padding:'7px 10px',borderBottom:'1px solid #2a2a3e',
+                                    color:'#aaa',whiteSpace:'nowrap'}}>
+                          {row.created_at
+                            ? new Date(row.created_at).toLocaleDateString('en-IN', {
+                                day:'2-digit', month:'2-digit', year:'numeric'
+                              })
+                            : '-'}
+                        </td>
+                        <td style={{padding:'7px 10px',borderBottom:'1px solid #2a2a3e'}}>
+                          <button
+                            onClick={async () => {
+                              if (!window.confirm(`Delete IP ${row.ip_address}?`)) return
+                              try {
+                                await axios.delete(`/api/authorised-ips/${row.id}`)
+                                fetchAuthorisedIPs()
+                              } catch (err) {
+                                setAuthorisedIPError(err.response?.data?.error || 'Delete failed')
+                              }
+                            }}
+                            style={{padding:'4px 10px',background:'#e74c3c',color:'#fff',
+                                    border:'none',borderRadius:'4px',fontSize:'11px',
+                                    fontWeight:'600',cursor:'pointer'}}>
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

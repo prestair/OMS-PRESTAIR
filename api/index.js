@@ -67,7 +67,49 @@ const TTL_PAPER        = 5  * 60 * 1000  // 5 min  — paper/return requests
 const TTL_USERS_LIST   = 30 * 60 * 1000  // 30 min — user list (almost never changes)
 const TTL_SALES_REPS   = 30 * 60 * 1000  // 30 min — sales reps
 const TTL_APP_VERSION  = 5  * 60 * 1000  // 5 min  — app version
+const TTL_AUTHORISED_IPS = 60 * 1000   // 60s — authorised IP list (admin-only, rarely changes)
 // ---------------------------------------------------------------------------
+
+// Sends a fire-and-forget alert email for unauthorised login attempts.
+// Must never throw — always wrapped in try/catch at call site.
+async function sendUnauthorisedLoginAlert(ip, username) {
+  try {
+    const nodemailer = require('nodemailer')
+    const GMAIL_USER = process.env.GMAIL_USER
+    const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
+    if (!GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return
+    const timeIST = new Date().toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: true
+    })
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000
+    })
+    await transporter.sendMail({
+      from: `"Prestair Security" <${GMAIL_USER}>`,
+      to: RECEIVER,
+      subject: `Unauthorised login attempt from ${ip} by ${username}`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+  <h2 style="color:#e74c3c;margin-top:0">⚠️ Unauthorised Login Attempt</h2>
+  <table style="width:100%;border-collapse:collapse;margin-top:8px">
+    <tr><td style="padding:8px 12px;font-weight:600;width:140px">App Name</td><td style="padding:8px 12px">OMS DASHBOARD</td></tr>
+    <tr><td style="padding:8px 12px;font-weight:600">IP Address</td><td style="padding:8px 12px">${ip}</td></tr>
+    <tr><td style="padding:8px 12px;font-weight:600">Username</td><td style="padding:8px 12px">${username}</td></tr>
+    <tr><td style="padding:8px 12px;font-weight:600">Time (IST)</td><td style="padding:8px 12px">${timeIST}</td></tr>
+  </table>
+  <p style="margin-top:16px;color:#555;font-size:13px">This IP is not in the Authorised IPs list. Please review and add it if this is a legitimate user.</p>
+</div>`
+    })
+  } catch (emailErr) {
+    console.error('Unauthorised login alert email failed:', emailErr.message)
+  }
+}
 
 function generateToken(user) {
   if (!JWT_SECRET) throw new Error('Server authentication is not configured: set JWT_SECRET')
@@ -137,6 +179,26 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Invalid credentials' })
     const valid = bcrypt.compareSync(password.toLowerCase(), user.password)
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' })
+    // IP whitelist check — fail-open when table is empty
+    const clientIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
+    try {
+      const allowedIps = await cachedRead('authorised_ips', TTL_AUTHORISED_IPS, async () => {
+        const { data } = await supabase.from('authorised_ips').select('ip_address')
+        return data || []
+      })
+      if (allowedIps.length > 0) {
+        const normalised = clientIp.toLowerCase().trim()
+        const isAllowed = allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
+        if (!isAllowed) {
+          // Fire-and-forget alert — do NOT await, wrap in try/catch
+          try { sendUnauthorisedLoginAlert(clientIp, user.username) } catch {}
+          return res.status(403).json({ error: 'Login not allowed from this IP address.' })
+        }
+      }
+    } catch (ipCheckErr) {
+      // If the IP table read fails, fail-open (allow login) to avoid locking everyone out
+      console.error('IP whitelist check failed:', ipCheckErr.message)
+    }
     const token = generateToken({ id: user.id, username: user.username, role: user.role })
     let userGroup = null
     if (user.user_group) { const { data: g } = await supabase.from('groups').select('*').eq('name', user.user_group); userGroup = g?.[0] }
@@ -445,6 +507,43 @@ app.post('/api/complaints/import', authenticate, adminOnly, async (req, res) => 
     if (error) return res.status(400).json({ error: error.message })
     res.json({ imported: (data || []).length })
   } catch(e){ res.status(500).json({ error: e.message }) }
+})
+
+// AUTHORISED IPS
+app.get('/api/authorised-ips', authenticate, adminOnly, async (req, res) => {
+  try {
+    const cached = cacheGet('authorised_ips')
+    if (cached) return res.json(cached)
+    const { data, error } = await supabase.from('authorised_ips').select('*').order('created_at', { ascending: false })
+    if (error) return res.status(400).json({ error: error.message })
+    const result = data || []
+    cacheSet('authorised_ips', result, TTL_AUTHORISED_IPS)
+    res.json(result)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/api/authorised-ips', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { ipAddress, label } = req.body
+    if (!ipAddress || !ipAddress.trim()) return res.status(400).json({ error: 'IP address is required' })
+    const { data, error } = await supabase.from('authorised_ips').insert({
+      ip_address: ipAddress.trim(),
+      label: label || '',
+      created_by: req.user.username
+    }).select()
+    if (error) return res.status(400).json({ error: error.message })
+    cacheDel('authorised_ips')
+    res.json(data[0])
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+app.delete('/api/authorised-ips/:id', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { error } = await supabase.from('authorised_ips').delete().eq('id', parseInt(req.params.id))
+    if (error) return res.status(400).json({ error: error.message })
+    cacheDel('authorised_ips')
+    res.json({ message: 'Deleted' })
+  } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
 module.exports = app
