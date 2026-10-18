@@ -182,7 +182,7 @@ app.post('/api/auth/login', async (req, res) => {
     // IP whitelist check — fail-open when table is empty
     const clientIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
     try {
-      const allowedIps = await cachedRead('authorised_ips', TTL_AUTHORISED_IPS, async () => {
+      const allowedIps = await cachedRead('authorised_ips_guard', TTL_AUTHORISED_IPS, async () => {
         const { data } = await supabase.from('authorised_ips').select('ip_address')
         return data || []
       })
@@ -510,9 +510,12 @@ app.post('/api/complaints/import', authenticate, adminOnly, async (req, res) => 
 })
 
 // AUTHORISED IPS
+// Two distinct cache keys prevent a projection mismatch:
+// 'authorised_ips_guard' — login path, selects only ip_address (lean objects)
+// 'authorised_ips_admin' — admin GET route, selects * (full rows for the management UI)
 app.get('/api/authorised-ips', authenticate, adminOnly, async (req, res) => {
   try {
-    const result = await cachedRead('authorised_ips', TTL_AUTHORISED_IPS, async () => {
+    const result = await cachedRead('authorised_ips_admin', TTL_AUTHORISED_IPS, async () => {
       const { data, error } = await supabase.from('authorised_ips').select('*').order('created_at', { ascending: false })
       if (error) throw error
       return data || []
@@ -532,7 +535,7 @@ app.post('/api/authorised-ips', authenticate, adminOnly, async (req, res) => {
       created_by: req.user.username
     }).select()
     if (error) return res.status(400).json({ error: error.message })
-    cacheDel('authorised_ips')
+    cacheDel('authorised_ips_guard', 'authorised_ips_admin')
     res.json(data[0])
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
@@ -541,7 +544,7 @@ app.delete('/api/authorised-ips/:id', authenticate, adminOnly, async (req, res) 
   try {
     const { error } = await supabase.from('authorised_ips').delete().eq('id', parseInt(req.params.id))
     if (error) return res.status(400).json({ error: error.message })
-    cacheDel('authorised_ips')
+    cacheDel('authorised_ips_guard', 'authorised_ips_admin')
     res.json({ message: 'Deleted' })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
