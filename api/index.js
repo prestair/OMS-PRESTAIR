@@ -512,12 +512,11 @@ app.post('/api/complaints/import', authenticate, adminOnly, async (req, res) => 
 // AUTHORISED IPS
 app.get('/api/authorised-ips', authenticate, adminOnly, async (req, res) => {
   try {
-    const cached = cacheGet('authorised_ips')
-    if (cached) return res.json(cached)
-    const { data, error } = await supabase.from('authorised_ips').select('*').order('created_at', { ascending: false })
-    if (error) return res.status(400).json({ error: error.message })
-    const result = data || []
-    cacheSet('authorised_ips', result, TTL_AUTHORISED_IPS)
+    const result = await cachedRead('authorised_ips', TTL_AUTHORISED_IPS, async () => {
+      const { data, error } = await supabase.from('authorised_ips').select('*').order('created_at', { ascending: false })
+      if (error) throw error
+      return data || []
+    })
     res.json(result)
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
@@ -526,6 +525,7 @@ app.post('/api/authorised-ips', authenticate, adminOnly, async (req, res) => {
   try {
     const { ipAddress, label } = req.body
     if (!ipAddress || !ipAddress.trim()) return res.status(400).json({ error: 'IP address is required' })
+    if (require('net').isIP(ipAddress.trim()) === 0) return res.status(400).json({ error: 'Invalid IP address format' })
     const { data, error } = await supabase.from('authorised_ips').insert({
       ip_address: ipAddress.trim(),
       label: label || '',
