@@ -8,8 +8,8 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   const logout = () => {
-    localStorage.removeItem('oms_token')
-    localStorage.removeItem('oms_user')
+    sessionStorage.removeItem('oms_token')
+    sessionStorage.removeItem('oms_user')
     delete axios.defaults.headers.common['Authorization']
     setUser(null)
   }
@@ -30,8 +30,8 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    const token = localStorage.getItem('oms_token')
-    const userData = localStorage.getItem('oms_user')
+    const token = sessionStorage.getItem('oms_token')
+    const userData = sessionStorage.getItem('oms_user')
     if (token && userData) {
       setUser(JSON.parse(userData))
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
@@ -44,8 +44,8 @@ export function AuthProvider({ children }) {
       error => {
         if (error.response && error.response.status === 401) {
           const msg = error.response.data?.error || ''
-          localStorage.removeItem('oms_token')
-          localStorage.removeItem('oms_user')
+          sessionStorage.removeItem('oms_token')
+          sessionStorage.removeItem('oms_user')
           delete axios.defaults.headers.common['Authorization']
           setUser(null)
           if (msg.includes('Session expired') || msg.includes('Invalid token')) {
@@ -126,8 +126,8 @@ export function AuthProvider({ children }) {
   const login = async (username, password) => {
     const res = await axios.post('/api/auth/login', { username, password })
     const { token, user: userData } = res.data
-    localStorage.setItem('oms_token', token)
-    localStorage.setItem('oms_user', JSON.stringify(userData))
+    sessionStorage.setItem('oms_token', token)
+    sessionStorage.setItem('oms_user', JSON.stringify(userData))
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     setUser(userData)
     // Baseline the deploy version + running build so a fresh login never
