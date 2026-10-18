@@ -59,7 +59,9 @@ function Login() {
       if (gps) axios.post('/api/auth/log-location', { lat: gps.lat, lon: gps.lon, accuracy: gps.accuracy, logId: loggedInUser?.locationLogId }).catch(() => {})
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed. Please check your credentials.')
+      setError(err.response?.data?.error === 'Login not allowed from this IP address.'
+        ? 'Unauthorised IP Address, please contact administrator to approve your IP.'
+        : err.response?.data?.error || 'Login failed. Please check your credentials.')
     } finally {
       setLoading(false)
     }
@@ -98,6 +100,16 @@ function Login() {
             <p style={styles.subtitle}>Order Management System</p>
           </div>
           <form onSubmit={handleSubmit} style={styles.form}>
+            {error && (
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: '10px',
+                background: '#fff0f0', border: '1px solid #f5c6cb',
+                borderRadius: '8px', padding: '12px 14px', marginBottom: '12px'
+              }}>
+                <span style={{ color: '#e74c3c', fontSize: '18px', lineHeight: 1 }}>❌</span>
+                <span style={{ color: '#c0392b', fontSize: '13px', fontWeight: '500', lineHeight: '1.4' }}>{error}</span>
+              </div>
+            )}
             <div style={styles.field}>
               <label style={styles.label}>Username</label>
               <input
@@ -132,8 +144,6 @@ function Login() {
                 </button>
               </div>
             </div>
-            {error && <p style={styles.error}>{error}</p>}
-
             {/* Location blocked — show browser-specific instructions */}
             {locationBlocked && (() => {
               const br = getBrowser()

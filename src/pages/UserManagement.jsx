@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../context/AuthContext'
+import * as XLSX from 'xlsx-js-style'
 
 const ALL_COLUMNS = [
   { key: 'date', label: 'Date' },{ key: 'poNo', label: 'PO No' },{ key: 'client', label: 'Client' },{ key: 'orderNo', label: 'Order No' },{ key: 'photography', label: 'Photography' },{ key: 'photographyRemarks', label: 'Photography Remarks' },{ key: 'siteVideo', label: 'Site Video' },{ key: 'siteVideoRemarks', label: 'Site Video Remarks' },{ key: 'review', label: 'Review' },{ key: 'reviewRemarks', label: 'Review Remarks' },{ key: 'status', label: 'DOD Status' },{ key: 'deliveryDate', label: 'Delivery Date' },{ key: 'deliveryRemarks', label: 'Delivery Remarks' },{ key: 'customerName', label: 'Customer Name' },{ key: 'gst', label: 'GST' },{ key: 'billingAddress', label: 'Billing Address' },{ key: 'followUp', label: 'Follow Up' },{ key: 'salesRep', label: 'Sales Rep' },{ key: 'deliveryAddress', label: 'Delivery Address' },{ key: 'phoneNo', label: 'Phone No' },{ key: 'siteVerification', label: 'Site Verification' },{ key: 'siteVerificationRemarks', label: 'SV Remarks' },{ key: 'installationStatus', label: 'Installation Status' },{ key: 'installationRemarks', label: 'Inst. Remarks' },{ key: 'lop', label: 'LOP' },{ key: 'sectionDrawing', label: 'Section Drawing' },{ key: 'sectionDrawingRemarks', label: 'SD Remarks' },{ key: 'inProduction', label: 'In Production' },{ key: 'installation', label: 'Seasonal Discount' },{ key: 'totalAmount', label: 'Total Amount' },{ key: 'receivedAmount', label: 'Received' },{ key: 'balance', label: 'Balance' },{ key: 'percentReceived', label: '% Rcv' },{ key: 'followUpType', label: 'Follow Up Direct/Sir' },{ key: 'paymentRemarks', label: 'Payment Remarks' },{ key: 'akhilPoints', label: 'Akhil Payment Remarks' },{ key: 'daysToOrder', label: 'Days to Order' },{ key: 'akhilSirAudit', label: 'Akhil Sir Audit' },{ key: 'remarks', label: 'Audit Remarks' },{ key: 'advanceBill', label: 'Advance Bill' },{ key: 'advanceBillRemarks', label: 'Advance Bill Remarks' },{ key: 'orRecvd', label: 'OR Recvd' }
@@ -107,7 +108,6 @@ function UserManagement() {
 
   const downloadLoginExcel = () => {
     try {
-      const XLSX = require('xlsx-js-style')
       const logsToExport = [...loginLogs].sort((a,b) => new Date(b.logged_in_at) - new Date(a.logged_in_at))
       const headers = ['#','Date','Time (IST)','Username','Full Name','Role','IP Address','IP Label','Device/Browser','Location','Accuracy','Map Link','Logged In At']
       const navyFill = { fgColor: { rgb: '1A1A2E' } }

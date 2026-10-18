@@ -3,6 +3,8 @@ const compression = require('compression')
 const cors = require('cors')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
+const nodemailer = require('nodemailer')
+const net = require('net')
 const { createClient } = require('@supabase/supabase-js')
 
 const app = express()
@@ -74,7 +76,6 @@ const TTL_AUTHORISED_IPS = 60 * 1000   // 60s — authorised IP list (admin-only
 // Must never throw — always wrapped in try/catch at call site.
 async function sendUnauthorisedLoginAlert(ip, username) {
   try {
-    const nodemailer = require('nodemailer')
     const GMAIL_USER = process.env.GMAIL_USER
     const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
     if (!GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return
@@ -543,7 +544,7 @@ app.post('/api/authorised-ips', authenticate, adminOnly, async (req, res) => {
   try {
     const { ipAddress, label } = req.body
     if (!ipAddress || !ipAddress.trim()) return res.status(400).json({ error: 'IP address is required' })
-    if (require('net').isIP(ipAddress.trim()) === 0) return res.status(400).json({ error: 'Invalid IP address format' })
+    if (net.isIP(ipAddress.trim()) === 0) return res.status(400).json({ error: 'Invalid IP address format' })
     const { data, error } = await supabase.from('authorised_ips').insert({
       ip_address: ipAddress.trim(),
       label: label || '',
