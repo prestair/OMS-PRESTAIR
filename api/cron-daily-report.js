@@ -1,4 +1,29 @@
-const { authorizeReport } = require('../server/report-authorization.cjs')
+const { timingSafeEqual } = require('node:crypto')
+const jwt = require('jsonwebtoken')
+
+function authorizeReport(req, env = process.env) {
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return { status: 405, error: 'Method not allowed' }
+  }
+  const authorization = req.headers?.authorization
+  if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ')) {
+    return { status: 401, error: 'Unauthorized' }
+  }
+  const token = authorization.slice(7)
+  if (env.CRON_SECRET) {
+    const actual = Buffer.from(token)
+    const expected = Buffer.from(env.CRON_SECRET)
+    if (actual.length === expected.length && timingSafeEqual(actual, expected)) return { cron: true }
+  }
+  if (!env.JWT_SECRET) return { status: 503, error: 'Report authentication is not configured' }
+  try {
+    const user = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] })
+    if (user.role !== 'admin' || user.id == null) return { status: 403, error: 'Admin only' }
+    return { user }
+  } catch {
+    return { status: 401, error: 'Invalid token' }
+  }
+}
 
 let XLSX
 
@@ -89,16 +114,42 @@ module.exports = async (req, res) => {
     XLSX.utils.book_append_sheet(wb, ws1, 'Active Orders')
 
     // Sheet 2: Completed Orders
-    const completedData = deleted.map((d, i) => ({
-      '#': i + 1,
-      'Order No': d.data?.order_no || d.data?.orderNo || '',
-      'Client': d.data?.client || '',
-      'Customer': d.data?.customer_name || d.data?.customerName || '',
-      'Total Amount': d.data?.total_amount || d.data?.totalAmount || 0,
-      'Received': fmtPayments(byOrderId[d.original_id], d.data?.received_amount || d.data?.receivedAmount || 0),
-      'Deleted By': d.deleted_by || '',
-      'Deleted On': d.deleted_at ? new Date(d.deleted_at).toLocaleDateString('en-IN') : ''
-    }))
+    const completedData = deleted.map((d, i) => {
+      const o = d.data || {}
+      return {
+        '#': i + 1,
+        'Date': o.date || '',
+        'PO No': o.po_no || o.poNo || '',
+        'Client': o.client || '',
+        'Order No': o.order_no || o.orderNo || '',
+        'DOD Status': o.status || '',
+        'Customer Name': o.customer_name || o.customerName || '',
+        'GST': o.gst || '',
+        'Billing Address': o.billing_address || o.billingAddress || '',
+        'Sales Rep': o.sales_rep || o.salesRep || '',
+        'Delivery Address': o.delivery_address || o.deliveryAddress || '',
+        'Phone No': o.phone_no || o.phoneNo || '',
+        'Site Verification': o.site_verification || o.siteVerification || '',
+        'Installation Status': o.installation_status || o.installationStatus || '',
+        'LOP': o.lop || '',
+        'Section Drawing': o.section_drawing || o.sectionDrawing || '',
+        'In Production': o.in_production || o.inProduction || '',
+        'Seasonal Discount': o.installation || '',
+        'Total Amount': o.total_amount || o.totalAmount || 0,
+        'Received': fmtPayments(byOrderId[d.original_id], o.received_amount || o.receivedAmount || 0),
+        'Balance': (o.total_amount || o.totalAmount || 0) - (o.received_amount || o.receivedAmount || 0),
+        '% Rcv': (o.total_amount || o.totalAmount) ? parseFloat((((o.received_amount || o.receivedAmount || 0) / (o.total_amount || o.totalAmount)) * 100).toFixed(2)) : 0,
+        'Follow Up Type': o.follow_up_type || o.followUpType || '',
+        'Payment Remarks': o.payment_remarks || o.paymentRemarks || '',
+        'Akhil Payment Remarks': o.akhil_points || o.akhilPoints || '',
+        'Akhil Sir Audit': o.akhil_sir_audit || o.akhilSirAudit || '',
+        'Audit Remarks': o.remarks || '',
+        'Advance Bill': o.advance_bill || o.advanceBill || '',
+        'OR Recvd': o.or_recvd || o.orRecvd || '',
+        'Deleted By': d.deleted_by || '',
+        'Deleted On': d.deleted_at ? new Date(d.deleted_at).toLocaleDateString('en-IN') : ''
+      }
+    })
     const ws2 = XLSX.utils.json_to_sheet(completedData)
     autoWidth(ws2, completedData)
     wrapReceivedColumn(ws2, completedData)
