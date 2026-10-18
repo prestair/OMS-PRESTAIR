@@ -32,6 +32,9 @@ function UserManagement() {
   const [loginLogs, setLoginLogs] = useState([])
   const [logsLoading, setLogsLoading] = useState(false)
   const [logUserFilter, setLogUserFilter] = useState('')
+  const [authorisedIPMap, setAuthorisedIPMap] = useState({}) // { [ip_address]: label }
+  const [expandedGroups, setExpandedGroups] = useState(new Set())
+  const [expandTick, setExpandTick] = useState(0) // dummy counter to force re-render on Set mutation
 
   useEffect(() => { fetchUsers(); fetchGroups(); fetchSalesReps() }, [])
   const fetchUsers = async () => { try { setUsers((await axios.get('/api/users')).data) } catch {} }
@@ -102,6 +105,76 @@ function UserManagement() {
     } catch (err) { alert(err.response?.data?.error || 'Failed') }
   }
 
+  const downloadLoginExcel = () => {
+    try {
+      const XLSX = require('xlsx-js-style')
+      const logsToExport = [...loginLogs].sort((a,b) => new Date(b.logged_in_at) - new Date(a.logged_in_at))
+      const headers = ['#','Date','Time (IST)','Username','Full Name','Role','IP Address','IP Label','Device/Browser','Location','Accuracy','Map Link','Logged In At']
+      const navyFill = { fgColor: { rgb: '1A1A2E' } }
+      const headerStyle = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: navyFill, alignment: { horizontal: 'center' } }
+      const adminFill = { fgColor: { rgb: 'FFEAEA' } }
+      const userFill = { fgColor: { rgb: 'EAFFEA' } }
+      const blueFill = { fgColor: { rgb: 'E8F4FD' } }
+      const rows = logsToExport.map((log, i) => {
+        const dt = log.logged_in_at ? new Date(log.logged_in_at) : null
+        const dateStr = dt ? dt.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day:'2-digit', month:'2-digit', year:'numeric' }) : ''
+        const timeStr = dt ? dt.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour:'2-digit', minute:'2-digit', hour12: true }) : ''
+        const ua = log.user_agent || ''
+        let browser = ''
+        if (ua.includes('Edg/')) browser = 'Edge'
+        else if (ua.includes('OPR/') || ua.includes('Opera')) browser = 'Opera'
+        else if (ua.includes('Chrome')) browser = 'Chrome'
+        else if (ua.includes('Firefox')) browser = 'Firefox'
+        else if (ua.includes('Safari')) browser = 'Safari'
+        let os = ''
+        if (ua.includes('Android')) os = 'Android'
+        else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS'
+        else if (ua.includes('Windows')) os = 'Windows'
+        else if (ua.includes('Macintosh') || ua.includes('Mac OS')) os = 'Mac'
+        else if (ua.includes('Linux')) os = 'Linux'
+        const deviceStr = browser && os ? `${browser}/${os}` : browser || os || ua.slice(0,30)
+        const hasAcc = log.accuracy !== null && log.accuracy !== undefined && isFinite(Number(log.accuracy))
+        const accNum = hasAcc ? Number(log.accuracy) : null
+        const accStr = hasAcc ? (accNum < 1000 ? `±${Math.round(accNum)} m` : `±${(accNum/1000).toFixed(1)} km`) : ''
+        const locationStr = log.latitude && log.longitude
+          ? (log.city ? `${log.city}${log.country ? ', '+log.country : ''}` : 'Coordinates available')
+          : ''
+        const mapLink = log.latitude && log.longitude
+          ? `https://www.google.com/maps?q=${log.latitude},${log.longitude}`
+          : ''
+        const ipLabel = authorisedIPMap[log.ip_address] || ''
+        const isAdmin = (log.role || '').toLowerCase() === 'admin'
+        const rowFill = isAdmin ? adminFill : userFill
+        const makeCell = (v, style) => ({ v, s: style || {} })
+        const ipLabelCell = { v: ipLabel, s: { fill: ipLabel ? blueFill : {}, alignment: { horizontal: 'center' } } }
+        return [
+          makeCell(i+1, { fill: rowFill }),
+          makeCell(dateStr, { fill: rowFill }),
+          makeCell(timeStr, { fill: rowFill }),
+          makeCell(log.username || '', { fill: rowFill }),
+          makeCell(log.full_name || '', { fill: rowFill }),
+          makeCell(log.role || '', { fill: rowFill }),
+          makeCell(log.ip_address || '', { fill: rowFill, font: { name: 'Courier New' } }),
+          ipLabelCell,
+          makeCell(deviceStr, { fill: rowFill }),
+          makeCell(locationStr, { fill: rowFill }),
+          makeCell(accStr, { fill: rowFill }),
+          makeCell(mapLink, { fill: rowFill, font: { color: { rgb: '2980B9' } } }),
+          makeCell(log.logged_in_at || '', { fill: rowFill })
+        ]
+      })
+      const ws = XLSX.utils.aoa_to_sheet([
+        headers.map((h, i) => ({ v: h, s: headerStyle })),
+        ...rows
+      ])
+      ws['!cols'] = [6,12,10,14,18,8,18,12,20,22,10,40,22].map(w => ({ wch: w }))
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Login Activity')
+      const today = new Date().toISOString().slice(0,10)
+      XLSX.writeFile(wb, `OMS_Login_Activity_${today}.xlsx`)
+    } catch(e) { alert('Excel export failed: ' + e.message) }
+  }
+
   return (
     <div style={s.wrapper}>
       <header style={s.header}>
@@ -119,7 +192,7 @@ function UserManagement() {
           <button onClick={() => { setEditingUser(null); setForm({ username:'', password:'', fullName:'', role:'user', group:'', columnPermissions:{}, canEdit:false, canReceipt:false, canAssignReminder:false, canDelete:false }); setShowForm(true) }} style={s.addBtn}>+ Add User</button>
           <button onClick={() => { setEditingGroup(null); setGroupForm({ name:'', columnPermissions:{}, canEdit:false, canReceipt:false, canAssignReminder:false, canDelete:false }); setShowGroupForm(true) }} style={{ ...s.addBtn, background:'#8e44ad' }}>Manage Groups</button>
           <button onClick={() => { setNewRepName(''); setRepError(''); setShowRepForm(true) }} style={{ ...s.addBtn, background:'#16a085' }}>Manage Sales Reps</button>
-          <button onClick={() => { setLogUserFilter(''); setShowLoginActivity(true); fetchLoginLogs('') }} style={{ ...s.addBtn, background:'#c0392b' }}>Login Activity</button>
+          <button onClick={() => { setLogUserFilter(''); setShowLoginActivity(true); fetchLoginLogs(''); axios.get('/api/authorised-ips').then(r => { const map = {}; (r.data || []).forEach(entry => { if (entry.label) map[entry.ip_address] = entry.label }); setAuthorisedIPMap(map) }).catch(() => {}) }} style={{ ...s.addBtn, background:'#c0392b' }}>Login Activity</button>
           <input value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search by Full Name..." style={{padding:'7px 12px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px',flex:'1',maxWidth:'250px'}}/>
         </div>
 
@@ -296,148 +369,246 @@ function UserManagement() {
       )}
 
       {/* Login Activity */}
-      {showLoginActivity && (
-        <div style={s.overlay}>
-          <div style={{ ...s.modal, maxWidth:'960px', width:'95vw' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px' }}>
-              <h3 style={{ margin:0, fontSize:'15px' }}>Login Activity</h3>
-              <button onClick={() => setShowLoginActivity(false)} style={{ background:'none', border:'none', fontSize:'20px', cursor:'pointer', fontWeight:'700' }}>X</button>
-            </div>
+      {showLoginActivity && (() => {
+        // Apply user filter then group by date → ip
+        const filteredLogs = logUserFilter
+          ? loginLogs.filter(l => l.username === logUserFilter)
+          : loginLogs
 
-            {/* Filters */}
-            <div style={{ display:'flex', gap:'10px', marginBottom:'12px', flexWrap:'wrap', alignItems:'center' }}>
-              <select value={logUserFilter} onChange={e => { setLogUserFilter(e.target.value); fetchLoginLogs(e.target.value) }}
-                style={{ padding:'7px 10px', border:'1px solid #ddd', borderRadius:'5px', fontSize:'12px', minWidth:'180px' }}>
-                <option value=''>All Users</option>
-                {users.map(u => <option key={u.id} value={u.username}>{u.fullName || u.username} ({u.username})</option>)}
-              </select>
-              <button onClick={() => fetchLoginLogs(logUserFilter)} style={{ padding:'7px 12px', background:'#2980b9', color:'#fff', border:'none', borderRadius:'5px', fontSize:'11px', fontWeight:'600', cursor:'pointer' }}>Refresh</button>
-              <span style={{ fontSize:'11px', color:'#888' }}>{loginLogs.length} records</span>
-            </div>
+        // Group: dateKey → ip → logs[]
+        const groupMap = {}
+        filteredLogs.forEach(log => {
+          const dateKey = new Date(log.logged_in_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) // YYYY-MM-DD
+          const ip = log.ip_address || 'unknown'
+          if (!groupMap[dateKey]) groupMap[dateKey] = {}
+          if (!groupMap[dateKey][ip]) groupMap[dateKey][ip] = []
+          groupMap[dateKey][ip].push(log)
+        })
 
-            {logsLoading ? (
-              <p style={{ textAlign:'center', color:'#888', padding:'20px' }}>Loading...</p>
-            ) : (
-              <div style={{ overflowX:'auto', maxHeight:'65vh', overflowY:'auto' }}>
-                <table style={{ ...s.table, fontSize:'11px' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...s.th, width:'30px' }}>#</th>
-                      <th style={s.th}>Username</th>
-                      <th style={s.th}>Full Name</th>
-                      <th style={s.th}>Role</th>
-                      <th style={s.th}>IP Address</th>
-                      <th style={{ ...s.th, minWidth:'200px' }}>Device / Browser</th>
-                      <th style={s.th}>Location</th>
-                      <th style={{ ...s.th, minWidth:'130px' }}>Date & Time</th>
-                      <th style={s.th}>Del</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loginLogs.length === 0 && (
-                      <tr><td colSpan={7} style={{ ...s.td, textAlign:'center', color:'#888', padding:'20px' }}>No login records yet</td></tr>
-                    )}
-                    {loginLogs.map((log, idx) => {
-                      // Parse user-agent to friendly string
-                      const ua = log.user_agent || ''
-                      let device = ua
-                      if (ua.includes('Mobile') || ua.includes('Android') || ua.includes('iPhone')) {
-                        device = ua.includes('Android') ? 'Android Mobile' : ua.includes('iPhone') ? 'iPhone' : 'Mobile'
-                      } else if (ua.includes('Windows')) {
-                        device = 'Windows PC'
-                      } else if (ua.includes('Macintosh') || ua.includes('Mac OS')) {
-                        device = 'Mac'
-                      } else if (ua.includes('Linux')) {
-                        device = 'Linux'
-                      }
-                      // Add browser
-                      let browser = ''
-                      if (ua.includes('Edg/')) browser = 'Edge'
-                      else if (ua.includes('OPR/') || ua.includes('Opera')) browser = 'Opera'
-                      else if (ua.includes('Chrome')) browser = 'Chrome'
-                      else if (ua.includes('Firefox')) browser = 'Firefox'
-                      else if (ua.includes('Safari')) browser = 'Safari'
-                      const deviceStr = browser ? `${device} / ${browser}` : device
+        // Sort dates descending
+        const sortedDates = Object.keys(groupMap).sort((a,b) => b.localeCompare(a))
 
-                      const dt = log.logged_in_at ? new Date(log.logged_in_at) : null
-                      const dtStr = dt ? `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}  ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}` : '-'
+        // Helper: format date as "DD MMM YYYY"
+        const fmtDate = (dateKey) => {
+          const [y,m,d] = dateKey.split('-')
+          const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+          return `${d} ${months[parseInt(m)-1]} ${y}`
+        }
 
-                      return (
-                        <tr key={log.id} style={{ background: idx % 2 === 0 ? '#f8f9fa' : '#fff' }}>
-                          <td style={s.td}>{idx + 1}</td>
-                          <td style={{ ...s.td, fontWeight:'600' }}>{log.username}</td>
-                          <td style={s.td}>{log.full_name || '-'}</td>
-                          <td style={s.td}>
-                            <span style={{ padding:'2px 6px', borderRadius:'3px', fontSize:'10px', fontWeight:'600', background: log.role === 'admin' ? '#e74c3c' : '#27ae60', color:'#fff' }}>
-                              {log.role || '-'}
-                            </span>
-                          </td>
-                          <td style={{ ...s.td, fontFamily:'monospace', color:'#2980b9', fontWeight:'600' }}>{log.ip_address || '-'}</td>
-                          <td style={{ ...s.td, color:'#555' }}>{deviceStr || '-'}</td>
-                          <td style={s.td}>
-                            {(() => {
-                              const hasAcc = log.accuracy !== null && log.accuracy !== undefined && isFinite(Number(log.accuracy))
-                              const accNum = hasAcc ? Number(log.accuracy) : null
-                              const accStr = hasAcc ? (accNum < 1000 ? `±${Math.round(accNum)} m` : `±${(accNum / 1000).toFixed(1)} km`) : ''
-                              if (log.latitude && log.longitude) {
-                                const cityStr = log.city ? `${log.city}${log.country ? ', ' + log.country : ''}` : 'View Map'
-                                if (log.location_inherited) {
-                                  // Inherited from a prior reliable reading on the SAME IP (same office
-                                  // network). Show the city but label it as network-derived, muted.
-                                  return (
-                                    <a
-                                      href={`https://www.google.com/maps?q=${log.latitude},${log.longitude}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      style={{ color:'#7f8c8d', fontWeight:'500', fontSize:'11px', textDecoration:'none', display:'flex', alignItems:'center', gap:'3px' }}
-                                    >
-                                      📍 {cityStr} (same network)
-                                    </a>
-                                  )
-                                }
-                                // Reliable this-device reading: keep the maps link and city, append the radius.
-                                return (
-                                  <a
-                                    href={`https://www.google.com/maps?q=${log.latitude},${log.longitude}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{ color:'#27ae60', fontWeight:'600', fontSize:'11px', textDecoration:'none', display:'flex', alignItems:'center', gap:'3px' }}
-                                  >
-                                    📍 {cityStr}{hasAcc ? ` (${accStr})` : ''}
-                                  </a>
-                                )
-                              }
-                              if (hasAcc) {
-                                // Gated as unreliable — never show a city, no maps link.
-                                return <span style={{ color:'#bbb', fontSize:'10px', fontStyle:'italic' }}>Location not reliable ({accStr})</span>
-                              }
-                              // Legacy row with no accuracy at all.
-                              return <span style={{ color:'#bbb', fontSize:'10px' }}>—</span>
-                            })()}
-                          </td>
-                          <td style={{ ...s.td, whiteSpace:'nowrap' }}>{dtStr}</td>
-                          <td style={s.td}>
-                            <button
-                              onClick={async () => {
-                                if (!window.confirm(`Delete login record for "${log.username}" at ${dtStr}?`)) return
-                                try {
-                                  await axios.delete(`/api/users/login-logs/${log.id}`)
-                                  setLoginLogs(prev => prev.filter(r => r.id !== log.id))
-                                } catch { alert('Delete failed') }
-                              }}
-                              style={{ padding:'2px 7px', background:'#e74c3c', color:'#fff', border:'none', borderRadius:'3px', fontSize:'10px', cursor:'pointer', fontWeight:'600' }}
-                            >Del</button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+        // Helper: format time as HH:MM am/pm IST
+        const fmtTime = (isoStr) => {
+          if (!isoStr) return '-'
+          return new Date(isoStr).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour:'2-digit', minute:'2-digit', hour12: true })
+        }
+
+        return (
+          <div style={s.overlay}>
+            <div style={{...s.modal, maxWidth:'1020px', width:'97vw', maxHeight:'92vh', display:'flex', flexDirection:'column', overflow:'hidden'}}>
+              {/* Modal Header */}
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'6px', flexShrink:0}}>
+                <div>
+                  <span style={{fontSize:'16px', fontWeight:'700', marginRight:'10px'}}>Login Activity</span>
+                  <span style={{fontSize:'11px', color:'#888'}}>Date → IP grouped · Click to expand</span>
+                </div>
+                <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
+                  <button
+                    onClick={downloadLoginExcel}
+                    style={{padding:'6px 14px', background:'#27ae60', color:'#fff', border:'none', borderRadius:'5px', fontSize:'12px', fontWeight:'700', cursor:'pointer'}}
+                  >↓ Excel</button>
+                  <button onClick={() => setShowLoginActivity(false)} style={{background:'none', border:'none', fontSize:'22px', cursor:'pointer', fontWeight:'700', lineHeight:1}}>×</button>
+                </div>
               </div>
-            )}
+
+              {/* Filters Row */}
+              <div style={{display:'flex', gap:'10px', marginBottom:'10px', flexWrap:'wrap', alignItems:'center', flexShrink:0}}>
+                <select
+                  value={logUserFilter}
+                  onChange={e => { setLogUserFilter(e.target.value); fetchLoginLogs(e.target.value) }}
+                  style={{padding:'7px 10px', border:'1px solid #ddd', borderRadius:'5px', fontSize:'12px', minWidth:'180px'}}
+                >
+                  <option value=''>All Users</option>
+                  {users.map(u => <option key={u.id} value={u.username}>{u.fullName || u.username} ({u.username})</option>)}
+                </select>
+                <button
+                  onClick={() => fetchLoginLogs(logUserFilter)}
+                  style={{padding:'7px 12px', background:'#2980b9', color:'#fff', border:'none', borderRadius:'5px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
+                >Refresh</button>
+                <span style={{fontSize:'11px', color:'#888'}}>{loginLogs.length} records</span>
+              </div>
+
+              {/* Body */}
+              {logsLoading ? (
+                <p style={{textAlign:'center', color:'#888', padding:'20px'}}>Loading...</p>
+              ) : (
+                <div style={{overflowY:'auto', flex:1}}>
+                  {sortedDates.length === 0 && (
+                    <p style={{textAlign:'center', color:'#888', padding:'20px'}}>No login records yet</p>
+                  )}
+                  {sortedDates.map(dateKey => {
+                    const ipGroups = groupMap[dateKey]
+                    const sortedIPs = Object.keys(ipGroups).sort((a,b) => {
+                      const lastA = Math.max(...ipGroups[a].map(l => new Date(l.logged_in_at).getTime()))
+                      const lastB = Math.max(...ipGroups[b].map(l => new Date(l.logged_in_at).getTime()))
+                      return lastB - lastA
+                    })
+                    const totalForDate = sortedIPs.reduce((sum, ip) => sum + ipGroups[ip].length, 0)
+                    const ipCount = sortedIPs.length
+
+                    return (
+                      <div key={dateKey} style={{marginBottom:'6px'}}>
+                        {/* Level 1 — Date section header */}
+                        <div style={{background:'#1a1a2e', color:'#fff', padding:'8px 14px', fontWeight:'700', fontSize:'13px', borderRadius:'6px 6px 0 0', userSelect:'none'}}>
+                          ▼ {fmtDate(dateKey)}
+                          <span style={{marginLeft:'16px', fontWeight:'400', fontSize:'11px', opacity:0.8}}>
+                            {totalForDate} login{totalForDate !== 1 ? 's' : ''} · {ipCount} IP{ipCount !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+
+                        {/* Level 2 — IP rows */}
+                        {sortedIPs.map(ip => {
+                          const ipLogs = ipGroups[ip].slice().sort((a,b) => new Date(b.logged_in_at) - new Date(a.logged_in_at))
+                          const lastLoginTime = fmtTime(ipLogs[0]?.logged_in_at)
+                          const ipLabel = authorisedIPMap[ip]
+                          const groupKey = `${dateKey}_${ip}`
+                          const isExpanded = expandedGroups.has(groupKey)
+
+                          return (
+                            <div key={ip}>
+                              {/* IP row (Level 2 header) */}
+                              <div
+                                onClick={() => {
+                                  const next = new Set(expandedGroups)
+                                  if (next.has(groupKey)) next.delete(groupKey)
+                                  else next.add(groupKey)
+                                  setExpandedGroups(next)
+                                  setExpandTick(t => t + 1)
+                                }}
+                                style={{background:'#f0f4f8', padding:'7px 14px 7px 28px', display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', borderBottom:'1px solid #e0e7ef', userSelect:'none', flexWrap:'wrap'}}
+                              >
+                                <span style={{fontSize:'12px', color:'#555', width:'16px', flexShrink:0}}>{isExpanded ? '▼' : '▶'}</span>
+                                <span style={{fontFamily:'monospace', color:'#2980b9', fontWeight:'700', fontSize:'12px'}}>{ip}</span>
+                                {ipLabel && (
+                                  <span style={{background:'#d0eaf8', color:'#1a6fa0', borderRadius:'10px', padding:'1px 8px', fontSize:'10px', fontWeight:'600'}}>{ipLabel}</span>
+                                )}
+                                <span style={{fontSize:'11px', color:'#555', marginLeft:'4px'}}>{ipLogs.length} login{ipLogs.length !== 1 ? 's' : ''}</span>
+                                <span style={{fontSize:'11px', color:'#888', marginLeft:'4px'}}>Last: {lastLoginTime}</span>
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    if (!window.confirm(`Delete ALL ${ipLogs.length} login record(s) from IP ${ip} on ${fmtDate(dateKey)}?`)) return
+                                    try {
+                                      await axios.delete('/api/users/login-logs/bulk', { data: { ipAddress: ip, date: dateKey } })
+                                      await fetchLoginLogs(logUserFilter)
+                                    } catch { alert('Bulk delete failed') }
+                                  }}
+                                  style={{marginLeft:'auto', padding:'3px 10px', background:'#e74c3c', color:'#fff', border:'none', borderRadius:'4px', fontSize:'10px', fontWeight:'700', cursor:'pointer'}}
+                                >🗑 Del All</button>
+                              </div>
+
+                              {/* Level 2 expanded — detail sub-table */}
+                              {isExpanded && (
+                                <div style={{overflowX:'auto'}}>
+                                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:'11px'}}>
+                                    <thead>
+                                      <tr style={{background:'#1a1a2e'}}>
+                                        <th style={{...s.th, padding:'6px 10px', fontSize:'11px'}}>TIME</th>
+                                        <th style={{...s.th, padding:'6px 10px', fontSize:'11px'}}>USER</th>
+                                        <th style={{...s.th, padding:'6px 10px', fontSize:'11px'}}>DEVICE</th>
+                                        <th style={{...s.th, padding:'6px 10px', fontSize:'11px', minWidth:'180px'}}>LOCATION</th>
+                                        <th style={{...s.th, padding:'6px 10px', fontSize:'11px'}}>DEL</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {ipLogs.map((log, idx) => {
+                                        // Device/Browser: browser first, then OS short name
+                                        const ua = log.user_agent || ''
+                                        let browser = ''
+                                        if (ua.includes('Edg/')) browser = 'Edge'
+                                        else if (ua.includes('OPR/') || ua.includes('Opera')) browser = 'Opera'
+                                        else if (ua.includes('Chrome')) browser = 'Chrome'
+                                        else if (ua.includes('Firefox')) browser = 'Firefox'
+                                        else if (ua.includes('Safari')) browser = 'Safari'
+                                        let osShort = ''
+                                        if (ua.includes('Android')) osShort = 'Android'
+                                        else if (ua.includes('iPhone') || ua.includes('iPad')) osShort = 'iOS'
+                                        else if (ua.includes('Windows')) osShort = 'Windows'
+                                        else if (ua.includes('Macintosh') || ua.includes('Mac OS')) osShort = 'Mac'
+                                        else if (ua.includes('Linux')) osShort = 'Linux'
+                                        const deviceStr = browser && osShort ? `${browser}/${osShort}` : browser || osShort || ua.slice(0,30)
+
+                                        // Location cell — reuse existing logic, reformatted
+                                        const hasAcc = log.accuracy !== null && log.accuracy !== undefined && isFinite(Number(log.accuracy))
+                                        const accNum = hasAcc ? Number(log.accuracy) : null
+                                        const accStr = hasAcc ? (accNum < 1000 ? `±${Math.round(accNum)}m` : `±${(accNum/1000).toFixed(1)}km`) : ''
+                                        const locationCell = (() => {
+                                          if (log.latitude && log.longitude) {
+                                            const cityStr = log.city ? `${log.city}${log.country ? ', '+log.country : ''}` : ''
+                                            const mapUrl = `https://www.google.com/maps?q=${log.latitude},${log.longitude}`
+                                            if (log.location_inherited) {
+                                              return (
+                                                <span style={{color:'#7f8c8d', fontSize:'11px'}}>
+                                                  📍 {cityStr} (same network){' '}
+                                                  <a href={mapUrl} target="_blank" rel="noopener noreferrer" style={{color:'#2980b9', textDecoration:'none', fontWeight:'600'}}>map</a>
+                                                </span>
+                                              )
+                                            }
+                                            return (
+                                              <span style={{color:'#27ae60', fontSize:'11px', fontWeight:'600'}}>
+                                                📍 {cityStr}{hasAcc ? ` (${accStr})` : ''}{' '}
+                                                <a href={mapUrl} target="_blank" rel="noopener noreferrer" style={{color:'#2980b9', textDecoration:'none'}}>· map</a>
+                                              </span>
+                                            )
+                                          }
+                                          if (hasAcc) return <span style={{color:'#bbb', fontSize:'10px', fontStyle:'italic'}}>({accStr})</span>
+                                          return <span style={{color:'#bbb'}}>—</span>
+                                        })()
+
+                                        return (
+                                          <tr key={log.id} style={{background: idx % 2 === 0 ? '#f8f9fa' : '#fff'}}>
+                                            <td style={{...s.td, padding:'5px 10px', whiteSpace:'nowrap', fontWeight:'600'}}>{fmtTime(log.logged_in_at)}</td>
+                                            <td style={{...s.td, padding:'5px 10px', color:'#333'}}>@{log.username}</td>
+                                            <td style={{...s.td, padding:'5px 10px', color:'#555'}}>{deviceStr || '—'}</td>
+                                            <td style={{...s.td, padding:'5px 10px'}}>{locationCell}</td>
+                                            <td style={{...s.td, padding:'5px 10px'}}>
+                                              <button
+                                                onClick={async () => {
+                                                  if (!window.confirm(`Delete this login record for @${log.username}?`)) return
+                                                  try {
+                                                    await axios.delete(`/api/users/login-logs/${log.id}`)
+                                                    await fetchLoginLogs(logUserFilter)
+                                                  } catch { alert('Delete failed') }
+                                                }}
+                                                style={{padding:'2px 7px', background:'#e74c3c', color:'#fff', border:'none', borderRadius:'3px', fontSize:'10px', cursor:'pointer', fontWeight:'600'}}
+                                              >×</button>
+                                            </td>
+                                          </tr>
+                                        )
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Footer */}
+              <div style={{borderTop:'1px solid #eee', paddingTop:'8px', marginTop:'6px', fontSize:'11px', color:'#888', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0}}>
+                <span>{sortedDates.length} date{sortedDates.length !== 1 ? 's' : ''} · {filteredLogs.length} total records</span>
+                <span
+                  onClick={() => fetchLoginLogs(logUserFilter)}
+                  style={{cursor:'pointer', color:'#2980b9', fontWeight:'600'}}
+                >↺ Refresh</span>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
