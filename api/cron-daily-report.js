@@ -48,11 +48,11 @@ const C = {
   STATUS_WARN:'FFF9E0',
 }
 
-function cellStyle(fill, bold, align, wrap, fontSize) {
+function cellStyle(fill, bold, wrap, fontSize) {
   return {
     font: { name: 'Arial', sz: fontSize || 9, bold: !!bold },
     fill: fill ? { fgColor: { rgb: fill } } : {},
-    alignment: { horizontal: align || 'center', vertical: 'center', wrapText: !!wrap },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: !!wrap },
     border: {
       top:    { style: 'thin', color: { rgb: 'D0D0D0' } },
       bottom: { style: 'thin', color: { rgb: 'D0D0D0' } },
@@ -62,61 +62,108 @@ function cellStyle(fill, bold, align, wrap, fontSize) {
   }
 }
 
-// Apply full formatting to a worksheet after aoa_to_sheet / json_to_sheet
-// hdrFill   — header row background colour (hex, no #)
-// leftCols  — Set of column indices (0-based) that should be left-aligned
-// wrapCols  — Set of column indices that should wrap text
-// colWidths — array of { wch } objects (optional, overrides autoWidth)
-function applySheetStyle(ws, data, hdrFill, leftCols = new Set(), wrapCols = new Set(), maxColWidths = {}) {
+// Fixed optimal column widths per header name (in characters)
+// All columns wrap — widths control the wrap point, not the content cutoff
+const COL_WIDTHS = {
+  '#':                   4,
+  'Date':               10,
+  'PO No':               8,
+  'Client':             18,
+  'Order No':           14,
+  'DOD Status':          9,
+  'Customer Name':      14,
+  'GST':                14,
+  'Billing Address':    18,
+  'Follow Up':           8,
+  'Sales Rep':          10,
+  'Delivery Address':   18,
+  'Phone No':           12,
+  'Photography':         9,
+  'Photo Remarks':      14,
+  'Site Video':          9,
+  'SV Remarks':         14,
+  'Review':              9,
+  'Review Remarks':     14,
+  'Delivery Date':      10,
+  'Delivery Remarks':   14,
+  'Site Verification':  10,
+  'SV2 Remarks':        14,
+  'Installation':        9,
+  'Inst. Remarks':      14,
+  'LOP':                 8,
+  'Section Drawing':    10,
+  'SD Remarks':         14,
+  'In Production':       9,
+  'Seasonal Discount':  10,
+  'Total Amount':       10,
+  'Received':           16,
+  'Balance':             9,
+  '% Rcv':               6,
+  'Follow Up Type':     10,
+  'Payment Remarks':    16,
+  'Akhil Remarks':      16,
+  'Days to Order':       8,
+  'Akhil Sir Audit':    10,
+  'Audit Remarks':      16,
+  'Advance Bill':        9,
+  'Adv. Remarks':       14,
+  'OR Recvd':            8,
+  // Completed extra
+  'Installation Status':10,
+  'Akhil Payment Remarks':16,
+  'Deleted By':         10,
+  'Deleted On':         10,
+  // Paper
+  'Requested By':       12,
+  'Issue To':           12,
+  'Status':              9,
+  'Accepted By':        10,
+  'Accepted At':        10,
+  'Returned By':        10,
+  'Return Date':        10,
+  // Reminders
+  'Message':            20,
+  'Set By':             10,
+  'Assigned To':        10,
+  'Response':           16,
+  'Responded By':       10,
+  'Response Date':      10,
+}
+
+// Apply full formatting — all cells center+wrap, headers bold with hdrFill
+function applySheetStyle(ws, data, hdrFill) {
   if (!data || !data.length) return
   const headers = Object.keys(data[0])
   const numRows = data.length
   const numCols = headers.length
 
-  // Column widths — cap long-text columns, respect caller overrides
-  ws['!cols'] = headers.map((key, ci) => {
-    const override = maxColWidths[ci]
-    if (override) return { wch: override }
-    // Dynamic: measure header + data
-    let max = key.length
-    data.forEach(row => {
-      const v = String(row[key] || '')
-      // For wrapped columns only measure first line
-      const len = wrapCols.has(ci) ? Math.min(v.split('\n')[0].length, 25) : v.length
-      if (len > max) max = len
-    })
-    return { wch: Math.min(Math.max(max + 2, 6), wrapCols.has(ci) ? 22 : 30) }
-  })
+  // Fixed column widths from lookup table, fallback to 12
+  ws['!cols'] = headers.map(key => ({ wch: COL_WIDTHS[key] || 12 }))
 
-  // Row heights — taller for wrapped rows
-  ws['!rows'] = [{ hpt: 22 }] // header row
-  for (let r = 0; r < numRows; r++) {
-    ws['!rows'].push({ hpt: wrapCols.size > 0 ? 40 : 18 })
-  }
+  // Row heights — header taller, data rows uniform
+  ws['!rows'] = [{ hpt: 24 }]
+  for (let r = 0; r < numRows; r++) ws['!rows'].push({ hpt: 42 })
 
-  // Header row (row 0)
+  // Header row
   for (let c = 0; c < numCols; c++) {
     const ref = XLSX.utils.encode_cell({ r: 0, c })
     if (!ws[ref]) ws[ref] = { v: headers[c], t: 's' }
-    ws[ref].s = cellStyle(hdrFill, true, 'center', false, 9)
+    ws[ref].s = cellStyle(hdrFill, true, true, 9)
   }
 
-  // Data rows
+  // Data rows — all center + wrap
   for (let r = 0; r < numRows; r++) {
     const rowFill = r % 2 === 0 ? C.ROW_EVEN : C.ROW_ALT
     for (let c = 0; c < numCols; c++) {
       const ref = XLSX.utils.encode_cell({ r: r + 1, c })
       if (!ws[ref]) ws[ref] = { v: '', t: 's' }
-      const align = leftCols.has(c) ? 'left' : 'center'
-      const wrap  = wrapCols.has(c)
-      const key   = headers[c]
-      // Special fills for amount columns
+      const key = headers[c]
       let fill = rowFill
       if (key === 'Balance') {
         const val = Number(ws[ref].v)
         fill = val <= 0 ? C.AMOUNT_NEG : C.AMOUNT_POS
       }
-      ws[ref].s = cellStyle(fill, false, align, wrap, 9)
+      ws[ref].s = cellStyle(fill, false, true, 9)
     }
   }
 }
@@ -230,10 +277,7 @@ module.exports = async (req, res) => {
     }))
 
     const ws1 = XLSX.utils.json_to_sheet(activeData)
-    // left-align: Client(3), Order No(4), Customer(6), GST(7), Billing Addr(8), Delivery Addr(11), Phone(12), remarks cols
-    const activeLeft = new Set([3,4,6,7,8,9,10,11,12,14,16,18,20,22,24,26,28,33,34,35,37,38,39])
-    const activeWrap = new Set([8,11,14,16,18,20,22,24,26,28,31,33,34,35,37,38]) // address + remarks
-    applySheetStyle(ws1, activeData, C.GREEN_HDR, activeLeft, activeWrap)
+    applySheetStyle(ws1, activeData, C.GREEN_HDR)
     XLSX.utils.book_append_sheet(wb, ws1, 'Active Orders')
 
     // -----------------------------------------------------------------------
@@ -278,9 +322,7 @@ module.exports = async (req, res) => {
     })
 
     const ws2 = XLSX.utils.json_to_sheet(completedData)
-    const compLeft = new Set([3,4,6,7,8,9,10,11,12,24,25,27,28])
-    const compWrap = new Set([8,11,24,25,27,28])
-    applySheetStyle(ws2, completedData, C.ORANGE_HDR, compLeft, compWrap)
+    applySheetStyle(ws2, completedData, C.ORANGE_HDR)
     XLSX.utils.book_append_sheet(wb, ws2, 'Completed Orders')
 
     // -----------------------------------------------------------------------
@@ -301,8 +343,7 @@ module.exports = async (req, res) => {
     }))
 
     const ws3 = XLSX.utils.json_to_sheet(paperData)
-    const paperLeft = new Set([2,3,4,5])
-    applySheetStyle(ws3, paperData, C.BLUE_HDR, paperLeft, new Set())
+    applySheetStyle(ws3, paperData, C.BLUE_HDR)
     XLSX.utils.book_append_sheet(wb, ws3, 'Paper Issue Report')
 
     // -----------------------------------------------------------------------
@@ -323,9 +364,7 @@ module.exports = async (req, res) => {
     }))
 
     const ws4 = XLSX.utils.json_to_sheet(reminderData)
-    const remLeft = new Set([3,4,5,6,7])
-    const remWrap = new Set([4,7])
-    applySheetStyle(ws4, reminderData, C.PURPLE_HDR, remLeft, remWrap)
+    applySheetStyle(ws4, reminderData, C.PURPLE_HDR)
     XLSX.utils.book_append_sheet(wb, ws4, 'Reminders')
 
     // Generate buffer
