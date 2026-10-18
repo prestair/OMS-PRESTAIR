@@ -27,6 +27,100 @@ function authorizeReport(req, env = process.env) {
 
 let XLSX
 
+// ---------------------------------------------------------------------------
+// Colour palette — all light, readable on white background
+// ---------------------------------------------------------------------------
+const C = {
+  // Sheet header rows
+  GREEN_HDR:  'D6F5D6', // Active Orders header  — light green
+  ORANGE_HDR: 'FFE5CC', // Completed Orders header — light orange
+  BLUE_HDR:   'D0E8FF', // Paper Issue header     — light blue
+  PURPLE_HDR: 'EDE0FF', // Reminders header       — light purple
+
+  // Alternating data rows
+  ROW_ALT:    'F7F7F7', // very light grey
+  ROW_EVEN:   'FFFFFF', // white
+
+  // Accent fills
+  AMOUNT_POS: 'E8F8E8', // light green for positive balance
+  AMOUNT_NEG: 'FFE8E8', // light red for negative / zero balance
+  STATUS_OK:  'E8F8E8',
+  STATUS_WARN:'FFF9E0',
+}
+
+function cellStyle(fill, bold, align, wrap, fontSize) {
+  return {
+    font: { name: 'Arial', sz: fontSize || 9, bold: !!bold },
+    fill: fill ? { fgColor: { rgb: fill } } : {},
+    alignment: { horizontal: align || 'center', vertical: 'center', wrapText: !!wrap },
+    border: {
+      top:    { style: 'thin', color: { rgb: 'D0D0D0' } },
+      bottom: { style: 'thin', color: { rgb: 'D0D0D0' } },
+      left:   { style: 'thin', color: { rgb: 'D0D0D0' } },
+      right:  { style: 'thin', color: { rgb: 'D0D0D0' } }
+    }
+  }
+}
+
+// Apply full formatting to a worksheet after aoa_to_sheet / json_to_sheet
+// hdrFill   — header row background colour (hex, no #)
+// leftCols  — Set of column indices (0-based) that should be left-aligned
+// wrapCols  — Set of column indices that should wrap text
+// colWidths — array of { wch } objects (optional, overrides autoWidth)
+function applySheetStyle(ws, data, hdrFill, leftCols = new Set(), wrapCols = new Set(), maxColWidths = {}) {
+  if (!data || !data.length) return
+  const headers = Object.keys(data[0])
+  const numRows = data.length
+  const numCols = headers.length
+
+  // Column widths — cap long-text columns, respect caller overrides
+  ws['!cols'] = headers.map((key, ci) => {
+    const override = maxColWidths[ci]
+    if (override) return { wch: override }
+    // Dynamic: measure header + data
+    let max = key.length
+    data.forEach(row => {
+      const v = String(row[key] || '')
+      // For wrapped columns only measure first line
+      const len = wrapCols.has(ci) ? Math.min(v.split('\n')[0].length, 25) : v.length
+      if (len > max) max = len
+    })
+    return { wch: Math.min(Math.max(max + 2, 6), wrapCols.has(ci) ? 22 : 30) }
+  })
+
+  // Row heights — taller for wrapped rows
+  ws['!rows'] = [{ hpt: 22 }] // header row
+  for (let r = 0; r < numRows; r++) {
+    ws['!rows'].push({ hpt: wrapCols.size > 0 ? 40 : 18 })
+  }
+
+  // Header row (row 0)
+  for (let c = 0; c < numCols; c++) {
+    const ref = XLSX.utils.encode_cell({ r: 0, c })
+    if (!ws[ref]) ws[ref] = { v: headers[c], t: 's' }
+    ws[ref].s = cellStyle(hdrFill, true, 'center', false, 9)
+  }
+
+  // Data rows
+  for (let r = 0; r < numRows; r++) {
+    const rowFill = r % 2 === 0 ? C.ROW_EVEN : C.ROW_ALT
+    for (let c = 0; c < numCols; c++) {
+      const ref = XLSX.utils.encode_cell({ r: r + 1, c })
+      if (!ws[ref]) ws[ref] = { v: '', t: 's' }
+      const align = leftCols.has(c) ? 'left' : 'center'
+      const wrap  = wrapCols.has(c)
+      const key   = headers[c]
+      // Special fills for amount columns
+      let fill = rowFill
+      if (key === 'Balance') {
+        const val = Number(ws[ref].v)
+        fill = val <= 0 ? C.AMOUNT_NEG : C.AMOUNT_POS
+      }
+      ws[ref].s = cellStyle(fill, false, align, wrap, 9)
+    }
+  }
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'private, no-store')
   const access = authorizeReport(req)
@@ -39,7 +133,6 @@ module.exports = async (req, res) => {
     return res.status(503).json({ error: 'Daily report is not configured. Check the required environment variables.' })
   }
   try {
-    // Reject unauthorized requests before loading report libraries or reading data.
     const { createClient } = require('@supabase/supabase-js')
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY, {
       global: { fetch: (url, options = {}) => fetch(url, { ...options, signal: options.signal || AbortSignal.timeout(10000) }) }
@@ -67,15 +160,15 @@ module.exports = async (req, res) => {
       supabase.from('payments').select('*')
     ])
 
-    const queryError = [ordersRes, deletedRes, paperRes, remindersRes, paymentsRes].find(result => result.error)?.error
+    const queryError = [ordersRes, deletedRes, paperRes, remindersRes, paymentsRes].find(r => r.error)?.error
     if (queryError) throw queryError
-    const orders = ordersRes.data || []
-    const deleted = deletedRes.data || []
-    const paper = paperRes.data || []
-    const reminders = remindersRes.data || []
+    const orders   = ordersRes.data   || []
+    const deleted  = deletedRes.data  || []
+    const paper    = paperRes.data    || []
+    const reminders= remindersRes.data|| []
     const payments = paymentsRes.data || []
 
-    // Build order_id -> payments map, each list sorted oldest-first by date
+    // Build order_id -> payments map
     const byOrderId = {}
     payments.forEach(p => {
       if (!byOrderId[p.order_id]) byOrderId[p.order_id] = []
@@ -85,106 +178,154 @@ module.exports = async (req, res) => {
       byOrderId[k].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
     })
 
-    // Create workbook
     const wb = XLSX.utils.book_new()
 
-    // Sheet 1: Active Orders
+    // -----------------------------------------------------------------------
+    // Sheet 1: Active Orders — green header
+    // -----------------------------------------------------------------------
     const activeData = orders.map((o, i) => ({
-      '#': i + 1,
-      'Date': o.date || '',
-      'PO No': o.po_no || '',
-      'Client': o.client || '',
-      'Order No': o.order_no || '',
-      'DOD Status': o.status || '',
-      'Customer Name': o.customer_name || '',
-      'Sales Rep': o.sales_rep || '',
-      'Total Amount': o.total_amount || 0,
-      'Received': fmtPayments(byOrderId[o.id], o.received_amount || 0),
-      'Balance': (o.total_amount || 0) - (o.received_amount || 0),
-      '% Rcv': o.total_amount ? parseFloat(((o.received_amount || 0) / o.total_amount * 100).toFixed(2)) : 0,
-      'Payment Remarks': o.payment_remarks || '',
-      'Akhil Sir Audit': o.akhil_sir_audit || '',
-      'Audit Remarks': o.remarks || '',
-      'Advance Bill': o.advance_bill || '',
-      'OR Recvd': o.or_recvd || ''
+      '#':                 i + 1,
+      'Date':              o.date || '',
+      'PO No':             o.po_no || '',
+      'Client':            o.client || '',
+      'Order No':          o.order_no || '',
+      'DOD Status':        o.status || '',
+      'Customer Name':     o.customer_name || '',
+      'GST':               o.gst || '',
+      'Billing Address':   o.billing_address || '',
+      'Follow Up':         o.follow_up || '',
+      'Sales Rep':         o.sales_rep || '',
+      'Delivery Address':  o.delivery_address || '',
+      'Phone No':          o.phone_no || '',
+      'Photography':       o.photography || '',
+      'Photo Remarks':     o.photography_remarks || '',
+      'Site Video':        o.site_video || '',
+      'SV Remarks':        o.site_video_remarks || '',
+      'Review':            o.review || '',
+      'Review Remarks':    o.review_remarks || '',
+      'Delivery Date':     o.delivery_date || '',
+      'Delivery Remarks':  o.delivery_remarks || '',
+      'Site Verification': o.site_verification || '',
+      'SV2 Remarks':       o.site_verification_remarks || '',
+      'Installation':      o.installation_status || '',
+      'Inst. Remarks':     o.installation_remarks || '',
+      'LOP':               o.lop || '',
+      'Section Drawing':   o.section_drawing || '',
+      'SD Remarks':        o.section_drawing_remarks || '',
+      'In Production':     o.in_production || '',
+      'Seasonal Discount': o.installation || '',
+      'Total Amount':      o.total_amount || 0,
+      'Received':          fmtPayments(byOrderId[o.id], o.received_amount || 0),
+      'Balance':           (o.total_amount || 0) - (o.received_amount || 0),
+      '% Rcv':             o.total_amount ? parseFloat(((o.received_amount || 0) / o.total_amount * 100).toFixed(1)) : 0,
+      'Follow Up Type':    o.follow_up_type || '',
+      'Payment Remarks':   o.payment_remarks || '',
+      'Akhil Remarks':     o.akhil_points || '',
+      'Days to Order':     o.days_to_order || '',
+      'Akhil Sir Audit':   o.akhil_sir_audit || '',
+      'Audit Remarks':     o.remarks || '',
+      'Advance Bill':      o.advance_bill || '',
+      'Adv. Remarks':      o.advance_bill_remarks || '',
+      'OR Recvd':          o.or_recvd || ''
     }))
+
     const ws1 = XLSX.utils.json_to_sheet(activeData)
-    autoWidth(ws1, activeData)
-    wrapReceivedColumn(ws1, activeData)
+    // left-align: Client(3), Order No(4), Customer(6), GST(7), Billing Addr(8), Delivery Addr(11), Phone(12), remarks cols
+    const activeLeft = new Set([3,4,6,7,8,9,10,11,12,14,16,18,20,22,24,26,28,33,34,35,37,38,39])
+    const activeWrap = new Set([8,11,14,16,18,20,22,24,26,28,31,33,34,35,37,38]) // address + remarks
+    applySheetStyle(ws1, activeData, C.GREEN_HDR, activeLeft, activeWrap)
     XLSX.utils.book_append_sheet(wb, ws1, 'Active Orders')
 
-    // Sheet 2: Completed Orders
+    // -----------------------------------------------------------------------
+    // Sheet 2: Completed Orders — orange header
+    // -----------------------------------------------------------------------
     const completedData = deleted.map((d, i) => {
       const o = d.data || {}
       return {
-        '#': i + 1,
-        'Date': o.date || '',
-        'PO No': o.po_no || o.poNo || '',
-        'Client': o.client || '',
-        'Order No': o.order_no || o.orderNo || '',
-        'DOD Status': o.status || '',
-        'Customer Name': o.customer_name || o.customerName || '',
-        'GST': o.gst || '',
-        'Billing Address': o.billing_address || o.billingAddress || '',
-        'Sales Rep': o.sales_rep || o.salesRep || '',
-        'Delivery Address': o.delivery_address || o.deliveryAddress || '',
-        'Phone No': o.phone_no || o.phoneNo || '',
-        'Site Verification': o.site_verification || o.siteVerification || '',
-        'Installation Status': o.installation_status || o.installationStatus || '',
-        'LOP': o.lop || '',
-        'Section Drawing': o.section_drawing || o.sectionDrawing || '',
-        'In Production': o.in_production || o.inProduction || '',
-        'Seasonal Discount': o.installation || '',
-        'Total Amount': o.total_amount || o.totalAmount || 0,
-        'Received': fmtPayments(byOrderId[d.original_id], o.received_amount || o.receivedAmount || 0),
-        'Balance': (o.total_amount || o.totalAmount || 0) - (o.received_amount || o.receivedAmount || 0),
-        '% Rcv': (o.total_amount || o.totalAmount) ? parseFloat((((o.received_amount || o.receivedAmount || 0) / (o.total_amount || o.totalAmount)) * 100).toFixed(2)) : 0,
-        'Follow Up Type': o.follow_up_type || o.followUpType || '',
-        'Payment Remarks': o.payment_remarks || o.paymentRemarks || '',
-        'Akhil Payment Remarks': o.akhil_points || o.akhilPoints || '',
-        'Akhil Sir Audit': o.akhil_sir_audit || o.akhilSirAudit || '',
-        'Audit Remarks': o.remarks || '',
-        'Advance Bill': o.advance_bill || o.advanceBill || '',
-        'OR Recvd': o.or_recvd || o.orRecvd || '',
-        'Deleted By': d.deleted_by || '',
-        'Deleted On': d.deleted_at ? new Date(d.deleted_at).toLocaleDateString('en-IN') : ''
+        '#':                  i + 1,
+        'Date':               o.date || '',
+        'PO No':              o.po_no || o.poNo || '',
+        'Client':             o.client || '',
+        'Order No':           o.order_no || o.orderNo || '',
+        'DOD Status':         o.status || '',
+        'Customer Name':      o.customer_name || o.customerName || '',
+        'GST':                o.gst || '',
+        'Billing Address':    o.billing_address || o.billingAddress || '',
+        'Follow Up':          o.follow_up || o.followUp || '',
+        'Sales Rep':          o.sales_rep || o.salesRep || '',
+        'Delivery Address':   o.delivery_address || o.deliveryAddress || '',
+        'Phone No':           o.phone_no || o.phoneNo || '',
+        'Site Verification':  o.site_verification || o.siteVerification || '',
+        'Installation Status':o.installation_status || o.installationStatus || '',
+        'LOP':                o.lop || '',
+        'Section Drawing':    o.section_drawing || o.sectionDrawing || '',
+        'In Production':      o.in_production || o.inProduction || '',
+        'Seasonal Discount':  o.installation || '',
+        'Total Amount':       o.total_amount || o.totalAmount || 0,
+        'Received':           fmtPayments(byOrderId[d.original_id], o.received_amount || o.receivedAmount || 0),
+        'Balance':            (o.total_amount || o.totalAmount || 0) - (o.received_amount || o.receivedAmount || 0),
+        '% Rcv':              (o.total_amount || o.totalAmount) ? parseFloat((((o.received_amount || o.receivedAmount || 0) / (o.total_amount || o.totalAmount)) * 100).toFixed(1)) : 0,
+        'Follow Up Type':     o.follow_up_type || o.followUpType || '',
+        'Payment Remarks':    o.payment_remarks || o.paymentRemarks || '',
+        'Akhil Remarks':      o.akhil_points || o.akhilPoints || '',
+        'Akhil Sir Audit':    o.akhil_sir_audit || o.akhilSirAudit || '',
+        'Audit Remarks':      o.remarks || '',
+        'Advance Bill':       o.advance_bill || o.advanceBill || '',
+        'OR Recvd':           o.or_recvd || o.orRecvd || '',
+        'Deleted By':         d.deleted_by || '',
+        'Deleted On':         d.deleted_at ? new Date(d.deleted_at).toLocaleDateString('en-IN') : ''
       }
     })
+
     const ws2 = XLSX.utils.json_to_sheet(completedData)
-    autoWidth(ws2, completedData)
-    wrapReceivedColumn(ws2, completedData)
+    const compLeft = new Set([3,4,6,7,8,9,10,11,12,24,25,27,28])
+    const compWrap = new Set([8,11,24,25,27,28])
+    applySheetStyle(ws2, completedData, C.ORANGE_HDR, compLeft, compWrap)
     XLSX.utils.book_append_sheet(wb, ws2, 'Completed Orders')
 
-    // Sheet 3: Paper Issue Report
+    // -----------------------------------------------------------------------
+    // Sheet 3: Paper Issue Report — blue header
+    // -----------------------------------------------------------------------
     const paperData = paper.map((r, i) => ({
-      '#': i + 1,
-      'Order No': r.order_no || '',
-      'Client': r.client || '',
+      '#':            i + 1,
+      'Date':         r.created_at ? new Date(r.created_at).toLocaleDateString('en-IN') : '',
+      'Order No':     r.order_no || '',
+      'Client':       r.client || '',
       'Requested By': (r.requested_by || '') + (r.placed_by_admin ? ' (admin)' : ''),
-      'Issue To': r.issue_to || '',
-      'Status': r.status || '',
-      'Date': r.created_at ? new Date(r.created_at).toLocaleDateString('en-IN') : ''
+      'Issue To':     r.issue_to || '',
+      'Status':       r.status || '',
+      'Accepted By':  r.accepted_by || '',
+      'Accepted At':  r.accepted_at ? new Date(r.accepted_at).toLocaleDateString('en-IN') : '',
+      'Returned By':  r.returned_by || '',
+      'Return Date':  r.return_date ? new Date(r.return_date).toLocaleDateString('en-IN') : ''
     }))
+
     const ws3 = XLSX.utils.json_to_sheet(paperData)
-    autoWidth(ws3, paperData)
+    const paperLeft = new Set([2,3,4,5])
+    applySheetStyle(ws3, paperData, C.BLUE_HDR, paperLeft, new Set())
     XLSX.utils.book_append_sheet(wb, ws3, 'Paper Issue Report')
 
-    // Sheet 4: Reminders
+    // -----------------------------------------------------------------------
+    // Sheet 4: Reminders — purple header
+    // -----------------------------------------------------------------------
     const reminderData = reminders.map((r, i) => ({
-      '#': i + 1,
-      'Date': r.date || '',
-      'Order No': r.order_no || '',
-      'Client': r.client || '',
-      'Message': r.description || '',
-      'Set By': r.created_by || '',
-      'Assigned To': r.assigned_to || '',
-      'Response': r.response_text || 'PENDING',
-      'Responded By': r.responded_by || '-',
+      '#':             i + 1,
+      'Date':          r.date || '',
+      'Order No':      r.order_no || '',
+      'Client':        r.client || '',
+      'Message':       r.description || '',
+      'Set By':        r.created_by || '',
+      'Assigned To':   r.assigned_to || '',
+      'Response':      r.response_text || 'PENDING',
+      'Responded By':  r.responded_by || '-',
       'Response Date': r.response_date ? new Date(r.response_date).toLocaleDateString('en-IN') : '-',
-      'Status': r.responded_by ? 'RESPONDED' : 'PENDING'
+      'Status':        r.responded_by ? 'RESPONDED' : 'PENDING'
     }))
+
     const ws4 = XLSX.utils.json_to_sheet(reminderData)
-    autoWidth(ws4, reminderData)
+    const remLeft = new Set([3,4,5,6,7])
+    const remWrap = new Set([4,7])
+    applySheetStyle(ws4, reminderData, C.PURPLE_HDR, remLeft, remWrap)
     XLSX.utils.book_append_sheet(wb, ws4, 'Reminders')
 
     // Generate buffer
@@ -248,25 +389,4 @@ function fmtDate(s) {
 function fmtPayments(list, fallback) {
   if (!list || !list.length) return fallback
   return list.map(p => `${fmtDate(p.date)}  ${Number(p.amount || 0)}/-`).join('\n')
-}
-
-function wrapReceivedColumn(ws, data) {
-  if (!data.length) return
-  const headers = Object.keys(data[0])
-  const colIdx = headers.indexOf('Received')
-  if (colIdx === -1) return
-  for (let r = 0; r < data.length; r++) {
-    const ref = XLSX.utils.encode_cell({ c: colIdx, r: r + 1 })
-    if (ws[ref]) ws[ref].s = { ...(ws[ref].s || {}), alignment: { wrapText: true, vertical: 'top' } }
-  }
-}
-
-function autoWidth(ws, data) {
-  if (!data.length) return
-  const headers = Object.keys(data[0])
-  ws['!cols'] = headers.map(key => {
-    let maxLen = key.length
-    data.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length })
-    return { wch: Math.min(Math.max(maxLen + 2, 8), 40) }
-  })
 }
