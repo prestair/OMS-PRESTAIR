@@ -17,6 +17,8 @@ const FIELDS = [
   { key: 'salesRep', label: 'Sales Rep' },
   { key: 'deliveryAddress', label: 'Delivery Address' },
   { key: 'phoneNo', label: 'Phone No' },
+  { key: 'wappGroup', label: 'Wapp Group', type: 'select', options: ['', 'Yes', 'No', 'N/A'] },
+  { key: 'wappNumber', label: 'Wapp Number' },
   { key: 'siteVerification', label: 'Site Verification' },
   { key: 'siteVerificationRemarks', label: 'Site Verification Remarks' },
   { key: 'installationStatus', label: 'Installation Status' },
@@ -274,7 +276,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted,
                 : (isDeleted
                     ? ((isAdmin || allowCompletedEdit) && !isOrderNoLocked && inRestricted)
                     : (((isAdmin || (restrictToFields && restrictToFields.length && inRestricted)) || canEditColumn(field.key)) && !isOrderNoLocked && !isDateLocked && inRestricted))
-              const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit','advanceBill','orRecvd','salesRep','followUpType'].includes(field.key)
+              const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit','advanceBill','orRecvd','salesRep','followUpType','wappGroup'].includes(field.key)
               return (
                 <div key={field.key} style={styles.field}>
                   <label style={styles.label}>{field.label}</label>
@@ -354,6 +356,13 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted,
                           <option value="HOLD">HOLD</option>
                           <option value="RE">RE</option>
                           <option value="NR">NR</option>
+                        </>
+                      ) : field.key === 'wappGroup' ? (
+                        <>
+                          <option value="">-- Select --</option>
+                          <option value="YES">YES</option>
+                          <option value="NO">NO</option>
+                          <option value="N/A">N/A</option>
                         </>
                       ) : (
                         <>
