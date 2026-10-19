@@ -1686,6 +1686,33 @@ function Dashboard() {
         <option value="Sir">Sir</option>
       </select>
     }
+    if (key === 'wappGroup') {
+      if (!canEditColumn('wappGroup')) return val || ''
+      const save = async (e) => {
+        const newVal = e.target.value
+        if (newVal === (val || '')) return
+        try { await axios.put(`/api/orders/${order.id}`, { wappGroup: newVal }); fetchOrders() }
+        catch { alert('Failed to save Wapp Group') }
+      }
+      return <select value={val || ''} onClick={e => e.stopPropagation()} onChange={save}
+        style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', boxSizing: 'border-box' }}>
+        <option value="">—</option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+        <option value="N/A">N/A</option>
+      </select>
+    }
+    if (key === 'wappNumber') {
+      if (!canEditColumn('wappNumber')) return val || ''
+      const save = async (e) => {
+        const newVal = e.target.value
+        if (newVal === (val || '')) return
+        try { await axios.put(`/api/orders/${order.id}`, { wappNumber: newVal }); fetchOrders() }
+        catch { alert('Failed to save Wapp Number') }
+      }
+      return <input type="text" defaultValue={val || ''} onClick={e => e.stopPropagation()} onBlur={save}
+        style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', boxSizing: 'border-box' }} />
+    }
     if (key === 'paymentRemarks') {
       return <span>{val || ''} {order.paymentProofUrl && <><a href={order.paymentProofUrl} target="_blank" rel="noreferrer" style={{ color: '#2980b9', fontSize: '10px', fontWeight: '700' }} onClick={e => e.stopPropagation()}>View Supporting</a>{isAdmin && <button onClick={async(e)=>{e.stopPropagation();if(window.confirm('Delete this supporting image?')){try{await axios.delete(`/api/delete-payment-proof/${order.id}`);fetchOrders()}catch{}}}} style={{marginLeft:'4px',padding:'1px 5px',background:'#e74c3c',color:'#fff',border:'none',borderRadius:'3px',fontSize:'9px',cursor:'pointer',fontWeight:'600'}}>Delete</button>}</>}</span>
     }
