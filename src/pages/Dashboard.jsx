@@ -492,19 +492,22 @@ function Dashboard() {
       if (selectedValues && selectedValues.length > 0) {
         result = result.filter(o => {
           const raw = String(o[key] || '').trim()
-          // treat '-' as blank
-          const isEmpty = !raw || raw === '-'
-          const val = isEmpty ? '(Empty)' : raw
-          // Special "(Non Blank)" option
-          if (selectedValues.includes('(Non Blank)') && !isEmpty) return true
-          // Special "(Blank)" option — matches empty string and '-'
+          // '-' is a special dash value — show in both Blank and Non Blank filters
+          // but never as a standalone filter option
+          const isDash = raw === '-'
+          const isEmpty = !raw || isDash
+          const val = raw
+          // Special "(Non Blank)" option — matches non-empty values AND '-'
+          if (selectedValues.includes('(Non Blank)') && (raw && !isDash || isDash)) return true
+          // Special "(Blank)" option — matches empty string AND '-'
           if (selectedValues.includes('(Blank)') && isEmpty) return true
           // Special "(With Image)" option
           if (selectedValues.includes('(With Image)')) {
             if (key === 'paymentRemarks' && o.paymentProofUrl) return true
             if (key === 'remarks' && o.auditProofUrl) return true
           }
-          if (isEmpty) return false
+          // '-' should not match any specific value filter
+          if (isDash || !raw) return false
           return selectedValues.some(sv => sv.toLowerCase() === val.toLowerCase())
         })
       }
@@ -1699,7 +1702,7 @@ function Dashboard() {
       }
       return <select value={val || ''} onClick={e => e.stopPropagation()} onChange={save}
         style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', boxSizing: 'border-box', textAlign: 'center' }}>
-        <option value="">—</option>
+        <option value=""></option>
         <option value="Yes">Yes</option>
         <option value="No">No</option>
         <option value="N/A">N/A</option>
