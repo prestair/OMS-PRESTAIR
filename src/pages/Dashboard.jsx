@@ -491,24 +491,20 @@ function Dashboard() {
     Object.entries(columnFilters).forEach(([key, selectedValues]) => {
       if (selectedValues && selectedValues.length > 0) {
         result = result.filter(o => {
-          const raw = String(o[key] || '').trim()
-          // '-' is a special dash value — show in both Blank and Non Blank filters
-          // but never as a standalone filter option
-          const isDash = raw === '-'
-          const isEmpty = !raw || isDash
-          const val = raw
-          // Special "(Non Blank)" option — matches non-empty values AND '-'
-          if (selectedValues.includes('(Non Blank)') && (raw && !isDash || isDash)) return true
-          // Special "(Blank)" option — matches empty string AND '-'
+          const raw = (o[key] == null ? '' : String(o[key])).trim()
+          const isEmpty = raw === '' || raw === '-'
+          // Special "(Blank)" option — matches empty string and '-'
           if (selectedValues.includes('(Blank)') && isEmpty) return true
+          // Special "(Non Blank)" option — matches any non-empty, non-dash value
+          if (selectedValues.includes('(Non Blank)') && !isEmpty) return true
           // Special "(With Image)" option
           if (selectedValues.includes('(With Image)')) {
             if (key === 'paymentRemarks' && o.paymentProofUrl) return true
             if (key === 'remarks' && o.auditProofUrl) return true
           }
-          // '-' should not match any specific value filter
-          if (isDash || !raw) return false
-          return selectedValues.some(sv => sv.toLowerCase() === val.toLowerCase())
+          // blank/dash should never match a specific value filter
+          if (isEmpty) return false
+          return selectedValues.some(sv => sv.toLowerCase() === raw.toLowerCase())
         })
       }
     })
@@ -1765,8 +1761,8 @@ function Dashboard() {
   const getUniqueValues = (key) => {
     const seen = new Map() // normalised → original
     orders.forEach(o => {
-      const val = String(o[key] || '').trim()
-      // treat '-' as blank — skip it from unique values list
+      const val = (o[key] == null ? '' : String(o[key])).trim()
+      // skip blank and dash — handled by (Blank) option
       if (val && val !== '-') {
         const norm = val.toLowerCase()
         if (!seen.has(norm)) seen.set(norm, val)
