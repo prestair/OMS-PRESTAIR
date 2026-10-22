@@ -1696,7 +1696,10 @@ function Dashboard() {
         try { await axios.put(`/api/orders/${order.id}`, { wappGroup: newVal }); fetchOrders() }
         catch { alert('Failed to save Wapp Group') }
       }
-      return <select value={val || ''} onClick={e => e.stopPropagation()} onChange={save}
+      // Normalise stored value to match option casing (YES→Yes, NO→No, N/A→N/A, EXISTS→Exists)
+      const normMap = { 'yes': 'Yes', 'no': 'No', 'n/a': 'N/A', 'exists': 'Exists' }
+      const normVal = normMap[(val || '').toLowerCase()] || ''
+      return <select value={normVal} onClick={e => e.stopPropagation()} onChange={save}
         style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', boxSizing: 'border-box', textAlign: 'center' }}>
         <option value=""></option>
         <option value="Yes">Yes</option>
