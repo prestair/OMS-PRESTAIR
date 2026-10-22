@@ -17,7 +17,7 @@ const FIELDS = [
   { key: 'salesRep', label: 'Sales Rep' },
   { key: 'deliveryAddress', label: 'Delivery Address' },
   { key: 'phoneNo', label: 'Phone No' },
-  { key: 'wappGroup', label: 'Wapp Group', type: 'select', options: ['', 'Yes', 'No', 'N/A'] },
+  { key: 'wappGroup', label: 'Wapp Group', type: 'select', options: ['', 'Yes', 'No', 'N/A', 'Exists'] },
   { key: 'wappNumber', label: 'Wapp Number' },
   { key: 'siteVerification', label: 'Site Verification' },
   { key: 'siteVerificationRemarks', label: 'Site Verification Remarks' },

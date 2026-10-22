@@ -1695,11 +1695,12 @@ function Dashboard() {
         catch { alert('Failed to save Wapp Group') }
       }
       return <select value={val || ''} onClick={e => e.stopPropagation()} onChange={save}
-        style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', boxSizing: 'border-box' }}>
+        style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', boxSizing: 'border-box', textAlign: 'center' }}>
         <option value="">—</option>
         <option value="Yes">Yes</option>
         <option value="No">No</option>
         <option value="N/A">N/A</option>
+        <option value="Exists">Exists</option>
       </select>
     }
     if (key === 'wappNumber') {
