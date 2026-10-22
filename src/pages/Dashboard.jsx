@@ -502,7 +502,7 @@ function Dashboard() {
             if (key === 'paymentRemarks' && o.paymentProofUrl) return true
             if (key === 'remarks' && o.auditProofUrl) return true
           }
-          return selectedValues.includes(val)
+          return selectedValues.some(sv => sv.toLowerCase() === val.toLowerCase())
         })
       }
     })
@@ -1757,13 +1757,16 @@ function Dashboard() {
 
   // Get unique values for a column (for filter dropdown)
   const getUniqueValues = (key) => {
-    const values = new Set()
+    const seen = new Map() // normalised → original
     orders.forEach(o => {
       const val = String(o[key] || '').trim()
-      // Blanks are handled by the dedicated "(Blank)" option, so skip empty values here
-      if (val) values.add(val)
+      if (val) {
+        const norm = val.toLowerCase()
+        // Keep the first occurrence (preferred casing); skip duplicates
+        if (!seen.has(norm)) seen.set(norm, val)
+      }
     })
-    return [...values].sort()
+    return [...seen.values()].sort()
   }
 
   const toggleFilterValue = (colKey, value) => {
