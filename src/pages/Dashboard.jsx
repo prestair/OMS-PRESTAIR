@@ -492,16 +492,19 @@ function Dashboard() {
       if (selectedValues && selectedValues.length > 0) {
         result = result.filter(o => {
           const raw = String(o[key] || '').trim()
-          const val = raw || '(Empty)'
-          // Special "(Non Blank)" option: match any order that has a non-empty value
-          if (selectedValues.includes('(Non Blank)') && raw) return true
-          // Special "(Blank)" option: match any order with an empty value
-          if (selectedValues.includes('(Blank)') && !raw) return true
-          // Special "(With Image)" option: match orders that have a supporting proof image
+          // treat '-' as blank
+          const isEmpty = !raw || raw === '-'
+          const val = isEmpty ? '(Empty)' : raw
+          // Special "(Non Blank)" option
+          if (selectedValues.includes('(Non Blank)') && !isEmpty) return true
+          // Special "(Blank)" option — matches empty string and '-'
+          if (selectedValues.includes('(Blank)') && isEmpty) return true
+          // Special "(With Image)" option
           if (selectedValues.includes('(With Image)')) {
             if (key === 'paymentRemarks' && o.paymentProofUrl) return true
             if (key === 'remarks' && o.auditProofUrl) return true
           }
+          if (isEmpty) return false
           return selectedValues.some(sv => sv.toLowerCase() === val.toLowerCase())
         })
       }
@@ -1760,9 +1763,9 @@ function Dashboard() {
     const seen = new Map() // normalised → original
     orders.forEach(o => {
       const val = String(o[key] || '').trim()
-      if (val) {
+      // treat '-' as blank — skip it from unique values list
+      if (val && val !== '-') {
         const norm = val.toLowerCase()
-        // Keep the first occurrence (preferred casing); skip duplicates
         if (!seen.has(norm)) seen.set(norm, val)
       }
     })
