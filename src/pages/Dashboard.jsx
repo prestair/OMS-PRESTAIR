@@ -32,7 +32,8 @@ const ALL_COLUMNS = [
   { key: 'deliveryAddress', label: 'Delivery Address' },
   { key: 'phoneNo', label: 'Phone No' },
   { key: 'wappGroup', label: 'Wapp Group' },
-  { key: 'wappNumber', label: 'Wapp Number' },
+  { key: 'wappNumber', label: 'Wapp Name' },
+  { key: 'wappGroupMade', label: 'Wapp Group Made' },
   { key: 'siteVerification', label: 'Site Verification' },
   { key: 'siteVerificationRemarks', label: 'Site Verification Remarks' },
   { key: 'installationStatus', label: 'Installation Status' },
@@ -840,7 +841,8 @@ function Dashboard() {
       { key: 'deliveryAddress', label: 'Delivery Address' },
       { key: 'phoneNo', label: 'Phone No' },
       { key: 'wappGroup',  label: 'Wapp Group'  },
-      { key: 'wappNumber', label: 'Wapp Number' },
+      { key: 'wappNumber', label: 'Wapp Name' },
+      { key: 'wappGroupMade', label: 'Wapp Group Made' },
       { key: 'photography', label: 'Photography' },
       { key: 'photographyRemarks', label: 'Photography Remarks' },
       { key: 'siteVideo', label: 'Site Video' },
@@ -994,7 +996,8 @@ function Dashboard() {
         deliveryAddress: row['Delivery Address'] || row['DELIVERY ADDRESS'] || '',
         phoneNo: String(row['Phone No'] || row['PHONE NO'] || ''),
         wappGroup:  row['Wapp Group']  || '',
-        wappNumber: row['Wapp Number'] || '',
+        wappNumber: row['Wapp Name'] || '',
+        wappGroupMade: row['Wapp Group Made'] || '',
         siteVerification: row['Site Verification'] || '',
         siteVerificationRemarks: row['Site Verification Remarks'] || row['SV Remarks'] || '',
         installationStatus: row['Installation Status'] || row['INSTALLATION STATUS'] || row['INSTALLATION\nSTATUS'] || '',
@@ -1071,7 +1074,8 @@ function Dashboard() {
         deliveryAddress: row['Delivery Address'] || row['DELIVERY ADDRESS'] || '',
         phoneNo: String(row['Phone No'] || row['PHONE NO'] || ''),
         wappGroup:  row['Wapp Group']  || '',
-        wappNumber: row['Wapp Number'] || '',
+        wappNumber: row['Wapp Name'] || '',
+        wappGroupMade: row['Wapp Group Made'] || '',
         photography: row['Photography'] || '',
         photographyRemarks: row['Photography Remarks'] || '',
         siteVideo: row['Site Video'] || '',
@@ -1708,13 +1712,30 @@ function Dashboard() {
         <option value="Exists">Exists</option>
       </select>
     }
+    if (key === 'wappGroupMade') {
+      if (!canEditColumn('wappGroupMade')) return val || ''
+      const save = async (e) => {
+        const newVal = e.target.value
+        if (newVal === (val || '')) return
+        try { await axios.put(`/api/orders/${order.id}`, { wappGroupMade: newVal }); fetchOrders() }
+        catch { alert('Failed to save Wapp Group Made') }
+      }
+      return <select value={val || ''} onClick={e => e.stopPropagation()} onChange={save}
+        style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', boxSizing: 'border-box', textAlign: 'center' }}>
+        <option value=""></option>
+        <option value="YES">YES</option>
+        <option value="NO">NO</option>
+        <option value="N/A">N/A</option>
+        <option value="BLANK">BLANK</option>
+      </select>
+    }
     if (key === 'wappNumber') {
       if (!canEditColumn('wappNumber')) return val || ''
       const save = async (e) => {
         const newVal = e.target.value
         if (newVal === (val || '')) return
         try { await axios.put(`/api/orders/${order.id}`, { wappNumber: newVal }); fetchOrders() }
-        catch { alert('Failed to save Wapp Number') }
+        catch { alert('Failed to save Wapp Name') }
       }
       return <input type="text" defaultValue={val || ''} onClick={e => e.stopPropagation()} onBlur={save}
         style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', boxSizing: 'border-box' }} />
