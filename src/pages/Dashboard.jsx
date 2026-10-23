@@ -1726,7 +1726,6 @@ function Dashboard() {
         <option value="YES">YES</option>
         <option value="NO">NO</option>
         <option value="N/A">N/A</option>
-        <option value="BLANK">BLANK</option>
       </select>
     }
     if (key === 'wappNumber') {

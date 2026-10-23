@@ -19,7 +19,7 @@ const FIELDS = [
   { key: 'phoneNo', label: 'Phone No' },
   { key: 'wappGroup', label: 'Wapp Group', type: 'select', options: ['', 'Yes', 'No', 'N/A', 'Exists'] },
   { key: 'wappNumber', label: 'Wapp Name' },
-  { key: 'wappGroupMade', label: 'Wapp Group Made', type: 'select', options: ['', 'Yes', 'No', 'N/A', 'Blank'] },
+  { key: 'wappGroupMade', label: 'Wapp Group Made', type: 'select', options: ['', 'Yes', 'No', 'N/A'] },
   { key: 'siteVerification', label: 'Site Verification' },
   { key: 'siteVerificationRemarks', label: 'Site Verification Remarks' },
   { key: 'installationStatus', label: 'Installation Status' },
@@ -371,7 +371,6 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted,
                           <option value="YES">YES</option>
                           <option value="NO">NO</option>
                           <option value="N/A">N/A</option>
-                          <option value="BLANK">BLANK</option>
                         </>
                       ) : (
                         <>
