@@ -10,6 +10,10 @@ function Login() {
   const [error, setError] = useState('')
   const [locationBlocked, setLocationBlocked] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [locked, setLocked] = useState(false)
+  const [unlockCode, setUnlockCode] = useState('')
+  const [unlockError, setUnlockError] = useState('')
+  const [unlockLoading, setUnlockLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
 
@@ -59,11 +63,34 @@ function Login() {
       if (gps) axios.post('/api/auth/log-location', { lat: gps.lat, lon: gps.lon, accuracy: gps.accuracy, logId: loggedInUser?.locationLogId }).catch(() => {})
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.error === 'Login not allowed from this IP address.'
-        ? 'Unauthorised IP Address, please contact administrator to approve your IP.'
-        : err.response?.data?.error || 'Login failed. Please check your credentials.')
+      if (err.response?.data?.locked) {
+        setLocked(true)
+        setError('LOGIN DISABLED ENTER CODE TO ENABLE')
+      } else {
+        setError(err.response?.data?.error === 'Login not allowed from this IP address.'
+          ? 'Unauthorised IP Address, please contact administrator to approve your IP.'
+          : err.response?.data?.error || 'Login failed. Please check your credentials.')
+      }
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUnlockSubmit = async (e) => {
+    e.preventDefault()
+    if (!unlockCode.trim()) { setUnlockError('Enter the unlock code'); return }
+    setUnlockLoading(true)
+    setUnlockError('')
+    try {
+      await axios.post('/api/auth/verify-unlock-code', { username, code: unlockCode.trim() })
+      setLocked(false)
+      setUnlockCode('')
+      setError('')
+      setUnlockError('')
+    } catch (err) {
+      setUnlockError(err.response?.data?.error || 'Invalid code')
+    } finally {
+      setUnlockLoading(false)
     }
   }
 
@@ -199,9 +226,30 @@ function Login() {
               )
             })()}
 
-            <button type="submit" style={{ ...styles.button, opacity: locationBlocked ? 0.4 : 1 }} disabled={loading || locationBlocked}>
-              {loading ? 'Logging in in few seconds ........ Please Wait .......' : 'Sign In'}
+            <button type="submit" style={{ ...styles.button, opacity: (locationBlocked || locked) ? 0.4 : 1, background: locked ? '#c0392b' : undefined }} disabled={loading || locationBlocked || locked}>
+              {loading ? 'Logging in in few seconds ........ Please Wait .......' : locked ? '🔒 LOGIN DISABLED' : 'Sign In'}
             </button>
+
+            {locked && (
+              <form onSubmit={handleUnlockSubmit} style={{ marginTop: '12px', padding: '12px', background: '#fff3cd', border: '2px solid #f39c12', borderRadius: '8px' }}>
+                <p style={{ margin: '0 0 8px', fontSize: '11px', fontWeight: '700', color: '#c0392b', textAlign: 'center', letterSpacing: '0.5px' }}>LOGIN DISABLED ENTER CODE TO ENABLE</p>
+                <p style={{ margin: '0 0 8px', fontSize: '10px', color: '#555', textAlign: 'center' }}>An unlock code has been sent to the administrator's email.</p>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    value={unlockCode}
+                    onChange={e => { setUnlockCode(e.target.value); setUnlockError('') }}
+                    placeholder="Enter 6-digit unlock code"
+                    maxLength={6}
+                    style={{ flex: 1, padding: '8px 10px', border: '1px solid #f39c12', borderRadius: '5px', fontSize: '14px', fontWeight: '700', letterSpacing: '4px', textAlign: 'center', outline: 'none' }}
+                    autoFocus
+                  />
+                  <button type="submit" disabled={unlockLoading} style={{ padding: '8px 14px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {unlockLoading ? '...' : 'Unlock'}
+                  </button>
+                </div>
+                {unlockError && <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#e74c3c', fontWeight: '600', textAlign: 'center' }}>{unlockError}</p>}
+              </form>
+            )}
           </form>
           <p style={styles.footer}>www.prestairsystems.com</p>
         </div>

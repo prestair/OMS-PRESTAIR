@@ -112,6 +112,50 @@ async function sendUnauthorisedLoginAlert(ip, username) {
   }
 }
 
+// Sends unlock code to admin when IP is locked out after unauthorized attempt
+async function sendLockoutUnlockCode(ip, username, unlockCode) {
+  try {
+    const GMAIL_USER = process.env.GMAIL_USER
+    const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
+    if (!GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return
+    const timeIST = new Date().toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: true
+    })
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000
+    })
+    await transporter.sendMail({
+      from: `"Prestair Security" <${GMAIL_USER}>`,
+      to: RECEIVER,
+      subject: `🔒 LOGIN LOCKED — Unlock Code for ${username} (${ip})`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+  <h2 style="color:#e74c3c;margin-top:0">🔒 Login Locked — Unauthorised IP</h2>
+  <p style="color:#555;font-size:13px">Login has been locked for the following user after an unauthorised IP attempt.</p>
+  <table style="width:100%;border-collapse:collapse;margin-top:8px">
+    <tr style="background:#f8f8f8"><td style="padding:8px 12px;font-weight:600;width:140px">App Name</td><td style="padding:8px 12px">OMS DASHBOARD</td></tr>
+    <tr><td style="padding:8px 12px;font-weight:600">IP Address</td><td style="padding:8px 12px">${ip}</td></tr>
+    <tr style="background:#f8f8f8"><td style="padding:8px 12px;font-weight:600">Username</td><td style="padding:8px 12px">${username}</td></tr>
+    <tr><td style="padding:8px 12px;font-weight:600">Time (IST)</td><td style="padding:8px 12px">${timeIST}</td></tr>
+  </table>
+  <div style="margin-top:20px;padding:16px 20px;background:#fff3cd;border:2px solid #f39c12;border-radius:8px;text-align:center">
+    <p style="margin:0 0 8px;font-size:13px;color:#555;font-weight:600">UNLOCK CODE</p>
+    <p style="margin:0;font-size:36px;font-weight:900;letter-spacing:8px;color:#1a1a2e">${unlockCode}</p>
+  </div>
+  <p style="margin-top:16px;color:#555;font-size:12px">Share this code with the user to unlock their login. The code is valid for 30 minutes.</p>
+</div>`
+    })
+  } catch (emailErr) {
+    console.error('Lockout unlock code email failed:', emailErr.message)
+  }
+}
+
 function generateToken(user) {
   if (!JWT_SECRET) throw new Error('Server authentication is not configured: set JWT_SECRET')
   return jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '24h' })
@@ -182,6 +226,21 @@ app.post('/api/auth/login', async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' })
     // IP whitelist check — fail-open when table is empty
     const clientIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
+    // Check if this IP+username is currently locked out
+    try {
+      const { data: activeLocks } = await supabase.from('ip_lockouts')
+        .select('created_at').eq('ip_address', clientIp).eq('username', user.username).eq('is_unlocked', false)
+        .order('created_at', { ascending: false }).limit(1)
+      const lock = activeLocks?.[0]
+      if (lock) {
+        const age = Date.now() - new Date(lock.created_at).getTime()
+        if (age <= 30 * 60 * 1000) {
+          return res.status(403).json({ error: 'LOGIN DISABLED ENTER CODE TO ENABLE', locked: true })
+        }
+        // Expired — auto-unlock
+        await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', clientIp).eq('username', user.username).eq('is_unlocked', false)
+      }
+    } catch (lockCheckErr) { console.error('lockout check failed:', lockCheckErr.message) }
     try {
       const allowedIps = await cachedRead('authorised_ips_guard', TTL_AUTHORISED_IPS, async () => {
         const { data } = await supabase.from('authorised_ips').select('ip_address')
@@ -191,10 +250,18 @@ app.post('/api/auth/login', async (req, res) => {
         const normalised = clientIp.toLowerCase().trim()
         const isAllowed = allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
         if (!isAllowed) {
-          // Await the alert before returning — Vercel kills the function as soon as res is sent,
-          // so fire-and-forget emails never complete on serverless.
+          // Generate 6-digit unlock code and store in ip_lockouts table
+          const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
+          try {
+            // Remove any existing active lockouts for this IP+username
+            await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', clientIp).eq('username', user.username).eq('is_unlocked', false)
+            // Insert new lockout
+            await supabase.from('ip_lockouts').insert({ ip_address: clientIp, username: user.username, unlock_code: unlockCode })
+          } catch (lockErr) { console.error('ip_lockouts insert failed:', lockErr.message) }
+          // Send both emails: unauthorized alert + unlock code
           await sendUnauthorisedLoginAlert(clientIp, user.username)
-          return res.status(403).json({ error: 'Login not allowed from this IP address.' })
+          await sendLockoutUnlockCode(clientIp, user.username, unlockCode)
+          return res.status(403).json({ error: 'Login not allowed from this IP address.', locked: true })
         }
       }
     } catch (ipCheckErr) {
@@ -230,6 +297,43 @@ app.post('/api/auth/login', async (req, res) => {
 // User requirement: approximations up to ~2 km are acceptable, but 30-40 km blunders
 // (wrong city) must not be shown as a confident location.
 const ACCURACY_THRESHOLD_M = 2000
+app.post('/api/auth/verify-unlock-code', async (req, res) => {
+  try {
+    const { username, code } = req.body
+    if (!username || !code) return res.status(400).json({ error: 'Required' })
+    const clientIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
+    // Find active lockout for this IP+username
+    const { data: lockouts } = await supabase.from('ip_lockouts')
+      .select('*').eq('ip_address', clientIp).eq('username', username).eq('is_unlocked', false)
+      .order('created_at', { ascending: false }).limit(1)
+    const lockout = lockouts?.[0]
+    if (!lockout) return res.status(400).json({ error: 'No active lockout found' })
+    // Check 30 min expiry
+    const age = Date.now() - new Date(lockout.created_at).getTime()
+    if (age > 30 * 60 * 1000) return res.status(400).json({ error: 'Unlock code has expired. Please try logging in again to get a new code.' })
+    if (lockout.unlock_code !== String(code).trim()) return res.status(400).json({ error: 'Invalid unlock code' })
+    // Mark as unlocked
+    await supabase.from('ip_lockouts').update({ is_unlocked: true, unlocked_at: new Date().toISOString() }).eq('id', lockout.id)
+    res.json({ success: true, message: 'Login unlocked. You may now try logging in.' })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/api/auth/check-lockout', async (req, res) => {
+  try {
+    const { username } = req.body
+    if (!username) return res.status(400).json({ locked: false })
+    const clientIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
+    const { data: lockouts } = await supabase.from('ip_lockouts')
+      .select('created_at').eq('ip_address', clientIp).eq('username', username).eq('is_unlocked', false)
+      .order('created_at', { ascending: false }).limit(1)
+    const lockout = lockouts?.[0]
+    if (!lockout) return res.json({ locked: false })
+    const age = Date.now() - new Date(lockout.created_at).getTime()
+    if (age > 30 * 60 * 1000) return res.json({ locked: false }) // expired
+    res.json({ locked: true })
+  } catch (e) { res.json({ locked: false }) }
+})
+
 app.post('/api/auth/log-location', authenticate, async (req, res) => {
   try {
     const { lat, lon, accuracy, logId } = req.body
