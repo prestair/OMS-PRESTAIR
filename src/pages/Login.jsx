@@ -94,6 +94,21 @@ function Login() {
     }
   }
 
+  const handleResendCode = async () => {
+    if (!username) { setUnlockError('Enter your username first'); return }
+    setUnlockLoading(true)
+    setUnlockError('')
+    try {
+      await axios.post('/api/auth/resend-unlock-code', { username })
+      setUnlockError('✅ New code sent to admin email')
+      setUnlockCode('')
+    } catch (err) {
+      setUnlockError(err.response?.data?.error || 'Failed to resend')
+    } finally {
+      setUnlockLoading(false)
+    }
+  }
+
   return (
     <div style={styles.container}>
       <div style={styles.leftPanel}>
@@ -247,7 +262,12 @@ function Login() {
                     {unlockLoading ? '...' : 'Unlock'}
                   </button>
                 </div>
-                {unlockError && <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#e74c3c', fontWeight: '600', textAlign: 'center' }}>{unlockError}</p>}
+                {unlockError && <p style={{ margin: '6px 0 0', fontSize: '11px', color: unlockError.startsWith('✅') ? '#27ae60' : '#e74c3c', fontWeight: '600', textAlign: 'center' }}>{unlockError}</p>}
+                <div style={{ marginTop: '8px', textAlign: 'center' }}>
+                  <button type="button" onClick={handleResendCode} disabled={unlockLoading} style={{ background: 'none', border: 'none', color: '#2980b9', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline' }}>
+                    {unlockLoading ? 'Sending...' : 'Resend Code'}
+                  </button>
+                </div>
               </form>
             )}
           </form>

@@ -233,13 +233,8 @@ app.post('/api/auth/login', async (req, res) => {
         .order('created_at', { ascending: false }).limit(1)
       const lock = activeLocks?.[0]
       if (lock) {
-        const age = Date.now() - new Date(lock.created_at).getTime()
-        if (age <= 30 * 60 * 1000) {
           return res.status(403).json({ error: 'LOGIN DISABLED ENTER CODE TO ENABLE', locked: true })
         }
-        // Expired — auto-unlock
-        await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', clientIp).eq('username', user.username).eq('is_unlocked', false)
-      }
     } catch (lockCheckErr) { console.error('lockout check failed:', lockCheckErr.message) }
     try {
       const allowedIps = await cachedRead('authorised_ips_guard', TTL_AUTHORISED_IPS, async () => {
@@ -297,6 +292,21 @@ app.post('/api/auth/login', async (req, res) => {
 // User requirement: approximations up to ~2 km are acceptable, but 30-40 km blunders
 // (wrong city) must not be shown as a confident location.
 const ACCURACY_THRESHOLD_M = 2000
+app.post('/api/auth/resend-unlock-code', async (req, res) => {
+  try {
+    const { username } = req.body
+    if (!username) return res.status(400).json({ error: 'Username required' })
+    const clientIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
+    // Generate new code
+    const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
+    // Replace existing active lockout with new code
+    await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', clientIp).eq('username', username).eq('is_unlocked', false)
+    await supabase.from('ip_lockouts').insert({ ip_address: clientIp, username, unlock_code: unlockCode })
+    await sendLockoutUnlockCode(clientIp, username, unlockCode)
+    res.json({ success: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 app.post('/api/auth/verify-unlock-code', async (req, res) => {
   try {
     const { username, code } = req.body
@@ -308,9 +318,6 @@ app.post('/api/auth/verify-unlock-code', async (req, res) => {
       .order('created_at', { ascending: false }).limit(1)
     const lockout = lockouts?.[0]
     if (!lockout) return res.status(400).json({ error: 'No active lockout found' })
-    // Check 30 min expiry
-    const age = Date.now() - new Date(lockout.created_at).getTime()
-    if (age > 30 * 60 * 1000) return res.status(400).json({ error: 'Unlock code has expired. Please try logging in again to get a new code.' })
     if (lockout.unlock_code !== String(code).trim()) return res.status(400).json({ error: 'Invalid unlock code' })
     // Mark as unlocked
     await supabase.from('ip_lockouts').update({ is_unlocked: true, unlocked_at: new Date().toISOString() }).eq('id', lockout.id)
@@ -328,8 +335,6 @@ app.post('/api/auth/check-lockout', async (req, res) => {
       .order('created_at', { ascending: false }).limit(1)
     const lockout = lockouts?.[0]
     if (!lockout) return res.json({ locked: false })
-    const age = Date.now() - new Date(lockout.created_at).getTime()
-    if (age > 30 * 60 * 1000) return res.json({ locked: false }) // expired
     res.json({ locked: true })
   } catch (e) { res.json({ locked: false }) }
 })
