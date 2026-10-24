@@ -100,7 +100,7 @@ function Login() {
     setUnlockError('')
     try {
       await axios.post('/api/auth/resend-unlock-code', { username })
-      setUnlockError('✅ New code sent to admin email')
+      setUnlockError('✅ New code sent to administrator')
       setUnlockCode('')
     } catch (err) {
       setUnlockError(err.response?.data?.error || 'Failed to resend')
@@ -248,7 +248,7 @@ function Login() {
             {locked && (
               <form onSubmit={handleUnlockSubmit} style={{ marginTop: '12px', padding: '12px', background: '#fff3cd', border: '2px solid #f39c12', borderRadius: '8px' }}>
                 <p style={{ margin: '0 0 8px', fontSize: '11px', fontWeight: '700', color: '#c0392b', textAlign: 'center', letterSpacing: '0.5px' }}>LOGIN DISABLED ENTER CODE TO ENABLE</p>
-                <p style={{ margin: '0 0 8px', fontSize: '10px', color: '#555', textAlign: 'center' }}>An unlock code has been sent to the administrator's email.</p>
+                <p style={{ margin: '0 0 8px', fontSize: '10px', color: '#555', textAlign: 'center' }}>An unlock code has been sent to the administrator.</p>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <input
                     value={unlockCode}
