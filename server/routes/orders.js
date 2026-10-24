@@ -267,7 +267,7 @@ router.post('/paper-requests', async (req, res) => {
   const { data: pendingReqs } = await supabase.from('paper_requests').select('*').eq('order_no', orderNo).eq('status', 'PENDING')
   if (pendingReqs && pendingReqs.length > 0) {
     const pendingWith = pendingReqs[0].issue_to
-    return res.status(400).json({ error: `Order ${orderNo} is already pending with ${pendingWith.toUpperCase()}` })
+    return res.status(400).json({ error: `Other issue request already in progress, contact Administrator` })
   }
   // Check if order is already issued (ACCEPTED) and not yet returned
   const { data: acceptedReqs } = await supabase.from('paper_requests').select('*').eq('order_no', orderNo).eq('status', 'ACCEPTED')
@@ -296,10 +296,10 @@ router.post('/paper-requests/:id/accept', async (req, res) => {
   const request = reqs[0]
   // If this is a reissue request, update the old ACCEPTED entry and mark this as reissue
   if (request.reject_remarks === 'REISSUE') {
-    // Mark old ACCEPTED request for this order as REISSUED
-    await supabase.from('paper_requests').update({ status: `REISSUED TO ${request.requested_by.toUpperCase()}` }).eq('order_no', request.order_no).eq('status', 'ACCEPTED')
-    // Mark this reissue request as ACCEPTED with reissue info
-    await supabase.from('paper_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString(), reject_remarks: `REISSUE BY ${req.user.username.toUpperCase()}` }).eq('id', request.id)
+    // Mark old ACCEPTED request: REISSUED BY <acceptor> TO <requester>
+    await supabase.from('paper_requests').update({ status: `REISSUED BY ${req.user.username.toUpperCase()} TO ${request.requested_by.toUpperCase()}` }).eq('order_no', request.order_no).eq('status', 'ACCEPTED')
+    // Mark this reissue request as ACCEPTED (no reissue remark needed)
+    await supabase.from('paper_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString(), reject_remarks: null }).eq('id', request.id)
   } else {
     await supabase.from('paper_requests').update({ status: 'ACCEPTED', accepted_by: req.user.username, accepted_at: new Date().toISOString() }).eq('id', request.id)
   }
@@ -407,9 +407,8 @@ router.post('/return-requests', async (req, res) => {
     return res.status(400).json({ error: `Order ${orderNo} is not currently issued to anyone` })
   }
 
-  const holder = acceptedReqs[0].requested_by || acceptedReqs[0].issue_to
-  const requester = acceptedReqs[0].requested_by
-  if (holder !== actor && requester !== actor) {
+  const holder = acceptedReqs[0].requested_by
+  if (holder !== actor) {
     return res.status(400).json({ error: `Order ${orderNo} paper is with ${holder.toUpperCase()}, only they can submit a return request` })
   }
 
