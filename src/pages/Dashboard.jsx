@@ -2828,7 +2828,10 @@ function Dashboard() {
               <tbody>
                 {(() => {
                   const getRequestStatus = getOrRequestStatus
-                  const filtered = getOrFilteredSortedOrders()
+                  const allFiltered = getOrFilteredSortedOrders()
+                  const filtered = orTabSearch.trim()
+                    ? allFiltered.filter(o => (o.orderNo || '').toLowerCase().includes(orTabSearch.trim().toLowerCase()) || (o.client || '').toLowerCase().includes(orTabSearch.trim().toLowerCase()))
+                    : allFiltered
                   return filtered.map((o, idx) => {
                     const status = getRequestStatus(o.orderNo)
                     const statusColor = status === 'RECEIVED' ? '#27ae60' : status.startsWith('ISSUED TO') ? '#8e44ad' : status === 'PENDING' || status === 'RETURN PENDING' ? '#f39c12' : status === 'ISSUE' ? '#e74c3c' : status === 'REJECTED' ? '#e74c3c' : '#888'
