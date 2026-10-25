@@ -1606,7 +1606,6 @@ function Dashboard() {
   }
 
   const handlePaperExcel = () => {
-    const XLSX = window.XLSX || require('xlsx-js-style')
     let rows = []
     if (paperAllUsers) {
       const accepted = paperRequests.filter(r => r.status === 'ACCEPTED')
