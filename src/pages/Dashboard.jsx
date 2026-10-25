@@ -3441,10 +3441,13 @@ function Dashboard() {
                   <input value={paperRequestSearch} onChange={e => { setPaperRequestSearch(e.target.value); setPaperOrderDropOpen(true) }} onFocus={() => setPaperOrderDropOpen(true)} onBlur={() => setTimeout(() => setPaperOrderDropOpen(false), 200)} placeholder="Order No / Client..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
                   {paperOrderDropOpen && paperRequestSearch.trim() && (() => {
                     const term = paperRequestSearch.trim().toLowerCase()
-                    const opts = [...new Set(paperRequests.filter(r => (r.orderNo||'').toLowerCase().includes(term) || (r.client||'').toLowerCase().includes(term)).map(r => r.orderNo))].slice(0, 8)
+                    const opts = [...new Map(paperRequests.filter(r => (r.orderNo||'').toLowerCase().includes(term) || (r.client||'').toLowerCase().includes(term)).map(r => [r.orderNo, { orderNo: r.orderNo, client: r.client || '' }])).values()].slice(0, 8)
                     return opts.length > 0 ? (
                       <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', zIndex: 100, boxShadow: '0 2px 8px rgba(0,0,0,0.12)', maxHeight: '160px', overflow: 'auto' }}>
-                        {opts.map(opt => <div key={opt} onMouseDown={() => { setPaperRequestSearch(opt); setPaperOrderDropOpen(false) }} style={{ padding: '6px 10px', fontSize: '11px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background='#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{opt}</div>)}
+                        {opts.map(opt => <div key={opt.orderNo} onMouseDown={() => { setPaperRequestSearch(opt.orderNo); setPaperOrderDropOpen(false) }} style={{ padding: '6px 10px', fontSize: '11px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background='#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                          <strong>{opt.orderNo}</strong>
+                          {opt.client && <div style={{ fontSize: '9px', color: '#666', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{opt.client}</div>}
+                        </div>)}
                       </div>
                     ) : null
                   })()}
