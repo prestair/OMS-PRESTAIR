@@ -2829,7 +2829,34 @@ function Dashboard() {
               <tbody>
                 {(() => {
                   const getRequestStatus = getOrRequestStatus
-                  const filtered = getOrFilteredSortedOrders(orTabSearch)
+                  const allOrders = getIssueReturnOrders()
+                  const searchVal = orTabSearch.trim().toLowerCase()
+                  const userSearchVal = orTabUserSearch.trim().toLowerCase()
+                  let filtered = allOrders
+                  if (searchVal) {
+                    filtered = filtered.filter(o => (o.orderNo || '').toLowerCase().includes(searchVal) || (o.client || '').toLowerCase().includes(searchVal))
+                  }
+                  if (userSearchVal) {
+                    filtered = filtered.filter(o => {
+                      const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING'))
+                      if (!pr) return false
+                      return getFullName(pr.requestedBy || pr.requested_by).toLowerCase().includes(userSearchVal) || getFullName(pr.issueTo || pr.issue_to).toLowerCase().includes(userSearchVal)
+                    })
+                  }
+                  if (orTabStatusFilter.length > 0) {
+                    filtered = filtered.filter(o => {
+                      const st = getOrRequestStatus(o.orderNo).toUpperCase()
+                      return orTabStatusFilter.some(f => f === 'ISSUED' ? st.startsWith('ISSUED TO') : f === 'NO REQUEST' ? st === '-' : st === f)
+                    })
+                  }
+                  if (!searchVal) {
+                    filtered = filtered.sort((a, b) => {
+                      const rank = v => v === 'ISSUE' ? 0 : (v === 'PENDING' || v === 'RETURN PENDING') ? 1 : v.startsWith('ISSUED TO') ? 2 : v === 'RECEIVED' ? 3 : v.includes('REJECTED') ? 4 : 5
+                      const aR = rank(getOrRequestStatus(a.orderNo).toUpperCase())
+                      const bR = rank(getOrRequestStatus(b.orderNo).toUpperCase())
+                      return aR !== bR ? aR - bR : 0
+                    })
+                  }
                   return filtered.map((o, idx) => {
                     const status = getRequestStatus(o.orderNo)
                     const statusColor = status === 'RECEIVED' ? '#27ae60' : status.startsWith('ISSUED TO') ? '#8e44ad' : status === 'PENDING' || status === 'RETURN PENDING' ? '#f39c12' : status === 'ISSUE' ? '#e74c3c' : status === 'REJECTED' ? '#e74c3c' : '#888'
