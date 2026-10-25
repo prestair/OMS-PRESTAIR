@@ -3154,7 +3154,7 @@ function Dashboard() {
                       </div>
                     ) : (
                       <div style={{fontSize:'10px',color:'#333',lineHeight:'1.6'}}>
-                        <div>Returned by: <strong>{getFullName(ev.by)}{ev.placedByAdmin ? ` (${getFullName(ev.placedByAdmin)})` : ''}</strong> → Return to: <strong>{getFullName(ev.to)}</strong></div>
+                        <div>Returned by: <strong>{getFullName(ev.to)}{ev.placedByAdmin ? ` (${getFullName(ev.placedByAdmin)})` : ''}</strong> → Return to: <strong>{getFullName(ev.by)}</strong></div>
                         <div>Requested on: {fmt(ev.createdAt)}</div>
                         {ev.acceptedAt && <div>Received on: <strong>{fmt(ev.acceptedAt)}</strong> {ev.acceptedBy?`by ${getFullName(ev.acceptedBy)}`:''}</div>}
                         {ev.rejectRemarks && <div style={{color:'#e74c3c'}}>Remark: {ev.rejectRemarks}</div>}
