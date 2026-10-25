@@ -522,6 +522,7 @@ function Dashboard() {
   const [paperTableUserSearch, setPaperTableUserSearch] = useState('')
   const [paperOrderDropOpen, setPaperOrderDropOpen] = useState(false)
   const [paperUserDropOpen, setPaperUserDropOpen] = useState(false)
+  const [paperAllUsers, setPaperAllUsers] = useState(false)
   const [paperIssueError, setPaperIssueError] = useState('')
   const [reissueOrderNo, setReissueOrderNo] = useState('')
   const [paperIssuing, setPaperIssuing] = useState(false)
@@ -3379,7 +3380,12 @@ function Dashboard() {
                     ) : null
                   })()}
                 </div>
-                {(paperRequestSearch || paperTableUserSearch) && <button onClick={() => { setPaperRequestSearch(''); setPaperTableUserSearch('') }} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', width: 'fit-content' }}>Clear All</button>}
+                {(paperRequestSearch || paperTableUserSearch) && <button onClick={() => { setPaperRequestSearch(''); setPaperTableUserSearch(''); setPaperAllUsers(false) }} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', width: 'fit-content' }}>Clear All</button>}
+                <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
+                  <button onClick={() => { setPaperAllUsers(true); setPaperTableUserSearch(''); setPaperRequestSearch('') }} style={{ fontSize: '10px', padding: '4px 8px', background: paperAllUsers ? '#1a1a2e' : '#eee', color: paperAllUsers ? '#fff' : '#333', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}>All Users (Not Returned)</button>
+                  <button onClick={() => handlePaperExcel()} style={{ fontSize: '10px', padding: '4px 8px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}>Excel</button>
+                  <button onClick={() => handlePaperPrint()} style={{ fontSize: '10px', padding: '4px 8px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}>Print</button>
+                </div>
               </div>
             </div>
           </div>
@@ -3387,14 +3393,66 @@ function Dashboard() {
             {myPaperRequests.length > 0 && (<div style={{ ...styles.reportSection, marginBottom: 0, padding: '10px', border: '2px solid #f39c12' }}><h4 style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700', color: '#f39c12' }}>Issue Requests ({myPaperRequests.length})</h4><table style={{ ...styles.table, fontSize: '10px' }}><thead><tr><th style={styles.th}>Order</th><th style={styles.th}>By</th><th style={styles.th}>Action</th></tr></thead><tbody>{myPaperRequests.map(r => (<tr key={r.id}><td style={styles.td}>{r.orderNo}</td><td style={styles.td}>{getFullName(r.requestedBy)}</td><td style={{...styles.td,whiteSpace:'nowrap'}}><button onClick={async(e)=>{const btn=e.currentTarget;btn.disabled=true;btn.textContent='...';try{await axios.post(`/api/orders/paper-requests/${r.id}/accept`);await Promise.all([fetchPaperRequests(),fetchOrders()])}catch(err){alert(err.response?.data?.error||'Failed');btn.disabled=false;btn.textContent='Accept'}}} style={{...styles.tblBtn,background:'#27ae60'}}>Accept</button><button onClick={()=>{setRejectModal({id:r.id,type:'paper',orderNo:r.orderNo});setRejectReason('')}} style={{...styles.tblBtn,background:'#e74c3c'}}>Reject</button></td></tr>))}</tbody></table></div>)}
             {myReturnRequests.length > 0 && (<div style={{ ...styles.reportSection, marginBottom: 0, padding: '10px', border: '2px solid #27ae60' }}><h4 style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700', color: '#27ae60' }}>Return Requests ({myReturnRequests.length})</h4><table style={{ ...styles.table, fontSize: '10px' }}><thead><tr><th style={styles.th}>Order</th><th style={styles.th}>By</th><th style={styles.th}>Action</th></tr></thead><tbody>{myReturnRequests.map(r => (<tr key={r.id}><td style={styles.td}>{r.orderNo}</td><td style={styles.td}>{r.requestedBy}</td><td style={{...styles.td,whiteSpace:'nowrap'}}><button onClick={async(e)=>{const btn=e.currentTarget;btn.disabled=true;btn.textContent='...';try{await axios.post(`/api/orders/return-requests/${r.id}/accept`);await Promise.all([fetchPaperRequests(),fetchOrders()])}catch(err){alert(err.response?.data?.error||'Failed');btn.disabled=false;btn.textContent='Accept'}}} style={{...styles.tblBtn,background:'#27ae60'}}>Accept</button><button onClick={()=>{setRejectModal({id:r.id,type:'return',orderNo:r.orderNo});setRejectReason('')}} style={{...styles.tblBtn,background:'#e74c3c'}}>Reject</button></td></tr>))}</tbody></table></div>)}
           </div>)}
-          <div style={{ ...styles.reportSection, padding: '10px' }}><h4 style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700' }}>All Requests</h4><div style={styles.tableWrap}><table style={{ ...styles.table, fontSize: '10px' }}><thead><tr><th style={styles.th}>#</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th><th style={styles.th}>Issue Date</th><th style={styles.th}>Issued By</th><th style={styles.th}>Issue To</th><th style={styles.th}>Status</th><th style={styles.th}>Return Date</th><th style={styles.th}>Return By</th><th style={styles.th}>Return To</th><th style={styles.th}>Rejection Remark</th>{isAdmin&&<th style={{...styles.th,minWidth:'65px'}}>Action</th>}</tr></thead><tbody>{paperRequests.filter(r => {
+          <div style={{ ...styles.reportSection, padding: '10px' }}>
+            <h4 style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700' }}>
+              {paperAllUsers ? 'All Users — Currently Holding Papers' : 'All Requests'}
+            </h4>
+            {paperAllUsers ? (() => {
+              // Group ACCEPTED orders by user
+              const accepted = paperRequests.filter(r => r.status === 'ACCEPTED')
+              const grouped = {}
+              accepted.forEach(r => {
+                const userName = getFullName(r.requestedBy || r.requested_by)
+                if (!grouped[userName]) grouped[userName] = []
+                grouped[userName].push(r)
+              })
+              const sortedUsers = Object.keys(grouped).sort()
+              if (sortedUsers.length === 0) return <p style={{ textAlign: 'center', padding: '20px', color: '#888', fontSize: '11px' }}>No papers currently issued</p>
+              return (
+                <div>
+                  {sortedUsers.map(userName => (
+                    <div key={userName} style={{ marginBottom: '16px' }}>
+                      <div style={{ background: '#1a1a2e', color: '#fff', padding: '6px 12px', borderRadius: '5px 5px 0 0', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        👤 {userName} <span style={{ background: '#f39c12', color: '#1a1a2e', borderRadius: '10px', padding: '1px 8px', fontSize: '10px' }}>{grouped[userName].length} order{grouped[userName].length > 1 ? 's' : ''}</span>
+                      </div>
+                      <table style={{ ...styles.table, fontSize: '10px', borderRadius: '0 0 5px 5px' }}>
+                        <thead>
+                          <tr>
+                            <th style={styles.th}>#</th>
+                            <th style={styles.th}>Order No</th>
+                            <th style={styles.th}>Client</th>
+                            <th style={styles.th}>Issue Date</th>
+                            <th style={styles.th}>Issued By</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {grouped[userName].map((r, idx) => (
+                            <tr key={r.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                              <td style={styles.td}>{idx + 1}</td>
+                              <td style={styles.td}>{r.orderNo}</td>
+                              <td style={{ ...styles.td, textAlign: 'left' }}>{r.client}</td>
+                              <td style={styles.td}>{r.acceptedAt ? formatDate(r.acceptedAt.split('T')[0]) : r.createdAt ? formatDate(r.createdAt.split('T')[0]) : '-'}</td>
+                              <td style={styles.td}>{getFullName(r.issueTo || r.issue_to)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                  <p style={{ fontSize: '10px', color: '#888', marginTop: '4px' }}>Total: {accepted.length} orders with {sortedUsers.length} users</p>
+                </div>
+              )
+            })() : (
+            <div style={styles.tableWrap}><table style={{ ...styles.table, fontSize: '10px' }}><thead><tr><th style={styles.th}>#</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th><th style={styles.th}>Issue Date</th><th style={styles.th}>Issued By</th><th style={styles.th}>Issue To</th><th style={styles.th}>Status</th><th style={styles.th}>Return Date</th><th style={styles.th}>Return By</th><th style={styles.th}>Return To</th><th style={styles.th}>Rejection Remark</th>{isAdmin&&<th style={{...styles.th,minWidth:'65px'}}>Action</th>}</tr></thead><tbody>{paperRequests.filter(r => {
               const orderMatch = !paperRequestSearch.trim() || (r.orderNo || '').toLowerCase().includes(paperRequestSearch.toLowerCase()) || (r.client || '').toLowerCase().includes(paperRequestSearch.toLowerCase())
               const userMatch = !paperTableUserSearch.trim() || (
                 r.status === 'ACCEPTED' &&
                 getFullName(r.requestedBy || r.requested_by).toLowerCase().includes(paperTableUserSearch.toLowerCase())
               )
               return orderMatch && userMatch
-            }).map((r, idx) => { const ret = r.status === 'RETURNED' ? returnRequests.find(rt => rt.orderNo === r.orderNo) : null; const isRej = (r.status||'').toUpperCase().startsWith('REJECTED'); const rowBg = isRej ? { backgroundColor: '#ffe6e6' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd); const cellStyle = isRej ? { ...styles.td, color: '#c0392b' } : styles.td; return (<tr key={r.id} style={rowBg}><td style={cellStyle}>{idx + 1}</td><td style={cellStyle}>{r.orderNo}</td><td style={cellStyle}>{r.client}</td><td style={cellStyle}>{r.createdAt ? formatDate(r.createdAt.split('T')[0]) : ''}</td><td style={cellStyle}>{getFullName(r.issueTo)}</td><td style={cellStyle}>{requesterLabel(r)}</td><td style={{ ...cellStyle, fontWeight: '600', color: isRej ? '#c0392b' : r.status === 'PENDING' ? '#f39c12' : r.status === 'ACCEPTED' ? '#8e44ad' : r.status === 'ISSUE' ? '#e74c3c' : (r.status||'').startsWith('REROUTED') ? '#8e44ad' : (r.status||'').startsWith('REISSUED') ? '#8e44ad' : '#e74c3c' }}>{r.status === 'ACCEPTED' ? `ISSUED TO ${getFullName(r.requestedBy || r.requested_by)}${r.placedByAdmin || r.placed_by_admin ? ` (${getFullName(r.placedByAdmin || r.placed_by_admin)})` : ''}` : r.status}{ret ? ` / ${ret.status}` : ''}</td><td style={cellStyle}>{ret ? (ret.createdAt ? formatDate(ret.createdAt.split('T')[0]) : '') : '-'}</td><td style={cellStyle}>{ret ? getFullName(ret.requestedBy) : '-'}</td><td style={cellStyle}>{ret ? getFullName(ret.returnTo) : '-'}</td><td style={cellStyle}>{(() => { const parts = []; if (r.rejectRemarks && r.rejectRemarks !== 'REISSUE') parts.push(<span key='i' style={{color:'#8e44ad'}}>ISSUE (R): {r.rejectRemarks}</span>); if (ret && ret.rejectRemarks) parts.push(<span key='r' style={{color:'#e74c3c'}}>RETURN (R): {ret.rejectRemarks}</span>); return parts.length > 0 ? parts.reduce((a,b) => [a, <br key='br'/>, b]) : '-' })()}</td>{isAdmin&&<td style={{...cellStyle,whiteSpace:'nowrap',minWidth:'65px'}}><button onClick={async()=>{if(window.confirm(`Delete paper request for ${r.orderNo}?`)){try{await axios.delete(`/api/orders/paper-requests/${r.id}`);fetchPaperRequests();alert('Deleted!')}catch(err){alert(err.response?.data?.error||'Failed')}}}} style={{...styles.tblBtn,background:'#e74c3c',fontSize:'9px'}}>Del</button></td>}</tr>) })}</tbody></table>{paperRequests.length === 0 && <p style={{ textAlign: 'center', padding: '15px', color: '#888', fontSize: '11px' }}>No requests yet</p>}</div></div>
+            }).map((r, idx) => { const ret = r.status === 'RETURNED' ? returnRequests.find(rt => rt.orderNo === r.orderNo) : null; const isRej = (r.status||'').toUpperCase().startsWith('REJECTED'); const rowBg = isRej ? { backgroundColor: '#ffe6e6' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd); const cellStyle = isRej ? { ...styles.td, color: '#c0392b' } : styles.td; return (<tr key={r.id} style={rowBg}><td style={cellStyle}>{idx + 1}</td><td style={cellStyle}>{r.orderNo}</td><td style={cellStyle}>{r.client}</td><td style={cellStyle}>{r.createdAt ? formatDate(r.createdAt.split('T')[0]) : ''}</td><td style={cellStyle}>{getFullName(r.issueTo)}</td><td style={cellStyle}>{requesterLabel(r)}</td><td style={{ ...cellStyle, fontWeight: '600', color: isRej ? '#c0392b' : r.status === 'PENDING' ? '#f39c12' : r.status === 'ACCEPTED' ? '#8e44ad' : r.status === 'ISSUE' ? '#e74c3c' : (r.status||'').startsWith('REROUTED') ? '#8e44ad' : (r.status||'').startsWith('REISSUED') ? '#8e44ad' : '#e74c3c' }}>{r.status === 'ACCEPTED' ? `ISSUED TO ${getFullName(r.requestedBy || r.requested_by)}${r.placedByAdmin || r.placed_by_admin ? ` (${getFullName(r.placedByAdmin || r.placed_by_admin)})` : ''}` : r.status}{ret ? ` / ${ret.status}` : ''}</td><td style={cellStyle}>{ret ? (ret.createdAt ? formatDate(ret.createdAt.split('T')[0]) : '') : '-'}</td><td style={cellStyle}>{ret ? getFullName(ret.requestedBy) : '-'}</td><td style={cellStyle}>{ret ? getFullName(ret.returnTo) : '-'}</td><td style={cellStyle}>{(() => { const parts = []; if (r.rejectRemarks && r.rejectRemarks !== 'REISSUE') parts.push(<span key='i' style={{color:'#8e44ad'}}>ISSUE (R): {r.rejectRemarks}</span>); if (ret && ret.rejectRemarks) parts.push(<span key='r' style={{color:'#e74c3c'}}>RETURN (R): {ret.rejectRemarks}</span>); return parts.length > 0 ? parts.reduce((a,b) => [a, <br key='br'/>, b]) : '-' })()}</td>{isAdmin&&<td style={{...cellStyle,whiteSpace:'nowrap',minWidth:'65px'}}><button onClick={async()=>{if(window.confirm(`Delete paper request for ${r.orderNo}?`)){try{await axios.delete(`/api/orders/paper-requests/${r.id}`);fetchPaperRequests();alert('Deleted!')}catch(err){alert(err.response?.data?.error||'Failed')}}}} style={{...styles.tblBtn,background:'#e74c3c',fontSize:'9px'}}>Del</button></td>}</tr>) })}</tbody></table>{paperRequests.length === 0 && <p style={{ textAlign: 'center', padding: '15px', color: '#888', fontSize: '11px' }}>No requests yet</p>}</div>
+            )}
+          </div>
 
           {/* Edit Request User Modal */}
           {editRequestId && (
