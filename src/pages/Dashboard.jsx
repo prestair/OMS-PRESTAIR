@@ -283,11 +283,12 @@ function Dashboard() {
     return '-'
   }
 
-  const getOrFilteredSortedOrders = () => {
+  const getOrFilteredSortedOrders = (searchOverride) => {
     let filtered = getIssueReturnOrders()
-    // Apply search filter
-    if (orTabSearch.trim()) {
-      const term = orTabSearch.toLowerCase()
+    // Apply search filter - use parameter if provided, otherwise skip (handled by caller)
+    const searchTerm = searchOverride !== undefined ? searchOverride : ''
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
       filtered = filtered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term))
     }
     // Apply user search filter
@@ -1323,7 +1324,7 @@ function Dashboard() {
 
     // Handle OR tab export separately
     if (dailyFilter === 'orRecvd') {
-      const orFiltered = getOrFilteredSortedOrders()
+      const orFiltered = getOrFilteredSortedOrders(orTabSearch)
       const completedFlags = []
       const exportData = orFiltered.map((o, idx) => {
         const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
@@ -1517,7 +1518,7 @@ function Dashboard() {
 
     // Handle OR tab print separately
     if (dailyFilter === 'orRecvd') {
-      const orFiltered = getOrFilteredSortedOrders()
+      const orFiltered = getOrFilteredSortedOrders(orTabSearch)
       let html = `<html><head><title>OR Report - OMS Prestair</title><style>
         @page { size: A4 ${orientation}; margin: 10mm; }
         body { font-family: Arial, sans-serif; margin: 0; padding: 5px; }
@@ -2828,10 +2829,7 @@ function Dashboard() {
               <tbody>
                 {(() => {
                   const getRequestStatus = getOrRequestStatus
-                  const allFiltered = getOrFilteredSortedOrders()
-                  const filtered = orTabSearch.trim()
-                    ? allFiltered.filter(o => (o.orderNo || '').toLowerCase().includes(orTabSearch.trim().toLowerCase()) || (o.client || '').toLowerCase().includes(orTabSearch.trim().toLowerCase()))
-                    : allFiltered
+                  const filtered = getOrFilteredSortedOrders(orTabSearch)
                   return filtered.map((o, idx) => {
                     const status = getRequestStatus(o.orderNo)
                     const statusColor = status === 'RECEIVED' ? '#27ae60' : status.startsWith('ISSUED TO') ? '#8e44ad' : status === 'PENDING' || status === 'RETURN PENDING' ? '#f39c12' : status === 'ISSUE' ? '#e74c3c' : status === 'REJECTED' ? '#e74c3c' : '#888'
