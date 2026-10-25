@@ -314,7 +314,7 @@ const styles = {
   },
   logo: { textAlign: 'center', marginBottom: '36px' },
   omsIcon: {
-    display: 'inline-block', padding: '14px 28px', background: 'linear-gradient(135deg, #1a1a2e, #0f3460)',
+    display: 'inline-block', padding: '14px 28px', background: '#1a1a2e',
     color: '#fff', fontSize: '28px', fontWeight: '800', borderRadius: '12px', letterSpacing: '3px',
     boxShadow: '0 8px 24px rgba(26,26,46,0.3)'
   },
@@ -334,10 +334,10 @@ const styles = {
   },
   error: { color: '#e74c3c', fontSize: '13px', margin: 0, textAlign: 'center', fontWeight: '500' },
   button: {
-    padding: '14px', background: 'linear-gradient(135deg, #1a1a2e, #0f3460)', color: '#ffffff', border: 'none',
+    padding: '14px', background: '#1a1a2e', color: '#ffffff', border: 'none',
     borderRadius: '10px', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
     marginTop: '8px', transition: 'transform 0.2s, box-shadow 0.2s',
-    boxShadow: '0 4px 16px rgba(26,26,46,0.3)', letterSpacing: '0.5px', textShadow: '0 1px 2px rgba(0,0,0,0.2)'
+    boxShadow: '0 4px 16px rgba(26,26,46,0.3)', letterSpacing: '0.5px'
   },
   footer: { textAlign: 'center', marginTop: '30px', fontSize: '11px', color: '#aaa' }
 }
