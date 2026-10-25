@@ -1607,6 +1607,7 @@ function Dashboard() {
 
   const handlePaperExcel = () => {
     let rows = []
+    let sheetTitle = 'Paper Issue Report'
     if (paperAllUsers) {
       const accepted = paperRequests.filter(r => r.status === 'ACCEPTED')
       const grouped = {}
@@ -1620,6 +1621,7 @@ function Dashboard() {
           rows.push({ 'User': i === 0 ? userName : '', 'Order No': r.orderNo, 'Client': r.client || '', 'Issue Date': r.acceptedAt ? formatDate(r.acceptedAt.split('T')[0]) : r.createdAt ? formatDate(r.createdAt.split('T')[0]) : '-', 'Issued By': getFullName(r.issueTo || r.issue_to) })
         })
       })
+      sheetTitle = 'All Users Not Returned'
     } else {
       paperRequests.filter(r => {
         const orderMatch = !paperRequestSearch.trim() || (r.orderNo || '').toLowerCase().includes(paperRequestSearch.toLowerCase()) || (r.client || '').toLowerCase().includes(paperRequestSearch.toLowerCase())
@@ -1631,10 +1633,27 @@ function Dashboard() {
       })
     }
     if (!rows.length) { alert('No data to export'); return }
-    const ws = XLSX.utils.json_to_sheet(rows)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Paper Issue Report')
-    XLSX.writeFile(wb, `Paper_Issue_Report_${new Date().toISOString().split('T')[0]}.xlsx`)
+    const headers = Object.keys(rows[0])
+    let html = `<html><head><title>Excel Preview - Paper Issue Report</title><style>body{font-family:Arial,sans-serif;margin:10px;font-size:9px}h2{text-align:center;font-size:14px;margin-bottom:4px}.subtitle{text-align:center;font-size:11px;color:#555;margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:3px 5px;text-align:center;font-size:8px;word-wrap:break-word}th{background:#D0E8FF;font-weight:bold;font-size:9px}tr:nth-child(even){background:#f9f9f9}.no-print{text-align:center;margin:12px 0}.no-print button{padding:10px 24px;font-size:14px;font-weight:700;border:none;border-radius:6px;cursor:pointer;margin:0 8px}.dl-btn{background:#27ae60;color:#fff}.cancel-btn{background:#eee;color:#333}</style></head><body>`
+    html += `<div class="no-print"><button class="dl-btn" id="dlBtn">Download Excel</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span style="margin-left:16px;font-size:13px;font-weight:600;color:#555">Total Rows: ${rows.length}</span></div>`
+    html += `<h2>OMS - Prestair Systems LLP</h2>`
+    html += `<p class="subtitle">Paper Issue Report | ${paperAllUsers ? 'All Users — Not Returned' : 'Filtered View'} | ${rows.length} records | ${new Date().toLocaleDateString('en-IN')}</p>`
+    html += `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
+    rows.forEach(row => { html += `<tr>${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>` })
+    html += `</tbody></table></body></html>`
+    const previewWin = window.open('', '_blank')
+    previewWin.document.write(html)
+    previewWin.document.close()
+    previewWin.document.getElementById('dlBtn').onclick = () => {
+      const ws = XLSX.utils.json_to_sheet(rows)
+      ws['!cols'] = headers.map(key => { let maxLen = key.length; rows.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length }); return { wch: Math.min(Math.max(maxLen + 2, 10), 35) } })
+      const range = XLSX.utils.decode_range(ws['!ref'])
+      for (let r = range.s.r; r <= range.e.r; r++) { for (let c = range.s.c; c <= range.e.c; c++) { const addr = XLSX.utils.encode_cell({ r, c }); if (!ws[addr]) ws[addr] = { v: '', t: 's' }; if (!ws[addr].s) ws[addr].s = {}; ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }; ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }; if (r === 0) { ws[addr].s.font = { bold: true, sz: 11 }; ws[addr].s.fill = { fgColor: { rgb: 'D0E8FF' } } } else { ws[addr].s.font = { sz: 10 } } } }
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, sheetTitle)
+      XLSX.writeFile(wb, `Paper_Issue_Report_${new Date().toISOString().split('T')[0]}.xlsx`)
+      previewWin.close()
+    }
   }
 
   const handlePaperPrint = () => {
