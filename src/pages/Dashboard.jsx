@@ -1534,13 +1534,13 @@ function Dashboard() {
       html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button></div>`
       html += `<h2>OMS - Prestair Systems LLP</h2>`
       html += `<p class="subtitle">OR Report | ${orFiltered.length} records | ${new Date().toLocaleDateString('en-IN')}</p>`
-      html += `<table><thead><tr><th>#</th><th>Date</th><th>Order No</th><th>Client</th><th>Issue Date</th><th>Requested By</th><th>Issued By</th><th>Status</th><th>Collected By</th><th>Return Date</th></tr></thead><tbody>`
+      html += `<table><thead><tr><th>#</th><th>Date</th><th>Order No</th><th>Client</th><th>Issue Date</th><th>Issued By</th><th>Requested By</th><th>Status</th><th>Collected By</th><th>Return Date</th></tr></thead><tbody>`
       orFiltered.forEach((o, idx) => {
         const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
         const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
         const status = getOrRequestStatus(o.orderNo)
         const isReceived = status.toUpperCase() === 'RECEIVED'
-        html += `<tr class="${o._isCompleted ? 'completed-row' : ''}"><td>${idx+1}</td><td>${formatDate(o.date)}</td><td>${(o.orderNo||'')}${o._isCompleted?' (COMPLETED)':''}</td><td>${o.client||''}</td><td>${pr&&pr.acceptedAt?formatDate(pr.acceptedAt.split('T')[0]):pr&&pr.createdAt?formatDate(pr.createdAt.split('T')[0]):'-'}</td><td>${pr?requesterLabel(pr):'-'}</td><td>${pr?getFullName(pr.issueTo||pr.issue_to):'-'}</td><td>${status}</td><td>${isReceived&&rt?getFullName(rt.acceptedBy||rt.accepted_by):'-'}</td><td>${isReceived&&rt&&rt.acceptedAt?formatDate(rt.acceptedAt.split('T')[0]):'-'}</td></tr>`
+        html += `<tr class="${o._isCompleted ? 'completed-row' : ''}"><td>${idx+1}</td><td>${formatDate(o.date)}</td><td>${(o.orderNo||'')}${o._isCompleted?' (COMPLETED)':''}</td><td>${o.client||''}</td><td>${pr&&pr.acceptedAt?formatDate(pr.acceptedAt.split('T')[0]):pr&&pr.createdAt?formatDate(pr.createdAt.split('T')[0]):'-'}</td><td>${pr?getFullName(pr.issueTo||pr.issue_to):'-'}</td><td>${pr?requesterLabel(pr):'-'}</td><td>${status}</td><td>${isReceived&&rt?getFullName(rt.acceptedBy||rt.accepted_by):'-'}</td><td>${isReceived&&rt&&rt.acceptedAt?formatDate(rt.acceptedAt.split('T')[0]):'-'}</td></tr>`
       })
       html += `</tbody></table></body></html>`
       const printWindow = window.open('', '_blank')
