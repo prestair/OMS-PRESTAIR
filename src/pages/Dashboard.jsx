@@ -2797,6 +2797,33 @@ function Dashboard() {
             {allPayments.length === 0 && <p style={{textAlign:'center',padding:'20px',color:'#888'}}>No payment data</p>}
           </div>
           ) : dailyFilter === 'orRecvd' ? (
+          (() => {
+            const _orOrders = getIssueReturnOrders()
+            const _orSearch = orTabSearch.trim().toLowerCase()
+            const _orUserSearch = orTabUserSearch.trim().toLowerCase()
+            let _orFiltered = _orSearch
+              ? _orOrders.filter(o => (o.orderNo || '').toLowerCase().includes(_orSearch) || (o.client || '').toLowerCase().includes(_orSearch))
+              : _orOrders
+            if (_orUserSearch) {
+              _orFiltered = _orFiltered.filter(o => {
+                const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING'))
+                if (!pr) return false
+                return getFullName(pr.requestedBy || pr.requested_by).toLowerCase().includes(_orUserSearch) || getFullName(pr.issueTo || pr.issue_to).toLowerCase().includes(_orUserSearch)
+              })
+            }
+            if (orTabStatusFilter.length > 0) {
+              _orFiltered = _orFiltered.filter(o => {
+                const st = getOrRequestStatus(o.orderNo).toUpperCase()
+                return orTabStatusFilter.some(f => f === 'ISSUED' ? st.startsWith('ISSUED TO') : f === 'NO REQUEST' ? st === '-' : st === f)
+              })
+            }
+            if (!_orSearch) {
+              _orFiltered = [..._orFiltered].sort((a, b) => {
+                const rank = v => v === 'ISSUE' ? 0 : (v === 'PENDING' || v === 'RETURN PENDING') ? 1 : v.startsWith('ISSUED TO') ? 2 : v === 'RECEIVED' ? 3 : v.includes('REJECTED') ? 4 : 5
+                return rank(getOrRequestStatus(a.orderNo).toUpperCase()) - rank(getOrRequestStatus(b.orderNo).toUpperCase())
+              })
+            }
+            return (
           <div style={styles.tableWrap}>
             {/* OR Tab Filter & Search */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '6px' }}>
@@ -2829,38 +2856,8 @@ function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {(() => {
-                  const getRequestStatus = getOrRequestStatus
-                  const allOrders = getIssueReturnOrders()
-                  const searchVal = orTabSearchRef.current.trim().toLowerCase()
-                  const userSearchVal = orTabUserSearch.trim().toLowerCase()
-                  let filtered = allOrders
-                  if (searchVal) {
-                    filtered = filtered.filter(o => (o.orderNo || '').toLowerCase().includes(searchVal) || (o.client || '').toLowerCase().includes(searchVal))
-                  }
-                  if (userSearchVal) {
-                    filtered = filtered.filter(o => {
-                      const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING'))
-                      if (!pr) return false
-                      return getFullName(pr.requestedBy || pr.requested_by).toLowerCase().includes(userSearchVal) || getFullName(pr.issueTo || pr.issue_to).toLowerCase().includes(userSearchVal)
-                    })
-                  }
-                  if (orTabStatusFilter.length > 0) {
-                    filtered = filtered.filter(o => {
-                      const st = getOrRequestStatus(o.orderNo).toUpperCase()
-                      return orTabStatusFilter.some(f => f === 'ISSUED' ? st.startsWith('ISSUED TO') : f === 'NO REQUEST' ? st === '-' : st === f)
-                    })
-                  }
-                  if (!searchVal) {
-                    filtered = filtered.sort((a, b) => {
-                      const rank = v => v === 'ISSUE' ? 0 : (v === 'PENDING' || v === 'RETURN PENDING') ? 1 : v.startsWith('ISSUED TO') ? 2 : v === 'RECEIVED' ? 3 : v.includes('REJECTED') ? 4 : 5
-                      const aR = rank(getOrRequestStatus(a.orderNo).toUpperCase())
-                      const bR = rank(getOrRequestStatus(b.orderNo).toUpperCase())
-                      return aR !== bR ? aR - bR : 0
-                    })
-                  }
-                  return filtered.map((o, idx) => {
-                    const status = getRequestStatus(o.orderNo)
+                {_orFiltered.map((o, idx) => {
+                    const status = getOrRequestStatus(o.orderNo)
                     const statusColor = status === 'RECEIVED' ? '#27ae60' : status.startsWith('ISSUED TO') ? '#8e44ad' : status === 'PENDING' || status === 'RETURN PENDING' ? '#f39c12' : status === 'ISSUE' ? '#e74c3c' : status === 'REJECTED' ? '#e74c3c' : '#888'
                     const isRejected = status.toUpperCase().includes('REJECTED')
                     const rowStyle = isRejected ? { ...styles.td, color: '#e74c3c', fontWeight: '500' } : styles.td
@@ -2880,10 +2877,12 @@ function Dashboard() {
                     </tr>
                     )
                   })
-                })()}
+                })}
               </tbody>
             </table>
           </div>
+            )
+          })()
           ) : (
           <div style={styles.tableWrap}>
             {(() => { const DAILY_EDITABLE = ['photography','siteVideo','review','siteVerification','installationStatus','sectionDrawing','inProduction','akhilSirAudit','advanceBill']; return (
