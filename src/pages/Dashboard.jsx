@@ -71,6 +71,24 @@ function OrReportNew({ orders, deletedOrders, paperRequests, returnRequests, all
   const [selectedUser, setSelectedUser]     = React.useState('')
   const [userHistoryUser, setUserHistoryUser] = React.useState('')
 
+  // Local status function using fresh props — avoids stale closure from Dashboard
+  const getStatus = React.useCallback((orderNo) => {
+    const prs = (paperRequests || []).filter(r => r.orderNo === orderNo)
+    const rt = (returnRequests || []).find(r => r.orderNo === orderNo)
+    const latest = prs.length > 0 ? prs[0] : null
+    if (rt && rt.status === 'ACCEPTED') return 'RECEIVED'
+    if (rt && rt.status === 'PENDING') return 'RETURN PENDING'
+    if (latest) {
+      if (latest.status === 'ACCEPTED') return `ISSUED TO ${getFullName(latest.requestedBy || latest.requested_by)}`
+      if (latest.status === 'PENDING') return 'PENDING'
+      if (latest.status === 'REJECTED') return 'REJECTED'
+      if (latest.status === 'ISSUE') return 'ISSUE'
+      if ((latest.status || '').startsWith('REROUTED')) return `REROUTED TO ${getFullName((latest.status || '').replace('REROUTED TO ', '').trim())}`
+      return latest.status || '-'
+    }
+    return '-'
+  }, [paperRequests, returnRequests, getFullName])
+
   // Deduplicated merged order list (active first, then deleted/completed)
   const allOrders = React.useMemo(() => {
     const seen = new Set()
@@ -94,7 +112,7 @@ function OrReportNew({ orders, deletedOrders, paperRequests, returnRequests, all
     )
     if (statusFilter.length > 0) {
       result = result.filter(o => {
-        const st = getOrRequestStatus(o.orderNo).toUpperCase()
+        const st = getStatus(o.orderNo).toUpperCase()
         return statusFilter.some(f =>
           f === 'ISSUED'     ? st.startsWith('ISSUED TO') :
           f === 'NO REQUEST' ? st === '-' :
@@ -110,8 +128,8 @@ function OrReportNew({ orders, deletedOrders, paperRequests, returnRequests, all
           v.startsWith('ISSUED TO')                          ? 2 :
           v === 'RECEIVED'                                    ? 3 :
           v.includes('REJECTED')                             ? 4 : 5
-        return rank(getOrRequestStatus(a.orderNo).toUpperCase()) -
-               rank(getOrRequestStatus(b.orderNo).toUpperCase())
+        return rank(getStatus(a.orderNo).toUpperCase()) -
+               rank(getStatus(b.orderNo).toUpperCase())
       })
     }
     return result
@@ -233,7 +251,7 @@ function OrReportNew({ orders, deletedOrders, paperRequests, returnRequests, all
             </thead>
             <tbody>
               {filteredByStatus.map((o, idx) => {
-                const st = getOrRequestStatus(o.orderNo)
+                const st = getStatus(o.orderNo)
                 const isRejected = st.toUpperCase().includes('REJECTED')
                 const cellStyle = isRejected ? { ...styles.td, color: '#e74c3c', fontWeight: '500' } : styles.td
                 const rowBg = isRejected ? { backgroundColor: '#ffe6e6' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd)
@@ -286,7 +304,7 @@ function OrReportNew({ orders, deletedOrders, paperRequests, returnRequests, all
                 </thead>
                 <tbody>
                   {userOrders.map((o, idx) => {
-                    const st = getOrRequestStatus(o.orderNo)
+                    const st = getStatus(o.orderNo)
                     const isRejected = st.toUpperCase().includes('REJECTED')
                     const cellStyle = isRejected ? { ...styles.td, color: '#e74c3c', fontWeight: '500' } : styles.td
                     const rowBg = isRejected ? { backgroundColor: '#ffe6e6' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd)
