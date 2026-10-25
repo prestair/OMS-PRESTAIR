@@ -313,6 +313,8 @@ function Dashboard() {
       })
     }
     // Sort: ISSUE first, then PENDING, then ISSUED TO (alphabetically), then RECEIVED
+    // But if search term is active, don't re-sort - show search results as-is
+    if (!orTabSearch.trim()) {
     filtered = filtered.sort((a, b) => {
       const getOrder = (orderNo) => {
         const v = getOrRequestStatus(orderNo).toUpperCase()
@@ -331,6 +333,7 @@ function Dashboard() {
       if (aOrder === 2) return getOrRequestStatus(a.orderNo).localeCompare(getOrRequestStatus(b.orderNo))
       return 0
     })
+    }
     return filtered
   }
 
