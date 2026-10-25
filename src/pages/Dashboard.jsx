@@ -2806,6 +2806,7 @@ function Dashboard() {
               <input value={orTabUserSearch} onChange={e => setOrTabUserSearch(e.target.value)} placeholder="Search User Name..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', width: '150px' }} />
               {orTabUserSearch && <button onClick={() => setOrTabUserSearch('')} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Clear</button>}
             </div>
+            {/* OR Table - Column Order: Issue Date, Issued By, Requested By */}
             <table style={styles.table}>
               <thead>
                 <tr>
