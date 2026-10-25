@@ -3446,7 +3446,7 @@ function Dashboard() {
                       <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', zIndex: 100, boxShadow: '0 2px 8px rgba(0,0,0,0.12)', maxHeight: '160px', overflow: 'auto' }}>
                         {opts.map(opt => <div key={opt.orderNo} onMouseDown={() => { setPaperRequestSearch(opt.orderNo); setPaperOrderDropOpen(false) }} style={{ padding: '6px 10px', fontSize: '11px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background='#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>
                           <strong>{opt.orderNo}</strong>
-                          {opt.client && <div style={{ fontSize: '9px', color: '#666', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{opt.client}</div>}
+                          {opt.client && <div style={{ fontSize: '9px', color: '#666', marginTop: '1px', whiteSpace: 'normal', lineHeight: '1.3', wordBreak: 'break-word' }}>{opt.client}</div>}
                         </div>)}
                       </div>
                     ) : null
