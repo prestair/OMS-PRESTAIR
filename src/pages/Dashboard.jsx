@@ -60,91 +60,317 @@ const ALL_COLUMNS = [
 
 const DEFAULT_VISIBLE = ['date', 'poNo', 'client', 'orderNo', 'status', 'customerName', 'salesRep', 'totalAmount', 'receivedAmount', 'balance', 'followUpType', 'percentReceived']
 
-// Standalone OR Issue Report table with its own isolated search state
-function OrIssueTable({ orders, deletedOrders, paperRequests, returnRequests, getOrRequestStatus, getFullName, requesterLabel, formatDate, setOrHistoryPopup, styles }) {
-  const [search, setSearch] = React.useState('')
-  const [userSearch, setUserSearch] = React.useState('')
-  const [statusFilter, setStatusFilter] = React.useState([])
+// OR Issue Report — fully self-contained component with multi-view navigation.
+// All filter/search/selection state lives here; Dashboard state is never read or written.
+function OrReportNew({ orders, deletedOrders, paperRequests, returnRequests, allUsers,
+    getOrRequestStatus, getFullName, requesterLabel, formatDate, setOrHistoryPopup, styles }) {
 
+  const [activeView, setActiveView]         = React.useState('status')   // 'status' | 'user' | 'history'
+  const [search, setSearch]                 = React.useState('')
+  const [statusFilter, setStatusFilter]     = React.useState([])
+  const [selectedUser, setSelectedUser]     = React.useState('')
+  const [userHistoryUser, setUserHistoryUser] = React.useState('')
+
+  // Deduplicated merged order list (active first, then deleted/completed)
   const allOrders = React.useMemo(() => {
     const seen = new Set()
     const combined = []
-    ;(orders || []).forEach(o => { if (o && o.orderNo && !seen.has(o.orderNo)) { seen.add(o.orderNo); combined.push({ ...o, _isCompleted: false }) } })
-    ;(deletedOrders || []).forEach(o => { if (o && o.orderNo && !seen.has(o.orderNo)) { seen.add(o.orderNo); combined.push({ ...o, _isCompleted: true }) } })
+    ;(orders || []).forEach(o => {
+      if (o && o.orderNo && !seen.has(o.orderNo)) { seen.add(o.orderNo); combined.push({ ...o, _isCompleted: false }) }
+    })
+    ;(deletedOrders || []).forEach(o => {
+      if (o && o.orderNo && !seen.has(o.orderNo)) { seen.add(o.orderNo); combined.push({ ...o, _isCompleted: true }) }
+    })
     return combined
   }, [orders, deletedOrders])
 
-  const filtered = React.useMemo(() => {
+  // View 1 — By Status: filtered & sorted order list
+  const filteredByStatus = React.useMemo(() => {
     const s = search.trim().toLowerCase()
-    const u = userSearch.trim().toLowerCase()
     let result = allOrders
-    if (s) result = result.filter(o => (o.orderNo || '').toLowerCase().includes(s) || (o.client || '').toLowerCase().includes(s))
-    if (u) result = result.filter(o => {
-      const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING'))
-      if (!pr) return false
-      return getFullName(pr.requestedBy || pr.requested_by).toLowerCase().includes(u) || getFullName(pr.issueTo || pr.issue_to).toLowerCase().includes(u)
-    })
-    if (statusFilter.length > 0) result = result.filter(o => {
-      const st = getOrRequestStatus(o.orderNo).toUpperCase()
-      return statusFilter.some(f => f === 'ISSUED' ? st.startsWith('ISSUED TO') : f === 'NO REQUEST' ? st === '-' : st === f)
-    })
-    if (!s) result = [...result].sort((a, b) => {
-      const rank = v => v === 'ISSUE' ? 0 : (v === 'PENDING' || v === 'RETURN PENDING') ? 1 : v.startsWith('ISSUED TO') ? 2 : v === 'RECEIVED' ? 3 : v.includes('REJECTED') ? 4 : 5
-      return rank(getOrRequestStatus(a.orderNo).toUpperCase()) - rank(getOrRequestStatus(b.orderNo).toUpperCase())
-    })
+    if (s) result = result.filter(o =>
+      (o.orderNo || '').toLowerCase().includes(s) ||
+      (o.client || '').toLowerCase().includes(s)
+    )
+    if (statusFilter.length > 0) {
+      result = result.filter(o => {
+        const st = getOrRequestStatus(o.orderNo).toUpperCase()
+        return statusFilter.some(f =>
+          f === 'ISSUED'     ? st.startsWith('ISSUED TO') :
+          f === 'NO REQUEST' ? st === '-' :
+          st === f
+        )
+      })
+    }
+    if (!s) {
+      result = [...result].sort((a, b) => {
+        const rank = v =>
+          v === 'ISSUE'                                       ? 0 :
+          (v === 'PENDING' || v === 'RETURN PENDING' || v.startsWith('REROUTED')) ? 1 :
+          v.startsWith('ISSUED TO')                          ? 2 :
+          v === 'RECEIVED'                                    ? 3 :
+          v.includes('REJECTED')                             ? 4 : 5
+        return rank(getOrRequestStatus(a.orderNo).toUpperCase()) -
+               rank(getOrRequestStatus(b.orderNo).toUpperCase())
+      })
+    }
     return result
-  }, [allOrders, search, userSearch, statusFilter, paperRequests, returnRequests])
+  }, [allOrders, search, statusFilter, paperRequests, returnRequests])
+
+  // View 2 — By User: orders that involve the selected user
+  const userOrders = React.useMemo(() => {
+    if (!selectedUser) return []
+    return allOrders.filter(o =>
+      (paperRequests || []).some(r =>
+        r.orderNo === o.orderNo &&
+        (r.requestedBy === selectedUser || r.requested_by === selectedUser ||
+         r.issueTo === selectedUser || r.issue_to === selectedUser)
+      )
+    )
+  }, [allOrders, selectedUser, paperRequests])
+
+  // View 3 — User History: chronological issue+return events for selected user
+  const userHistory = React.useMemo(() => {
+    if (!userHistoryUser) return []
+    const events = []
+    ;(paperRequests || []).forEach(r => {
+      const rqBy = r.requestedBy || r.requested_by
+      const isTo = r.issueTo || r.issue_to
+      if (rqBy === userHistoryUser || isTo === userHistoryUser) {
+        events.push({
+          type: 'ISSUE',
+          orderNo: r.orderNo,
+          client: r.client || '',
+          status: r.status,
+          requestedBy: rqBy,
+          issueTo: isTo,
+          createdAt: r.createdAt || r.created_at,
+          acceptedAt: r.acceptedAt || r.accepted_at,
+          rejectRemarks: r.rejectRemarks || r.reject_remarks,
+        })
+      }
+    })
+    ;(returnRequests || []).forEach(r => {
+      const rqBy = r.requestedBy || r.requested_by
+      const retTo = r.returnTo || r.return_to
+      if (rqBy === userHistoryUser || retTo === userHistoryUser) {
+        events.push({
+          type: 'RETURN',
+          orderNo: r.orderNo,
+          client: r.client || '',
+          status: r.status,
+          requestedBy: rqBy,
+          returnTo: retTo,
+          createdAt: r.createdAt || r.created_at,
+          acceptedAt: r.acceptedAt || r.accepted_at,
+          rejectRemarks: r.rejectRemarks || r.reject_remarks,
+        })
+      }
+    })
+    return events.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+  }, [userHistoryUser, paperRequests, returnRequests])
+
+  const fmtDateTime = (dt) => {
+    if (!dt) return '-'
+    try {
+      return new Date(dt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    } catch { return dt }
+  }
+
+  const statusColor = (status) =>
+    status === 'RECEIVED'          ? '#27ae60' :
+    status.startsWith('ISSUED TO') ? '#8e44ad' :
+    (status === 'PENDING' || status === 'RETURN PENDING') ? '#f39c12' :
+    '#e74c3c'
+
+  const viewTabs = [
+    { key: 'status',  label: '📋 By Status' },
+    { key: 'user',    label: '👤 By User' },
+    { key: 'history', label: '🕐 User History' },
+  ]
+
+  const sortedUsers = React.useMemo(() =>
+    [...(allUsers || [])].sort((a, b) =>
+      (a.full_name || a.fullName || a.username || '').localeCompare(b.full_name || b.fullName || b.username || '')
+    ),
+  [allUsers])
 
   return (
     <div style={styles.tableWrap}>
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '6px' }}>
-        <span style={{ fontSize: '11px', fontWeight: '600' }}>Status:</span>
-        <button onClick={() => setStatusFilter([])} style={statusFilter.length === 0 ? styles.dailyValActive : styles.dailyVal}>All</button>
-        {['ISSUED', 'RECEIVED', 'NO REQUEST'].map(s => (
-          <button key={s} onClick={() => statusFilter.includes(s) ? setStatusFilter(statusFilter.filter(x => x !== s)) : setStatusFilter([...statusFilter, s])} style={statusFilter.includes(s) ? styles.dailyValActive : styles.dailyVal}>{s}</button>
+      {/* View tab navigation */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '8px', flexWrap: 'wrap' }}>
+        {viewTabs.map(v => (
+          <button key={v.key} onClick={() => setActiveView(v.key)}
+            style={activeView === v.key ? styles.dailyBtnActive : styles.dailyBtn}>
+            {v.label}
+          </button>
         ))}
-        <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 4px' }}></span>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search Order No / Client..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', width: '190px' }} />
-        {search && <button onClick={() => setSearch('')} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Clear</button>}
-        <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 4px' }}></span>
-        <input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search User Name..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', width: '150px' }} />
-        {userSearch && <button onClick={() => setUserSearch('')} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Clear</button>}
       </div>
-      <table style={styles.table}>
-        <thead>
-          <tr>
-            <th style={styles.th}>S.No</th><th style={styles.th}>Date</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th>
-            <th style={styles.th}>Issue Date</th><th style={styles.th}>Issued By</th><th style={styles.th}>Requested By</th>
-            <th style={styles.th}>Status</th><th style={styles.th}>Collected By</th><th style={styles.th}>Return Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((o, idx) => {
-            const status = getOrRequestStatus(o.orderNo)
-            const statusColor = status === 'RECEIVED' ? '#27ae60' : status.startsWith('ISSUED TO') ? '#8e44ad' : status === 'PENDING' || status === 'RETURN PENDING' ? '#f39c12' : '#e74c3c'
-            const isRejected = status.toUpperCase().includes('REJECTED')
-            const rowStyle = isRejected ? { ...styles.td, color: '#e74c3c', fontWeight: '500' } : styles.td
-            const baseRowStyle = isRejected ? { backgroundColor: '#ffe6e6' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd)
-            const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
-            const rt = status.toUpperCase() === 'RECEIVED' ? (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED') : null
-            return (
-              <tr key={o.id || o.orderNo} style={baseRowStyle}>
-                <td style={rowStyle}>{idx + 1}</td>
-                <td style={rowStyle}>{formatDate(o.date)}</td>
-                <td style={rowStyle}><span onClick={() => setOrHistoryPopup(o)} style={{ cursor: 'pointer', color: isRejected ? '#e74c3c' : '#2980b9', fontWeight: '600', textDecoration: 'underline' }}>{o.orderNo}{o._isCompleted ? ' (COMPLETED)' : ''}</span></td>
-                <td style={{ ...rowStyle, textAlign: 'left' }}>{o.client}</td>
-                <td style={rowStyle}>{pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-'}</td>
-                <td style={rowStyle}>{pr ? getFullName(pr.issueTo || pr.issue_to) : '-'}</td>
-                <td style={rowStyle}>{pr ? requesterLabel(pr) : '-'}</td>
-                <td style={{ ...rowStyle, fontWeight: '600', color: statusColor }}>{status}</td>
-                <td style={rowStyle}>{rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-'}</td>
-                <td style={rowStyle}>{rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-'}</td>
+
+      {/* ── VIEW 1: By Status ── */}
+      {activeView === 'status' && (
+        <>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '6px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '600' }}>Status:</span>
+            <button onClick={() => setStatusFilter([])} style={statusFilter.length === 0 ? styles.dailyValActive : styles.dailyVal}>All</button>
+            {['ISSUED', 'RECEIVED', 'NO REQUEST'].map(s => (
+              <button key={s}
+                onClick={() => statusFilter.includes(s) ? setStatusFilter(statusFilter.filter(x => x !== s)) : setStatusFilter([...statusFilter, s])}
+                style={statusFilter.includes(s) ? styles.dailyValActive : styles.dailyVal}>{s}</button>
+            ))}
+            <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 4px' }}></span>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search order no / client name..."
+              style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', width: '210px' }} />
+            {search && <button onClick={() => setSearch('')} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Clear</button>}
+          </div>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>S.No</th><th style={styles.th}>Date</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th>
+                <th style={styles.th}>Issue Date</th><th style={styles.th}>Issued By</th><th style={styles.th}>Requested By</th>
+                <th style={styles.th}>Status</th><th style={styles.th}>Collected By</th><th style={styles.th}>Return Date</th>
               </tr>
-            )
-          })}
-          {filtered.length === 0 && <tr><td colSpan={10} style={{ ...styles.td, textAlign: 'center', color: '#888', padding: '20px' }}>No records found</td></tr>}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {filteredByStatus.map((o, idx) => {
+                const st = getOrRequestStatus(o.orderNo)
+                const isRejected = st.toUpperCase().includes('REJECTED')
+                const cellStyle = isRejected ? { ...styles.td, color: '#e74c3c', fontWeight: '500' } : styles.td
+                const rowBg = isRejected ? { backgroundColor: '#ffe6e6' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd)
+                const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
+                const rt = st.toUpperCase() === 'RECEIVED' ? (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED') : null
+                return (
+                  <tr key={o.id || o.orderNo} style={rowBg}>
+                    <td style={cellStyle}>{idx + 1}</td>
+                    <td style={cellStyle}>{formatDate(o.date)}</td>
+                    <td style={cellStyle}><span onClick={() => setOrHistoryPopup(o)} style={{ cursor: 'pointer', color: isRejected ? '#e74c3c' : '#2980b9', fontWeight: '600', textDecoration: 'underline' }}>{o.orderNo}{o._isCompleted ? ' (COMPLETED)' : ''}</span></td>
+                    <td style={{ ...cellStyle, textAlign: 'left' }}>{o.client}</td>
+                    <td style={cellStyle}>{pr?.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr?.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-'}</td>
+                    <td style={cellStyle}>{pr ? getFullName(pr.issueTo || pr.issue_to) : '-'}</td>
+                    <td style={cellStyle}>{pr ? requesterLabel(pr) : '-'}</td>
+                    <td style={{ ...cellStyle, fontWeight: '600', color: statusColor(st) }}>{st}</td>
+                    <td style={cellStyle}>{rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-'}</td>
+                    <td style={cellStyle}>{rt?.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-'}</td>
+                  </tr>
+                )
+              })}
+              {filteredByStatus.length === 0 && <tr><td colSpan={10} style={{ ...styles.td, textAlign: 'center', color: '#888', padding: '20px' }}>No records found</td></tr>}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {/* ── VIEW 2: By User ── */}
+      {activeView === 'user' && (
+        <>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '6px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '600' }}>User:</span>
+            <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)}
+              style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', minWidth: '180px' }}>
+              <option value="">-- Select User --</option>
+              {sortedUsers.map(u => (
+                <option key={u.username} value={u.username}>{u.full_name || u.fullName || u.username}</option>
+              ))}
+            </select>
+          </div>
+          {selectedUser ? (
+            <>
+              <p style={{ fontSize: '11px', fontWeight: '600', margin: '8px 0 4px', color: '#555' }}>Orders involving: {getFullName(selectedUser)}</p>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>S.No</th><th style={styles.th}>Date</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th>
+                    <th style={styles.th}>Issue Date</th><th style={styles.th}>Issued By</th><th style={styles.th}>Requested By</th>
+                    <th style={styles.th}>Status</th><th style={styles.th}>Collected By</th><th style={styles.th}>Return Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {userOrders.map((o, idx) => {
+                    const st = getOrRequestStatus(o.orderNo)
+                    const isRejected = st.toUpperCase().includes('REJECTED')
+                    const cellStyle = isRejected ? { ...styles.td, color: '#e74c3c', fontWeight: '500' } : styles.td
+                    const rowBg = isRejected ? { backgroundColor: '#ffe6e6' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd)
+                    const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
+                    const rt = st.toUpperCase() === 'RECEIVED' ? (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED') : null
+                    return (
+                      <tr key={o.id || o.orderNo} style={rowBg}>
+                        <td style={cellStyle}>{idx + 1}</td>
+                        <td style={cellStyle}>{formatDate(o.date)}</td>
+                        <td style={cellStyle}><span onClick={() => setOrHistoryPopup(o)} style={{ cursor: 'pointer', color: isRejected ? '#e74c3c' : '#2980b9', fontWeight: '600', textDecoration: 'underline' }}>{o.orderNo}{o._isCompleted ? ' (COMPLETED)' : ''}</span></td>
+                        <td style={{ ...cellStyle, textAlign: 'left' }}>{o.client}</td>
+                        <td style={cellStyle}>{pr?.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr?.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-'}</td>
+                        <td style={cellStyle}>{pr ? getFullName(pr.issueTo || pr.issue_to) : '-'}</td>
+                        <td style={cellStyle}>{pr ? requesterLabel(pr) : '-'}</td>
+                        <td style={{ ...cellStyle, fontWeight: '600', color: statusColor(st) }}>{st}</td>
+                        <td style={cellStyle}>{rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-'}</td>
+                        <td style={cellStyle}>{rt?.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-'}</td>
+                      </tr>
+                    )
+                  })}
+                  {userOrders.length === 0 && <tr><td colSpan={10} style={{ ...styles.td, textAlign: 'center', color: '#888', padding: '20px' }}>No orders found for this user</td></tr>}
+                </tbody>
+              </table>
+            </>
+          ) : (
+            <p style={{ textAlign: 'center', color: '#888', padding: '20px', fontSize: '12px' }}>Select a user to see their orders</p>
+          )}
+        </>
+      )}
+
+      {/* ── VIEW 3: User History ── */}
+      {activeView === 'history' && (
+        <>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '6px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '600' }}>User:</span>
+            <select value={userHistoryUser} onChange={e => setUserHistoryUser(e.target.value)}
+              style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', minWidth: '180px' }}>
+              <option value="">-- Select User --</option>
+              {sortedUsers.map(u => (
+                <option key={u.username} value={u.username}>{u.full_name || u.fullName || u.username}</option>
+              ))}
+            </select>
+          </div>
+          {userHistoryUser ? (
+            <>
+              <p style={{ fontSize: '11px', fontWeight: '600', margin: '8px 0 4px', color: '#555' }}>Activity history for: {getFullName(userHistoryUser)} — newest first</p>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>S.No</th><th style={styles.th}>Date &amp; Time</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th>
+                    <th style={styles.th}>Activity</th><th style={styles.th}>Requested By</th><th style={styles.th}>Issue / Return To</th>
+                    <th style={styles.th}>Status</th><th style={styles.th}>Accepted At</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {userHistory.map((ev, idx) => {
+                    const isReturn = ev.type === 'RETURN'
+                    const isRejected = (ev.status || '').toUpperCase().includes('REJECTED')
+                    const rowBg = isRejected ? { backgroundColor: '#ffe6e6' } : isReturn ? { backgroundColor: '#eafaf1' } : { backgroundColor: '#f0f8ff' }
+                    const cellStyle = isRejected ? { ...styles.td, color: '#e74c3c', fontWeight: '500' } : styles.td
+                    const toField = isReturn ? ev.returnTo : ev.issueTo
+                    return (
+                      <tr key={idx} style={rowBg}>
+                        <td style={cellStyle}>{idx + 1}</td>
+                        <td style={cellStyle}>{fmtDateTime(ev.createdAt)}</td>
+                        <td style={cellStyle}><span style={{ cursor: 'pointer', color: isRejected ? '#e74c3c' : '#2980b9', fontWeight: '600', textDecoration: 'underline' }}>{ev.orderNo}</span></td>
+                        <td style={{ ...cellStyle, textAlign: 'left' }}>{ev.client}</td>
+                        <td style={{ ...cellStyle, fontWeight: '600', color: isReturn ? '#27ae60' : '#8e44ad' }}>{isReturn ? '📥 RETURN' : '📤 ISSUE'}</td>
+                        <td style={cellStyle}>{getFullName(ev.requestedBy)}</td>
+                        <td style={cellStyle}>{getFullName(toField)}</td>
+                        <td style={{ ...cellStyle, fontWeight: '600', color: statusColor(ev.status || '-') }}>{ev.status || '-'}</td>
+                        <td style={cellStyle}>{fmtDateTime(ev.acceptedAt)}</td>
+                      </tr>
+                    )
+                  })}
+                  {userHistory.length === 0 && <tr><td colSpan={9} style={{ ...styles.td, textAlign: 'center', color: '#888', padding: '20px' }}>No activity found for this user</td></tr>}
+                </tbody>
+              </table>
+            </>
+          ) : (
+            <p style={{ textAlign: 'center', color: '#888', padding: '20px', fontSize: '12px' }}>Select a user to see their full history</p>
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -2886,11 +3112,12 @@ function Dashboard() {
             {allPayments.length === 0 && <p style={{textAlign:'center',padding:'20px',color:'#888'}}>No payment data</p>}
           </div>
           ) : dailyFilter === 'orRecvd' ? (
-            <OrIssueTable
+            <OrReportNew
               orders={orders}
               deletedOrders={deletedOrders}
               paperRequests={paperRequests}
               returnRequests={returnRequests}
+              allUsers={allUsers}
               getOrRequestStatus={getOrRequestStatus}
               getFullName={getFullName}
               requesterLabel={requesterLabel}
