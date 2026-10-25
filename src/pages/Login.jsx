@@ -334,10 +334,10 @@ const styles = {
   },
   error: { color: '#e74c3c', fontSize: '13px', margin: 0, textAlign: 'center', fontWeight: '500' },
   button: {
-    padding: '14px', background: 'linear-gradient(135deg, #1a1a2e, #0f3460)', color: '#fff', border: 'none',
-    borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer',
+    padding: '14px', background: 'linear-gradient(135deg, #1a1a2e, #0f3460)', color: '#ffffff', border: 'none',
+    borderRadius: '10px', fontSize: '13px', fontWeight: '700', cursor: 'pointer',
     marginTop: '8px', transition: 'transform 0.2s, box-shadow 0.2s',
-    boxShadow: '0 4px 16px rgba(26,26,46,0.3)', letterSpacing: '0.5px'
+    boxShadow: '0 4px 16px rgba(26,26,46,0.3)', letterSpacing: '0.5px', textShadow: '0 1px 2px rgba(0,0,0,0.2)'
   },
   footer: { textAlign: 'center', marginTop: '30px', fontSize: '11px', color: '#aaa' }
 }
