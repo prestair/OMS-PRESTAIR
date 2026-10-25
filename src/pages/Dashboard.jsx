@@ -3334,10 +3334,10 @@ function Dashboard() {
 
       {/* Paper Issue Request Tab */}
       {activeTab === 'paperIssue' && (
-        <div style={{ padding: '16px 24px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
-            <div style={{ ...styles.reportSection, marginBottom: 0, padding: '12px' }}>
-              <h4 style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700' }}>Request Order Paper</h4>
+        <div style={{ padding: '8px 16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '8px', marginBottom: '8px' }}>
+            <div style={{ ...styles.reportSection, marginBottom: 0, padding: '8px' }}>
+              <h4 style={{ margin: '0 0 5px', fontSize: '11px', fontWeight: '700' }}>Request Order Paper</h4>
               <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1', position: 'relative', minWidth: '130px' }}>
                   {paperOrderNo.length > 0 && <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '3px' }}>{paperOrderNo.map(on => <span key={on} style={{ padding: '1px 4px', background: '#e8f5e9', borderRadius: '2px', fontSize: '9px' }}>{on}<button onClick={() => setPaperOrderNo(paperOrderNo.filter(x => x !== on))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '9px', color: '#e74c3c', marginLeft: '2px' }}>x</button></span>)}</div>}
@@ -3381,8 +3381,8 @@ function Dashboard() {
               </div>
               {paperIssueError && <div style={{ marginTop: '4px', padding: '4px 8px', background: '#fdecea', border: '1px solid #e74c3c', borderRadius: '4px', fontSize: '10px', color: '#e74c3c', fontWeight: '600' }}>{paperIssueError}{reissueOrderNo && <button onClick={async () => { try { await axios.post('/api/orders/paper-requests/reissue', { orderNo: reissueOrderNo }); setPaperIssueError(''); setReissueOrderNo(''); setPaperOrderNo([]); fetchPaperRequests(); alert('Reissue request sent!') } catch (err) { setPaperIssueError(err.response?.data?.error || 'Reissue failed') } }} style={{ marginLeft: '8px', padding: '3px 8px', background: '#8e44ad', color: '#fff', border: 'none', borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontWeight: '600' }}>Reissue Request</button>}</div>}
             </div>
-            <div style={{ ...styles.reportSection, marginBottom: 0, padding: '12px' }}>
-              <h4 style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700' }}>Return Order Paper</h4>
+            <div style={{ ...styles.reportSection, marginBottom: 0, padding: '8px' }}>
+              <h4 style={{ margin: '0 0 5px', fontSize: '11px', fontWeight: '700' }}>Return Order Paper</h4>
               <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1', position: 'relative', minWidth: '130px' }}>
                   {returnOrderNo.length > 0 && <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginBottom: '3px' }}>{returnOrderNo.map(on => <span key={on} style={{ padding: '1px 4px', background: '#e8f5e9', borderRadius: '2px', fontSize: '9px' }}>{on}<button onClick={() => setReturnOrderNo(returnOrderNo.filter(x => x !== on))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '9px', color: '#e74c3c', marginLeft: '2px' }}>x</button></span>)}</div>}
@@ -3433,8 +3433,8 @@ function Dashboard() {
                 {(returnOrderNo.length > 0 || returnIssueTo || returnBehalfOf || returnOrderSearch || returnUserSearch || returnBehalfSearch) && <button onClick={() => { setReturnOrderNo([]); setReturnIssueTo(''); setReturnOrderSearch(''); setReturnUserSearch(''); setReturnBehalfOf(''); setReturnBehalfSearch(''); setReturnRequestDate('') }} style={{ background: 'none', border: 'none', color: '#e74c3c', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap', padding: '0 2px' }}>clear</button>}
               </div>
             </div>
-            <div style={{ ...styles.reportSection, marginBottom: 0, padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <h4 style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700' }}>Search Order</h4>
+            <div style={{ ...styles.reportSection, marginBottom: 0, padding: '8px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <h4 style={{ margin: '0 0 5px', fontSize: '11px', fontWeight: '700' }}>Search Order</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {/* Order search with dropdown */}
                 <div style={{ position: 'relative' }}>
