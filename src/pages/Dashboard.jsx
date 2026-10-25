@@ -520,6 +520,8 @@ function Dashboard() {
   const orTabUserSearchRef = React.useRef('')
   const [paperRequestSearch, setPaperRequestSearch] = useState('')
   const [paperTableUserSearch, setPaperTableUserSearch] = useState('')
+  const [paperOrderDropOpen, setPaperOrderDropOpen] = useState(false)
+  const [paperUserDropOpen, setPaperUserDropOpen] = useState(false)
   const [paperIssueError, setPaperIssueError] = useState('')
   const [reissueOrderNo, setReissueOrderNo] = useState('')
   const [paperIssuing, setPaperIssuing] = useState(false)
@@ -3345,8 +3347,39 @@ function Dashboard() {
             <div style={{ ...styles.reportSection, marginBottom: 0, padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <h4 style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700' }}>Search Order</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <input value={paperRequestSearch} onChange={e => setPaperRequestSearch(e.target.value)} placeholder="Order No / Client..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
-                <input value={paperTableUserSearch} onChange={e => setPaperTableUserSearch(e.target.value)} placeholder="Issued By / Issue To..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
+                {/* Order search with dropdown */}
+                <div style={{ position: 'relative' }}>
+                  <input value={paperRequestSearch} onChange={e => { setPaperRequestSearch(e.target.value); setPaperOrderDropOpen(true) }} onFocus={() => setPaperOrderDropOpen(true)} onBlur={() => setTimeout(() => setPaperOrderDropOpen(false), 200)} placeholder="Order No / Client..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
+                  {paperOrderDropOpen && paperRequestSearch.trim() && (() => {
+                    const term = paperRequestSearch.trim().toLowerCase()
+                    const opts = [...new Set(paperRequests.filter(r => (r.orderNo||'').toLowerCase().includes(term) || (r.client||'').toLowerCase().includes(term)).map(r => r.orderNo))].slice(0, 8)
+                    return opts.length > 0 ? (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', zIndex: 100, boxShadow: '0 2px 8px rgba(0,0,0,0.12)', maxHeight: '160px', overflow: 'auto' }}>
+                        {opts.map(opt => <div key={opt} onMouseDown={() => { setPaperRequestSearch(opt); setPaperOrderDropOpen(false) }} style={{ padding: '6px 10px', fontSize: '11px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background='#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{opt}</div>)}
+                      </div>
+                    ) : null
+                  })()}
+                </div>
+                {/* User search with dropdown */}
+                <div style={{ position: 'relative' }}>
+                  <input value={paperTableUserSearch} onChange={e => { setPaperTableUserSearch(e.target.value); setPaperUserDropOpen(true) }} onFocus={() => setPaperUserDropOpen(true)} onBlur={() => setTimeout(() => setPaperUserDropOpen(false), 200)} placeholder="Issued By / Issue To..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
+                  {paperUserDropOpen && paperTableUserSearch.trim() && (() => {
+                    const term = paperTableUserSearch.trim().toLowerCase()
+                    const names = new Set()
+                    paperRequests.forEach(r => {
+                      const n1 = getFullName(r.issueTo || r.issue_to)
+                      const n2 = getFullName(r.requestedBy || r.requested_by)
+                      if (n1 && n1.toLowerCase().includes(term)) names.add(n1)
+                      if (n2 && n2.toLowerCase().includes(term)) names.add(n2)
+                    })
+                    const opts = [...names].slice(0, 8)
+                    return opts.length > 0 ? (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', zIndex: 100, boxShadow: '0 2px 8px rgba(0,0,0,0.12)', maxHeight: '160px', overflow: 'auto' }}>
+                        {opts.map(opt => <div key={opt} onMouseDown={() => { setPaperTableUserSearch(opt); setPaperUserDropOpen(false) }} style={{ padding: '6px 10px', fontSize: '11px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background='#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background='#fff'}>{opt}</div>)}
+                      </div>
+                    ) : null
+                  })()}
+                </div>
                 {(paperRequestSearch || paperTableUserSearch) && <button onClick={() => { setPaperRequestSearch(''); setPaperTableUserSearch('') }} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', width: 'fit-content' }}>Clear All</button>}
               </div>
             </div>
