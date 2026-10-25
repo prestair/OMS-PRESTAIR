@@ -241,7 +241,7 @@ function Login() {
               )
             })()}
 
-            <button type="submit" style={{ ...styles.button, opacity: locked ? 0.4 : 1, background: locked ? '#c0392b' : undefined }} disabled={loading || locationBlocked || locked}>
+            <button type="submit" style={{ ...styles.button, opacity: locked ? 0.4 : 1, background: locked ? '#c0392b' : '#1a1a2e' }} disabled={loading || locationBlocked || locked}>
               {loading ? 'Logging in in few seconds ........ Please Wait .......' : locked ? '🔒 LOGIN DISABLED' : 'Sign In'}
             </button>
 
