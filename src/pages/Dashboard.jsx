@@ -1605,6 +1605,76 @@ function Dashboard() {
     return filtered
   }
 
+  const handlePaperExcel = () => {
+    const XLSX = window.XLSX || require('xlsx-js-style')
+    let rows = []
+    if (paperAllUsers) {
+      const accepted = paperRequests.filter(r => r.status === 'ACCEPTED')
+      const grouped = {}
+      accepted.forEach(r => {
+        const name = getFullName(r.requestedBy || r.requested_by)
+        if (!grouped[name]) grouped[name] = []
+        grouped[name].push(r)
+      })
+      Object.keys(grouped).sort().forEach(userName => {
+        grouped[userName].forEach((r, i) => {
+          rows.push({ 'User': i === 0 ? userName : '', 'Order No': r.orderNo, 'Client': r.client || '', 'Issue Date': r.acceptedAt ? formatDate(r.acceptedAt.split('T')[0]) : r.createdAt ? formatDate(r.createdAt.split('T')[0]) : '-', 'Issued By': getFullName(r.issueTo || r.issue_to) })
+        })
+      })
+    } else {
+      paperRequests.filter(r => {
+        const orderMatch = !paperRequestSearch.trim() || (r.orderNo || '').toLowerCase().includes(paperRequestSearch.toLowerCase()) || (r.client || '').toLowerCase().includes(paperRequestSearch.toLowerCase())
+        const userMatch = !paperTableUserSearch.trim() || (r.status === 'ACCEPTED' && getFullName(r.requestedBy || r.requested_by).toLowerCase().includes(paperTableUserSearch.toLowerCase()))
+        return orderMatch && userMatch
+      }).forEach((r, idx) => {
+        const ret = r.status === 'RETURNED' ? returnRequests.find(rt => rt.orderNo === r.orderNo) : null
+        rows.push({ '#': idx + 1, 'Order No': r.orderNo, 'Client': r.client || '', 'Issue Date': r.createdAt ? formatDate(r.createdAt.split('T')[0]) : '', 'Issued By': getFullName(r.issueTo), 'Issue To': requesterLabel(r), 'Status': r.status === 'ACCEPTED' ? `ISSUED TO ${getFullName(r.requestedBy || r.requested_by)}` : r.status, 'Return Date': ret ? (ret.createdAt ? formatDate(ret.createdAt.split('T')[0]) : '') : '-', 'Return By': ret ? getFullName(ret.requestedBy) : '-', 'Return To': ret ? getFullName(ret.returnTo) : '-' })
+      })
+    }
+    if (!rows.length) { alert('No data to export'); return }
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Paper Issue Report')
+    XLSX.writeFile(wb, `Paper_Issue_Report_${new Date().toISOString().split('T')[0]}.xlsx`)
+  }
+
+  const handlePaperPrint = () => {
+    let html = `<html><head><title>Paper Issue Report</title><style>body{font-family:Arial,sans-serif;margin:10px;font-size:9px}h2{text-align:center;font-size:13px;margin-bottom:4px}.subtitle{text-align:center;font-size:10px;color:#555;margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:3px 5px;text-align:center;font-size:8px;word-wrap:break-word}th{background:#FFD700;font-weight:bold}tr:nth-child(even){background:#f9f9f9}.user-header{background:#1a1a2e;color:#fff;padding:4px 8px;font-weight:bold;font-size:9px;margin-top:8px}@media print{body{margin:5mm}}</style></head><body>`
+    html += `<h2>OMS - Prestair Systems LLP</h2><p class="subtitle">Paper Issue Report | ${new Date().toLocaleDateString('en-IN')} | ${paperAllUsers ? 'All Users — Not Returned' : 'Filtered View'}</p>`
+    if (paperAllUsers) {
+      const accepted = paperRequests.filter(r => r.status === 'ACCEPTED')
+      const grouped = {}
+      accepted.forEach(r => {
+        const name = getFullName(r.requestedBy || r.requested_by)
+        if (!grouped[name]) grouped[name] = []
+        grouped[name].push(r)
+      })
+      Object.keys(grouped).sort().forEach(userName => {
+        html += `<div class="user-header">👤 ${userName} (${grouped[userName].length} order${grouped[userName].length > 1 ? 's' : ''})</div>`
+        html += `<table><thead><tr><th>#</th><th>Order No</th><th>Client</th><th>Issue Date</th><th>Issued By</th></tr></thead><tbody>`
+        grouped[userName].forEach((r, i) => {
+          html += `<tr><td>${i + 1}</td><td>${r.orderNo}</td><td>${r.client || ''}</td><td>${r.acceptedAt ? formatDate(r.acceptedAt.split('T')[0]) : r.createdAt ? formatDate(r.createdAt.split('T')[0]) : '-'}</td><td>${getFullName(r.issueTo || r.issue_to)}</td></tr>`
+        })
+        html += `</tbody></table>`
+      })
+    } else {
+      html += `<table><thead><tr><th>#</th><th>Order No</th><th>Client</th><th>Issue Date</th><th>Issued By</th><th>Issue To</th><th>Status</th></tr></thead><tbody>`
+      paperRequests.filter(r => {
+        const orderMatch = !paperRequestSearch.trim() || (r.orderNo || '').toLowerCase().includes(paperRequestSearch.toLowerCase()) || (r.client || '').toLowerCase().includes(paperRequestSearch.toLowerCase())
+        const userMatch = !paperTableUserSearch.trim() || (r.status === 'ACCEPTED' && getFullName(r.requestedBy || r.requested_by).toLowerCase().includes(paperTableUserSearch.toLowerCase()))
+        return orderMatch && userMatch
+      }).forEach((r, idx) => {
+        html += `<tr><td>${idx + 1}</td><td>${r.orderNo}</td><td>${r.client || ''}</td><td>${r.createdAt ? formatDate(r.createdAt.split('T')[0]) : ''}</td><td>${getFullName(r.issueTo)}</td><td>${requesterLabel(r)}</td><td>${r.status === 'ACCEPTED' ? `ISSUED TO ${getFullName(r.requestedBy || r.requested_by)}` : r.status}</td></tr>`
+      })
+      html += `</tbody></table>`
+    }
+    html += `</body></html>`
+    const w = window.open('', '_blank')
+    w.document.write(html)
+    w.document.close()
+    setTimeout(() => w.print(), 500)
+  }
+
   const handleDailyExport = () => {
     // Handle Payment Update export separately
     if (dailyFilter === 'paymentUpdate') {
