@@ -3363,7 +3363,7 @@ function Dashboard() {
                 </div>
                 {/* User search with dropdown */}
                 <div style={{ position: 'relative' }}>
-                  <input value={paperTableUserSearch} onChange={e => { setPaperTableUserSearch(e.target.value); setPaperUserDropOpen(true) }} onFocus={() => setPaperUserDropOpen(true)} onBlur={() => setTimeout(() => setPaperUserDropOpen(false), 200)} placeholder="Issued By / Issue To..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
+                  <input value={paperTableUserSearch} onChange={e => { setPaperTableUserSearch(e.target.value); setPaperUserDropOpen(true); if (e.target.value) setPaperAllUsers(false) }} onFocus={() => setPaperUserDropOpen(true)} onBlur={() => setTimeout(() => setPaperUserDropOpen(false), 200)} placeholder="Issued By / Issue To..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', width: '100%', boxSizing: 'border-box' }} />
                   {paperUserDropOpen && paperTableUserSearch.trim() && (() => {
                     const term = paperTableUserSearch.trim().toLowerCase()
                     const names = new Set()
