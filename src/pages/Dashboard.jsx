@@ -183,6 +183,8 @@ function Dashboard() {
   const [orTabSearch, setOrTabSearch] = useState('')
   const [orTabStatusFilter, setOrTabStatusFilter] = useState([])
   const [orTabUserSearch, setOrTabUserSearch] = useState('')
+  const orTabSearchRef = React.useRef('')
+  const orTabUserSearchRef = React.useRef('')
   const [paperRequestSearch, setPaperRequestSearch] = useState('')
   const [paperIssueError, setPaperIssueError] = useState('')
   const [reissueOrderNo, setReissueOrderNo] = useState('')
@@ -2804,8 +2806,8 @@ function Dashboard() {
                 <button key={s} onClick={() => orTabStatusFilter.includes(s) ? setOrTabStatusFilter(orTabStatusFilter.filter(x => x !== s)) : setOrTabStatusFilter([...orTabStatusFilter, s])} style={orTabStatusFilter.includes(s) ? styles.dailyValActive : styles.dailyVal}>{s}</button>
               ))}
               <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 4px' }}></span>
-              <input value={orTabSearch} onChange={e => setOrTabSearch(e.target.value)} placeholder="Search Order No..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', width: '150px' }} />
-              {orTabSearch && <button onClick={() => setOrTabSearch('')} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Clear</button>}
+              <input value={orTabSearch} onChange={e => { setOrTabSearch(e.target.value); orTabSearchRef.current = e.target.value }} placeholder="Search Order No..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', width: '150px' }} />
+              {orTabSearch && <button onClick={() => { setOrTabSearch(''); orTabSearchRef.current = '' }} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Clear</button>}
               <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 4px' }}></span>
               <input value={orTabUserSearch} onChange={e => setOrTabUserSearch(e.target.value)} placeholder="Search User Name..." style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', width: '150px' }} />
               {orTabUserSearch && <button onClick={() => setOrTabUserSearch('')} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Clear</button>}
@@ -2830,7 +2832,7 @@ function Dashboard() {
                 {(() => {
                   const getRequestStatus = getOrRequestStatus
                   const allOrders = getIssueReturnOrders()
-                  const searchVal = orTabSearch.trim().toLowerCase()
+                  const searchVal = orTabSearchRef.current.trim().toLowerCase()
                   const userSearchVal = orTabUserSearch.trim().toLowerCase()
                   let filtered = allOrders
                   if (searchVal) {
