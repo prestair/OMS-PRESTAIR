@@ -241,19 +241,18 @@ function Login() {
               )
             })()}
 
-            <button type="submit" style={{ ...styles.button, opacity: (locationBlocked || locked) ? 0.4 : 1, background: locked ? '#c0392b' : undefined }} disabled={loading || locationBlocked || locked}>
+            <button type="submit" style={{ ...styles.button, opacity: locked ? 0.4 : 1, background: locked ? '#c0392b' : undefined }} disabled={loading || locationBlocked || locked}>
               {loading ? 'Logging in in few seconds ........ Please Wait .......' : locked ? '🔒 LOGIN DISABLED' : 'Sign In'}
             </button>
 
             {locked && (
               <form onSubmit={handleUnlockSubmit} style={{ marginTop: '12px', padding: '12px', background: '#fff3cd', border: '2px solid #f39c12', borderRadius: '8px' }}>
                 <p style={{ margin: '0 0 8px', fontSize: '11px', fontWeight: '700', color: '#c0392b', textAlign: 'center', letterSpacing: '0.5px' }}>LOGIN DISABLED ENTER CODE TO ENABLE</p>
-                <p style={{ margin: '0 0 8px', fontSize: '10px', color: '#555', textAlign: 'center' }}>An unlock code has been sent to the administrator.</p>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <input
                     value={unlockCode}
                     onChange={e => { setUnlockCode(e.target.value); setUnlockError('') }}
-                    placeholder="Enter 6-digit unlock code"
+                    placeholder=""
                     maxLength={6}
                     style={{ flex: 1, padding: '8px 10px', border: '1px solid #f39c12', borderRadius: '5px', fontSize: '14px', fontWeight: '700', letterSpacing: '4px', textAlign: 'center', outline: 'none' }}
                     autoFocus

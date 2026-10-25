@@ -1,0 +1,10 @@
+{
+  "verdict": "REJECTED",
+  "issues": [
+    "Production backend not updated: api/index.js (the Vercel serverless handler vercel.json routes all /api/(.*) to) still has the old 'REISSUED TO <requester>' status, the 'REISSUE BY <acceptor>' reject_remarks string, and the issue_to-aware return check. The edited server/routes/orders.js only runs locally (Vite proxies /api to the Express dev server). Apply the same two backend changes to api/index.js before deploying, or the new reissue/return behavior won't reach production.",
+    "Portable backend not updated: portable-app/server/routes/orders.js still has the old reissue/return logic. Mirror the same changes there if the portable/electron build is shipped.",
+    "Del button clip risk remains: the Action <td> still inherits maxWidth:200px + overflow:hidden from styles.td, and with whiteSpace:nowrap the rightmost (Del) button is clipped if Change + Change Ret + Del labels exceed ~200px. Current labels (~150px) fit, but override maxWidth (or overflow) on the Action cell to make 'always visible' guaranteed rather than label-width-dependent.",
+    "Null requested_by blocks returns: removing the '|| issue_to' fallback means any ACCEPTED paper_requests row with a null/empty requested_by makes holder null, so 'null !== actor' rejects everyone. Confirm no ACCEPTED row has a null requested_by before relying on the removed fallback."
+  ],
+  "reviewDoc": "d:/OMS PRESTAIR SYSTEMS LLP/oms-dashboard/.agents/tasks/2026-10-24-201902-review.md"
+}
