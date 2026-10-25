@@ -3367,9 +3367,8 @@ function Dashboard() {
                     const term = paperTableUserSearch.trim().toLowerCase()
                     const names = new Set()
                     paperRequests.forEach(r => {
-                      const n1 = getFullName(r.issueTo || r.issue_to)
+                      if (r.status !== 'ACCEPTED') return
                       const n2 = getFullName(r.requestedBy || r.requested_by)
-                      if (n1 && n1.toLowerCase().includes(term)) names.add(n1)
                       if (n2 && n2.toLowerCase().includes(term)) names.add(n2)
                     })
                     const opts = [...names].slice(0, 8)
@@ -3392,7 +3391,7 @@ function Dashboard() {
               const orderMatch = !paperRequestSearch.trim() || (r.orderNo || '').toLowerCase().includes(paperRequestSearch.toLowerCase()) || (r.client || '').toLowerCase().includes(paperRequestSearch.toLowerCase())
               const userMatch = !paperTableUserSearch.trim() || (
                 r.status === 'ACCEPTED' &&
-                (getFullName(r.issueTo).toLowerCase().includes(paperTableUserSearch.toLowerCase()) || getFullName(r.requestedBy || r.requested_by).toLowerCase().includes(paperTableUserSearch.toLowerCase()))
+                getFullName(r.requestedBy || r.requested_by).toLowerCase().includes(paperTableUserSearch.toLowerCase())
               )
               return orderMatch && userMatch
             }).map((r, idx) => { const ret = r.status === 'RETURNED' ? returnRequests.find(rt => rt.orderNo === r.orderNo) : null; const isRej = (r.status||'').toUpperCase().startsWith('REJECTED'); const rowBg = isRej ? { backgroundColor: '#ffe6e6' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd); const cellStyle = isRej ? { ...styles.td, color: '#c0392b' } : styles.td; return (<tr key={r.id} style={rowBg}><td style={cellStyle}>{idx + 1}</td><td style={cellStyle}>{r.orderNo}</td><td style={cellStyle}>{r.client}</td><td style={cellStyle}>{r.createdAt ? formatDate(r.createdAt.split('T')[0]) : ''}</td><td style={cellStyle}>{getFullName(r.issueTo)}</td><td style={cellStyle}>{requesterLabel(r)}</td><td style={{ ...cellStyle, fontWeight: '600', color: isRej ? '#c0392b' : r.status === 'PENDING' ? '#f39c12' : r.status === 'ACCEPTED' ? '#8e44ad' : r.status === 'ISSUE' ? '#e74c3c' : (r.status||'').startsWith('REROUTED') ? '#8e44ad' : (r.status||'').startsWith('REISSUED') ? '#8e44ad' : '#e74c3c' }}>{r.status === 'ACCEPTED' ? `ISSUED TO ${getFullName(r.requestedBy || r.requested_by)}${r.placedByAdmin || r.placed_by_admin ? ` (${getFullName(r.placedByAdmin || r.placed_by_admin)})` : ''}` : r.status}{ret ? ` / ${ret.status}` : ''}</td><td style={cellStyle}>{ret ? (ret.createdAt ? formatDate(ret.createdAt.split('T')[0]) : '') : '-'}</td><td style={cellStyle}>{ret ? getFullName(ret.requestedBy) : '-'}</td><td style={cellStyle}>{ret ? getFullName(ret.returnTo) : '-'}</td><td style={cellStyle}>{(() => { const parts = []; if (r.rejectRemarks && r.rejectRemarks !== 'REISSUE') parts.push(<span key='i' style={{color:'#8e44ad'}}>ISSUE (R): {r.rejectRemarks}</span>); if (ret && ret.rejectRemarks) parts.push(<span key='r' style={{color:'#e74c3c'}}>RETURN (R): {ret.rejectRemarks}</span>); return parts.length > 0 ? parts.reduce((a,b) => [a, <br key='br'/>, b]) : '-' })()}</td>{isAdmin&&<td style={{...cellStyle,whiteSpace:'nowrap',minWidth:'65px'}}><button onClick={async()=>{if(window.confirm(`Delete paper request for ${r.orderNo}?`)){try{await axios.delete(`/api/orders/paper-requests/${r.id}`);fetchPaperRequests();alert('Deleted!')}catch(err){alert(err.response?.data?.error||'Failed')}}}} style={{...styles.tblBtn,background:'#e74c3c',fontSize:'9px'}}>Del</button></td>}</tr>) })}</tbody></table>{paperRequests.length === 0 && <p style={{ textAlign: 'center', padding: '15px', color: '#888', fontSize: '11px' }}>No requests yet</p>}</div></div>
