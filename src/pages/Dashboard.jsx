@@ -3436,7 +3436,7 @@ function Dashboard() {
             <div style={{ ...styles.reportSection, marginBottom: 0, padding: '8px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
                 <h4 style={{ margin: 0, fontSize: '11px', fontWeight: '700' }}>Search Order</h4>
-                {(paperRequestSearch || paperTableUserSearch || paperAllUsers) && <button onClick={() => { setPaperRequestSearch(''); setPaperTableUserSearch(''); setPaperAllUsers(false) }} style={{ fontSize: '10px', background: 'none', color: '#e74c3c', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontWeight: '600' }}>clear</button>}
+                {(paperRequestSearch || paperTableUserSearch || paperAllUsers) && <span onClick={() => { setPaperRequestSearch(''); setPaperTableUserSearch(''); setPaperAllUsers(false) }} style={{ fontSize: '10px', color: '#e74c3c', cursor: 'pointer', textDecoration: 'underline', fontWeight: '600' }}>clear</span>}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {/* Order search with dropdown */}
