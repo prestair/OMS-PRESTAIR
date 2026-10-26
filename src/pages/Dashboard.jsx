@@ -569,7 +569,7 @@ function Dashboard() {
 
   // Requester label with admin-placed marker: appends ' (admin)' when the request
   // was placed by an admin on behalf of the requester.
-  const requesterLabel = (r) => getFullName(r.requestedBy || r.requested_by) + ((r.placedByAdmin || r.placed_by_admin) ? ` (${getFullName(r.placedByAdmin || r.placed_by_admin)})` : '')
+  const requesterLabel = (r) => getFullName(r.requestedBy || r.requested_by) + ((r.placedByAdmin || r.placed_by_admin) ? ` (admin)` : '')
 
   // Issue To label: shows recipient + "(admin)" when placed on behalf of someone
   // Column "Issue To" = who receives the paper = requestedBy (admin placed => show who placed it in bracket)
