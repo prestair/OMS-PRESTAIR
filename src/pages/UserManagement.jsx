@@ -247,6 +247,7 @@ function UserManagement() {
                 <label style={s.tl}><input type="checkbox" checked={form.canEditCompleted||false} onChange={e=>setForm({...form,canEditCompleted:e.target.checked})}/><span>Edit Completed</span></label>
                 <label style={s.tl}><input type="checkbox" checked={form.canEditDaily||false} onChange={e=>setForm({...form,canEditDaily:e.target.checked})}/><span>Edit Daily Report</span></label>
                 <label style={s.tl}><input type="checkbox" checked={form.canEditReceipt||false} onChange={e=>setForm({...form,canEditReceipt:e.target.checked})}/><span>Edit/Delete Receipt</span></label>
+                <label style={s.tl}><input type="checkbox" checked={form.canBulkAction||false} onChange={e=>setForm({...form,canBulkAction:e.target.checked})}/><span>Accept/Reject All</span></label>
               </div>
               <div style={{ maxHeight:'200px', overflow:'auto', border:'1px solid #e0e0e0', borderRadius:'6px', padding:'8px' }}>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', gap:'4px' }}>
