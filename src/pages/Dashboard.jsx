@@ -3434,7 +3434,10 @@ function Dashboard() {
               </div>
             </div>
             <div style={{ ...styles.reportSection, marginBottom: 0, padding: '8px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <h4 style={{ margin: '0 0 5px', fontSize: '11px', fontWeight: '700' }}>Search Order</h4>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
+                <h4 style={{ margin: 0, fontSize: '11px', fontWeight: '700' }}>Search Order</h4>
+                {(paperRequestSearch || paperTableUserSearch || paperAllUsers) && <button onClick={() => { setPaperRequestSearch(''); setPaperTableUserSearch(''); setPaperAllUsers(false) }} style={{ fontSize: '10px', background: 'none', color: '#e74c3c', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontWeight: '600' }}>clear</button>}
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {/* Order search with dropdown */}
                 <div style={{ position: 'relative' }}>
@@ -3471,8 +3474,7 @@ function Dashboard() {
                     ) : null
                   })()}
                 </div>
-                {(paperRequestSearch || paperTableUserSearch) && <button onClick={() => { setPaperRequestSearch(''); setPaperTableUserSearch(''); setPaperAllUsers(false) }} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', width: 'fit-content' }}>Clear All</button>}
-                <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
+                <div style={{ display: 'flex', gap: '4px', marginTop: '2px', flexWrap: 'wrap' }}>
                   <button onClick={() => { setPaperAllUsers(true); setPaperTableUserSearch(''); setPaperRequestSearch('') }} style={{ fontSize: '10px', padding: '4px 8px', background: paperAllUsers ? '#1a1a2e' : '#eee', color: paperAllUsers ? '#fff' : '#333', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}>All Users (Not Returned)</button>
                   <button onClick={() => handlePaperExcel()} style={{ fontSize: '10px', padding: '4px 8px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}>Excel</button>
                   <button onClick={() => handlePaperPrint()} style={{ fontSize: '10px', padding: '4px 8px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}>Print</button>
