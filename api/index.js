@@ -62,7 +62,7 @@ async function cachedRead(key, ttlMs, load) {
 }
 // TTLs
 const TTL_ORDERS       = 90 * 1000       // 90s — main orders list. Safe: cacheDel('orders') is called in every POST/PUT/DELETE on orders; signal also busts orders_signal. Extra 30s only affects stale cross-instance window.
-const TTL_DELETED      = 15 * 60 * 1000  // 15 min — deleted orders (rarely changes)
+const TTL_DELETED      = 2 * 60 * 1000   // 2 min — deleted orders
 const TTL_PAYMENTS_ALL = 10 * 60 * 1000  // 10 min — all payments
 const TTL_REMINDERS    = 8  * 60 * 1000  // 8 min  — reminders. Safe: cacheDel('reminders_all') called on every reminder create/respond/reassign/delete; signal invalidates within 30s
 const TTL_PAPER        = 5  * 60 * 1000  // 5 min  — paper/return requests
