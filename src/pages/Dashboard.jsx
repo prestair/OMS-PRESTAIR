@@ -534,6 +534,10 @@ function Dashboard() {
     const saved = localStorage.getItem(`oms_col_widths_${user.username}`)
     return saved ? JSON.parse(saved) : {}
   })
+  const [completedColWidthOverrides, setCompletedColWidthOverrides] = useState(() => {
+    const saved = localStorage.getItem(`oms_completed_col_widths_${user.username}`)
+    return saved ? JSON.parse(saved) : {}
+  })
   const resizeRef = useRef(null)
   const handleColResize = (e, colKey) => {
     e.preventDefault(); e.stopPropagation()
@@ -542,6 +546,19 @@ function Dashboard() {
     const startW = th.offsetWidth
     const onMove = (ev) => { const diff = ev.clientX - startX; const newW = Math.max(50, startW + diff); setColWidthOverrides(prev => { const updated = {...prev, [colKey]: newW}; localStorage.setItem(`oms_col_widths_${user.username}`, JSON.stringify(updated)); return updated }) }
     const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+  const handleCompletedColResize = (e, colKey) => {
+    e.preventDefault(); e.stopPropagation()
+    const th = e.target.parentElement
+    const startX = e.clientX
+    const startW = th.offsetWidth
+    const onMove = (ev) => { const diff = ev.clientX - startX; const newW = Math.max(50, startW + diff); setCompletedColWidthOverrides(prev => { const updated = {...prev, [colKey]: newW}; localStorage.setItem(`oms_completed_col_widths_${user.username}`, JSON.stringify(updated)); return updated }) }
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }
@@ -2676,14 +2693,16 @@ function Dashboard() {
                     const uniqueVals = col.key === 'deletedOn' ? [] : [...new Set(deletedOrders.map(o => String(o[col.key] || '').trim()).filter(Boolean))].sort()
                     const sticky = completedStickyMap[col.key]
                     const thStickyStyle = sticky ? { left: sticky.left + 'px', minWidth: sticky.width + 'px', zIndex: 25, background: '#1a1a2e' } : {}
+                    const completedUserW = completedColWidthOverrides[col.key]
                     return (
-                      <th key={col.key} style={{ ...styles.th, position: 'sticky', top: 0, zIndex: 10, ...thStickyStyle }} onClick={e => e.stopPropagation()}>
+                      <th key={col.key} style={{ ...styles.th, position: 'sticky', top: 0, zIndex: 10, ...thStickyStyle, ...(completedUserW ? {width: completedUserW+'px', minWidth: completedUserW+'px'} : {}) }} onClick={e => e.stopPropagation()}>
                         <div style={styles.thContent}>
                           <span>{col.label}</span>
                           {filterable && (
                             <button onClick={(e) => { e.stopPropagation(); setDeletedOpenFilter(deletedOpenFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: isActive ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
                           )}
                         </div>
+                        <div onMouseDown={(e) => handleCompletedColResize(e, col.key)} style={{ position:'absolute', right:0, top:0, bottom:0, width:'4px', cursor:'col-resize', background:'transparent' }} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.5)'} onMouseLeave={e=>e.target.style.background='transparent'} />
                         {deletedOpenFilter === col.key && col.key !== 'deletedOn' && (
                           <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
                             <div style={styles.filterDropdownHeader}>
@@ -2779,6 +2798,7 @@ function Dashboard() {
                     const term = deletedSearchTerm.toLowerCase()
                     filtered = filtered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term) || (o.customerName || '').toLowerCase().includes(term))
                   }
+                  // Column filters — always applied regardless of search/selection
                   Object.entries(deletedColumnFilters).forEach(([key, selectedValues]) => {
                     if (selectedValues && selectedValues.length > 0) {
                       filtered = filtered.filter(o => {
@@ -2814,8 +2834,9 @@ function Dashboard() {
                     {completedDisplayedColumns.map(col => {
                       const sticky = completedStickyMap[col.key]
                       const tdStickyStyle = sticky ? { position:'sticky', left: sticky.left + 'px', minWidth: sticky.width + 'px', zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff' } : {}
+                      const completedUserW = completedColWidthOverrides[col.key]
                       return (
-                      <td key={col.key} style={{...styles.td, ...(col.key === 'client' || col.key === 'customerName' ? {textAlign:'left'} : {}), ...tdStickyStyle}}>{getDeletedCellValue(order, col.key)}</td>
+                      <td key={col.key} style={{...styles.td, ...(col.key === 'client' || col.key === 'customerName' ? {textAlign:'left'} : {}), ...tdStickyStyle, ...(completedUserW ? {width: completedUserW+'px', minWidth: completedUserW+'px'} : {})}}>{getDeletedCellValue(order, col.key)}</td>
                       )
                     })}
                     <td style={styles.td}>{order.deletedBy}</td>
