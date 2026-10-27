@@ -2819,7 +2819,7 @@ function Dashboard() {
                       )
                     })}
                     <td style={styles.td}>{order.deletedBy}</td>
-                    <td style={styles.td}>{order.deletedAt ? (() => { const d = new Date(order.deletedAt); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` })() : ''}</td>
+                    <td style={styles.td}>{order.deletedAt ? (() => { const s = order.deletedAt; if (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}/.test(s)) { const [y,m,d] = s.split('T')[0].split('-'); return `${d}/${m}/${y}` } const dt = new Date(s); return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}` })() : ''}</td>
                     {(isAdmin || canEditCompleted || canEditReceipt) && (
                       <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: idx % 2 === 0 ? '#f8f9fa' : '#fff' }}>
                         {(isAdmin || canEditReceipt) && <button onClick={() => setShowPaymentForm(order)} style={{ ...styles.tblBtn, background: '#27ae60' }} title="Receipt">Receipt</button>}
