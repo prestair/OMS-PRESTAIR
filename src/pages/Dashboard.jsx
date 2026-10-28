@@ -3122,6 +3122,7 @@ function Dashboard() {
             <button onClick={() => { setDailyFilter('review'); setDailyFilterValue([]) }} style={dailyFilter === 'review' ? styles.dailyBtnActive : styles.dailyBtn}>Review</button>
             <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]); setOrTabSearch(''); setOrTabStatusFilter([]); setOrTabUserSearch('') }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR Issue Report</button>
             <button onClick={() => { setDailyFilter('paymentUpdate'); setDailyFilterValue([]); fetchAllPayments() }} style={dailyFilter === 'paymentUpdate' ? styles.dailyBtnActive : styles.dailyBtn}>Payment Update</button>
+            <button onClick={() => { setDailyFilter('salesPersonWise'); setDailyFilterValue([]) }} style={dailyFilter === 'salesPersonWise' ? styles.dailyBtnActive : styles.dailyBtn}>Sales Person Wise</button>
             <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 2px' }}></span>
             <button onClick={() => handleDailyPrint()} style={{ padding: '5px 10px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>Print</button>
             <button onClick={() => handleDailyExport()} style={{ padding: '5px 10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}>Excel</button>
@@ -3369,6 +3370,49 @@ function Dashboard() {
             ) })()}
           </div>
           )}
+
+          {/* Sales Person Wise View */}
+          {dailyFilter === 'salesPersonWise' && (() => {
+            const allOrders = [...orders, ...deletedOrders]
+            const spOrders = allOrders.filter(o => (o.salesPerson || '').trim().toLowerCase() === 'yes')
+            const totalAmt = spOrders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0) * 0.18, 0)
+            return (
+            <div style={styles.tableWrap}>
+              <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '700' }}>Total: {spOrders.length} orders</span>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#27ae60' }}>Total Amount (18%): ₹{totalAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>#</th>
+                    <th style={styles.th}>Date</th>
+                    <th style={styles.th}>Client</th>
+                    <th style={styles.th}>Order No</th>
+                    <th style={styles.th}>Sales Rep</th>
+                    <th style={styles.th}>Total Amount</th>
+                    <th style={styles.th}>Amount (18%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {spOrders.map((o, idx) => (
+                    <tr key={`sp-${o.id}-${idx}`} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                      <td style={styles.td}>{idx + 1}</td>
+                      <td style={styles.td}>{formatDate(o.date)}</td>
+                      <td style={{...styles.td, textAlign:'left'}}>{o.client}</td>
+                      <td style={styles.td}>{o.orderNo}</td>
+                      <td style={styles.td}>{o.salesRep}</td>
+                      <td style={styles.td}>₹{(parseFloat(o.totalAmount)||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                      <td style={{...styles.td, fontWeight:'600', color:'#27ae60'}}>₹{((parseFloat(o.totalAmount)||0)*0.18).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                    </tr>
+                  ))}
+                  {spOrders.length === 0 && <tr><td colSpan={7} style={{...styles.td, textAlign:'center', color:'#888', padding:'20px'}}>No orders with Sales Person = Yes</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            )
+          })()}
+
         </div>
       )}
 
