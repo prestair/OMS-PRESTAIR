@@ -658,6 +658,7 @@ app.post('/api/authorised-ips', authenticate, adminOnly, async (req, res) => {
     const { data, error } = await supabase.from('authorised_ips').insert({
       ip_address: ipAddress.trim(),
       label: label || '',
+      created_by: req.user.username,
       created_by: req.user.username
     }).select()
     if (error) return res.status(400).json({ error: error.message })
