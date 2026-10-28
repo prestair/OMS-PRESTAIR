@@ -2182,6 +2182,22 @@ function Dashboard() {
         <option value="N/A">N/A</option>
       </select>
     }
+    if (key === 'salesPerson') {
+      if (!canEditColumn('salesPerson')) return val || ''
+      const save = async (e) => {
+        const newVal = e.target.value
+        if (newVal === (val || '')) return
+        try { await axios.put(`/api/orders/${order.id}`, { salesPerson: newVal }); fetchOrders() }
+        catch { alert('Failed to save Sales Person') }
+      }
+      return <select value={val || ''} onClick={e => e.stopPropagation()} onChange={save}
+        style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', boxSizing: 'border-box', textAlign: 'center' }}>
+        <option value=""></option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+        <option value="N/A">N/A</option>
+      </select>
+    }
     if (key === 'wappNumber') {
       if (!canEditColumn('wappNumber')) return val || ''
       const save = async (e) => {
