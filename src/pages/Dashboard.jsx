@@ -559,9 +559,6 @@ function Dashboard() {
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }
 
   // Determine columns user is allowed to see
   const isAdmin = user.role === 'admin'
