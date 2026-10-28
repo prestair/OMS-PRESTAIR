@@ -1559,6 +1559,7 @@ function Dashboard() {
   const handlePaymentSaved = () => { setShowPaymentForm(null); fetchOrders(); fetchDeletedOrders() }
 
   const getDailyFilteredData = () => {
+    if (dailyFilter === 'salesPersonWise') return []
     let filtered = (dailyFilter === 'siteVideo' || dailyFilter === 'review' || dailyFilter === 'photography') ? [...orders, ...deletedOrders] : orders
     if (dailyFilter === 'percentReceived') {
       if (dailyPercentMax !== '') {
@@ -3326,7 +3327,7 @@ function Dashboard() {
                       <td style={styles.td}>{o.orderNo}</td>
                       <td style={styles.td}>{o.gst}</td>
                       <td style={styles.td}>{o.followUp}</td>
-                      {dailyFilter && <td style={styles.td}>{o[dailyFilter]}</td>}
+                      {dailyFilter && dailyFilter !== 'salesPersonWise' && <td style={styles.td}>{o[dailyFilter]}</td>}
                       {dailyFilter === 'siteVerification' && <td style={styles.td}>{o.siteVerificationRemarks}</td>}
                       {dailyFilter === 'installationStatus' && <td style={styles.td}>{o.installationRemarks}</td>}
                       {dailyFilter === 'sectionDrawing' && <td style={styles.td}>{o.lop}</td>}
@@ -3382,16 +3383,17 @@ function Dashboard() {
                 <span style={{ fontSize: '12px', fontWeight: '700' }}>Total: {spOrders.length} orders</span>
                 <span style={{ fontSize: '12px', fontWeight: '700', color: '#27ae60' }}>Total Amount (18%): ₹{totalAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
-              <table style={styles.table}>
+            <div style={{ overflowX: 'auto', width: '100%' }}>
+              <table style={{ ...styles.table, minWidth: '700px' }}>
                 <thead>
                   <tr>
-                    <th style={styles.th}>#</th>
-                    <th style={styles.th}>Date</th>
-                    <th style={styles.th}>Client</th>
-                    <th style={styles.th}>Order No</th>
-                    <th style={styles.th}>Sales Rep</th>
-                    <th style={styles.th}>Total Amount</th>
-                    <th style={styles.th}>Amount (18%)</th>
+                    <th style={{...styles.th, width:'35px'}}>#</th>
+                    <th style={{...styles.th, width:'80px'}}>Date</th>
+                    <th style={{...styles.th, maxWidth:'150px', width:'150px'}}>Client</th>
+                    <th style={{...styles.th, width:'120px'}}>Order No</th>
+                    <th style={{...styles.th, width:'100px'}}>Sales Rep</th>
+                    <th style={{...styles.th, width:'110px'}}>Total Amount</th>
+                    <th style={{...styles.th, width:'110px'}}>Amount (18%)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3399,7 +3401,7 @@ function Dashboard() {
                     <tr key={`sp-${o.id}-${idx}`} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
                       <td style={styles.td}>{idx + 1}</td>
                       <td style={styles.td}>{formatDate(o.date)}</td>
-                      <td style={{...styles.td, textAlign:'left'}}>{o.client}</td>
+                      <td style={{...styles.td, textAlign:'left', maxWidth:'150px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{o.client}</td>
                       <td style={styles.td}>{o.orderNo}</td>
                       <td style={styles.td}>{o.salesRep}</td>
                       <td style={styles.td}>₹{(parseFloat(o.totalAmount)||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
@@ -3409,6 +3411,7 @@ function Dashboard() {
                   {spOrders.length === 0 && <tr><td colSpan={7} style={{...styles.td, textAlign:'center', color:'#888', padding:'20px'}}>No orders with Sales Person = Yes</td></tr>}
                 </tbody>
               </table>
+            </div>
             </div>
             )
           })()}
