@@ -311,10 +311,9 @@ app.post('/api/auth/verify-unlock-code', async (req, res) => {
   try {
     const { username, code } = req.body
     if (!username || !code) return res.status(400).json({ error: 'Required' })
-    const clientIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
-    // Find active lockout for this IP+username
+    // Find active lockout for this username (no IP check — user may be on different IP when entering code)
     const { data: lockouts } = await supabase.from('ip_lockouts')
-      .select('*').eq('ip_address', clientIp).eq('username', username).eq('is_unlocked', false)
+      .select('*').eq('username', username).eq('is_unlocked', false)
       .order('created_at', { ascending: false }).limit(1)
     const lockout = lockouts?.[0]
     if (!lockout) return res.status(400).json({ error: 'No active lockout found' })
