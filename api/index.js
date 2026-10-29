@@ -338,6 +338,8 @@ app.post('/api/auth/login', async (req, res) => {
               if (!existingIp || existingIp.length === 0) {
                 await supabase.from('authorised_ips').insert({ ip_address: clientIp, label: 'Auto-added via Admin OTP bypass', created_by: user.username })
               }
+              // Also unlock any lockout for this IP+username so login proceeds
+              await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', clientIp).eq('username', user.username).eq('is_unlocked', false)
               cacheDel('authorised_ips_guard')
               // Fall through to normal login below
             } else {
