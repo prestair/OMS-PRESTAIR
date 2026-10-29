@@ -129,6 +129,9 @@ const COL_WIDTHS = {
   'Accepted At':        10,
   'Returned By':        10,
   'Return Date':        10,
+  // Sales Person Wise
+  'Amount (18%)':       12,
+  'Status':              9,
   // Reminders
   'Message':            20,
   'Set By':             10,
@@ -398,6 +401,52 @@ module.exports = async (req, res) => {
     const ws4 = XLSX.utils.json_to_sheet(reminderData)
     applySheetStyle(ws4, reminderData, C.PURPLE_HDR)
     XLSX.utils.book_append_sheet(wb, ws4, 'Reminders')
+
+    // -----------------------------------------------------------------------
+    // Sheet 5: Sales Person Wise — yellow header
+    // Orders (active + completed) where salesPerson === 'yes'
+    // -----------------------------------------------------------------------
+    const C_YELLOW_HDR = 'FFF3B0'
+    const allOrdersForSp = [
+      ...orders.map(o => ({ ...o, _source: 'active' })),
+      ...deleted.map(d => ({ ...(d.data || {}), _source: 'completed', _deletedBy: d.deleted_by, _deletedAt: d.deleted_at }))
+    ]
+    const spOrders = allOrdersForSp.filter(o => (o.sales_person || o.salesPerson || '').trim().toLowerCase() === 'yes')
+    const spData = spOrders.map((o, i) => {
+      const totalAmt = parseFloat(o.total_amount || o.totalAmount) || 0
+      return {
+        '#':              i + 1,
+        'Date':           o.date || '',
+        'Client':         o.client || '',
+        'Order No':       o.order_no || o.orderNo || '',
+        'Sales Rep':      o.sales_rep || o.salesRep || '',
+        'Total Amount':   totalAmt,
+        'Amount (18%)':   parseFloat((totalAmt * 0.18).toFixed(2)),
+        'Status':         _source => o._source === 'completed' ? 'Completed' : 'Active'
+      }
+    }).map(({ Status, ...rest }, i) => ({
+      ...rest,
+      'Status': spOrders[i]._source === 'completed' ? 'Completed' : 'Active'
+    }))
+
+    const spTotalAmt = spOrders.reduce((s, o) => s + (parseFloat(o.total_amount || o.totalAmount) || 0) * 0.18, 0)
+    // Add a totals row at the bottom
+    if (spData.length > 0) {
+      spData.push({
+        '#': '',
+        'Date': '',
+        'Client': '',
+        'Order No': 'TOTAL',
+        'Sales Rep': '',
+        'Total Amount': spOrders.reduce((s, o) => s + (parseFloat(o.total_amount || o.totalAmount) || 0), 0),
+        'Amount (18%)': parseFloat(spTotalAmt.toFixed(2)),
+        'Status': `${spOrders.length} orders`
+      })
+    }
+
+    const ws5 = XLSX.utils.json_to_sheet(spData)
+    applySheetStyle(ws5, spData, C_YELLOW_HDR)
+    XLSX.utils.book_append_sheet(wb, ws5, 'Sales Person Wise')
 
     // Generate buffer
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
