@@ -150,8 +150,8 @@ function Login() {
         axios.post('/api/auth/log-location', { lat: gpsData.lat, lon: gpsData.lon, accuracy: gpsData.accuracy, logId: userData?.locationLogId }).catch(() => {})
       }
       setAdminOtpRequired(false)
-      // Use window.location instead of navigate — avoids React state timing issue
-      // where ProtectedRoute checks user before setSessionFromToken state update completes
+      // Small delay so IP whitelist propagates before next login check
+      await new Promise(r => setTimeout(r, 1500))
       window.location.href = '/dashboard'
     } catch (err) {
       setAdminOtpError(err.response?.data?.error || 'Invalid OTP. Please try again.')
@@ -344,7 +344,7 @@ function Login() {
                     inputMode="numeric"
                   />
                   <button type="submit" disabled={adminOtpLoading} style={{ padding: '10px 16px', background: '#1a73e8', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    {adminOtpLoading ? '...' : 'Verify'}
+                    {adminOtpLoading ? 'Verifying...' : 'Verify OTP'}
                   </button>
                 </div>
                 {adminOtpError && (
