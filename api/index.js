@@ -463,7 +463,6 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
 // (wrong city) must not be shown as a confident location.
 const ACCURACY_THRESHOLD_M = 2000
 // Admin IP whitelist endpoint — called from frontend after OTP verify
-// Uses bypass_token (JWT) to authenticate, then adds clientIp to authorised_ips
 app.post('/api/auth/admin-whitelist-ip', async (req, res) => {
   try {
     const { bypass_token } = req.body
@@ -471,13 +470,19 @@ app.post('/api/auth/admin-whitelist-ip', async (req, res) => {
     const decoded = require('jsonwebtoken').verify(bypass_token, process.env.JWT_SECRET)
     if (decoded.type !== 'otp_verified') return res.status(401).json({ error: 'Invalid token' })
     const ip = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
-    const { data: existing } = await supabase.from('authorised_ips').select('id').eq('ip_address', ip).limit(1)
-    if (!existing || existing.length === 0) {
-      await supabase.from('authorised_ips').insert({ ip_address: ip, label: 'Auto-added via Admin OTP bypass', created_by: decoded.username })
-    }
-    cacheDel('authorised_ips_guard')
-    await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', ip).eq('username', decoded.username).eq('is_unlocked', false)
+    
+    // Respond immediately — do DB work async (fire-and-forget) to avoid Vercel timeout
     res.json({ success: true, ip })
+    
+    // DB work after response is sent
+    try {
+      const { data: existing } = await supabase.from('authorised_ips').select('id').eq('ip_address', ip).limit(1)
+      if (!existing || existing.length === 0) {
+        await supabase.from('authorised_ips').insert({ ip_address: ip, label: 'Auto-added via Admin OTP bypass', created_by: decoded.username })
+      }
+      cacheDel('authorised_ips_guard')
+      await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', ip).eq('username', decoded.username).eq('is_unlocked', false)
+    } catch (dbErr) { console.error('whitelist-ip DB error:', dbErr.message) }
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
