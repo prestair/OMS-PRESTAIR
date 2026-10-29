@@ -446,8 +446,12 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '10m' }
     )
+    // Return detected IP so frontend can display it for confirmation
+    const xForwardedFor = (req.headers['x-forwarded-for'] || '').toString()
+    const xRealIp = (req.headers['x-real-ip'] || '').toString().trim()
+    const detectedIp = xRealIp || xForwardedFor.split(',')[0].trim() || (req.socket?.remoteAddress || '').toString().trim()
 
-    res.json({ success: true, bypass_token, message: 'OTP verified. Please click Sign In to continue.' })
+    res.json({ success: true, bypass_token, detectedIp, message: 'OTP verified. Please click Sign In to continue.' })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
