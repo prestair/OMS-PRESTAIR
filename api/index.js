@@ -434,27 +434,31 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
       return res.status(401).json({ error: `Invalid OTP. ${MAX_OTP_ATTEMPTS - newAttempts} attempt${MAX_OTP_ATTEMPTS - newAttempts === 1 ? '' : 's'} remaining.` })
     }
 
-    // OTP correct — just return success. Login endpoint handles IP whitelisting.
-    // We do NOT write to DB here to avoid Vercel timeout on DB operations.
-    // The login endpoint checks: if OTP matched recently (within expiry), whitelist IP.
-    // To signal this, we mark the OTP as matched by setting attempts to -1.
-    // Actually — simplest: just delete the OTP row. Login endpoint will see no OTP
-    // and know verification already happened if clientIp matches the lockout IP.
-    // 
-    // Real fix: store nothing here, pass a signed token back to frontend instead.
-    // Frontend sends this token on next login call, backend verifies and whitelists IP.
-    const jwt2 = require('jsonwebtoken')
-    const bypass_token = jwt2.sign(
-      { username: username.toLowerCase(), type: 'otp_verified' },
-      process.env.JWT_SECRET,
-      { expiresIn: '10m' }
-    )
-    // Return detected IP so frontend can display it for confirmation
+    // OTP correct — delete OTP and whitelist IP in same request
+    await supabase.from('admin_otps').delete().eq('id', entry.id)
+
+    // Get client IP
     const xForwardedFor = (req.headers['x-forwarded-for'] || '').toString()
     const xRealIp = (req.headers['x-real-ip'] || '').toString().trim()
-    const detectedIp = xRealIp || xForwardedFor.split(',')[0].trim() || (req.socket?.remoteAddress || '').toString().trim()
+    const ip = xRealIp || xForwardedFor.split(',')[0].trim() || (req.socket?.remoteAddress || '').toString().trim()
 
-    res.json({ success: true, bypass_token, detectedIp, message: 'OTP verified. Please click Sign In to continue.' })
+    // Whitelist IP directly here
+    let ipAdded = false
+    if (ip) {
+      const { data: existing } = await supabase.from('authorised_ips').select('id').eq('ip_address', ip).limit(1)
+      if (!existing || existing.length === 0) {
+        const { error: insertErr } = await supabase.from('authorised_ips').insert({ ip_address: ip, label: 'Auto-added via Admin OTP bypass', created_by: username })
+        if (!insertErr) ipAdded = true
+        else console.error('IP insert error:', insertErr.message)
+      } else {
+        ipAdded = true // already exists
+      }
+      cacheDel('authorised_ips_guard')
+      // Unlock lockout
+      await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', ip).eq('username', username).eq('is_unlocked', false)
+    }
+
+    res.json({ success: true, ip, ipAdded, message: ipAdded ? `IP ${ip} added to authorised list. Please click Sign In.` : 'OTP verified. Please click Sign In.' })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 

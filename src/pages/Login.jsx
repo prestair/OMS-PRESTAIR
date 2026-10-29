@@ -140,23 +140,16 @@ function Login() {
     setAdminOtpError('')
     try {
       const res = await axios.post('/api/auth/admin-ip-otp-verify', { username, password, otp: adminOtp.trim() })
-      const bt = res.data.bypass_token || null
-      const detectedIp = res.data.detectedIp || ''
-      setBypassToken(bt)
-      if (bt) sessionStorage.setItem('admin_bypass_token', bt)
-
-      // Immediately whitelist IP — separate fast endpoint, no timeout risk
-      let whitelistedIp = ''
-      try {
-        const wr = await axios.post('/api/auth/admin-whitelist-ip', { bypass_token: bt })
-        whitelistedIp = wr.data.ip || detectedIp
-      } catch (we) {
-        whitelistedIp = detectedIp
-      }
-
+      const { ip, ipAdded } = res.data
       setAdminOtpRequired(false)
       setAdminOtp('')
-      setError(`✅ IP No. ${whitelistedIp} added to Authorised List. Please click Sign In to continue.`)
+      setBypassToken(null)
+      sessionStorage.removeItem('admin_bypass_token')
+      if (ipAdded) {
+        setError(`✅ IP No. ${ip} added to Authorised List. Please click Sign In to continue.`)
+      } else {
+        setError(`✅ OTP Verified. Please click Sign In to continue.`)
+      }
     } catch (err) {
       setAdminOtpError(err.response?.data?.error || 'Invalid OTP. Please try again.')
     } finally {
