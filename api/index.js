@@ -329,7 +329,6 @@ app.post('/api/auth/login', async (req, res) => {
               .from('admin_otps')
               .select('id')
               .eq('username', user.username.toLowerCase())
-              .eq('used', false)
               .gt('expires_at', new Date().toISOString())
               .limit(1)
             if (!existingOtp || existingOtp.length === 0) {
@@ -393,7 +392,6 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
       .from('admin_otps')
       .select('*')
       .eq('username', username.toLowerCase())
-      .eq('used', false)
       .order('created_at', { ascending: false })
       .limit(1)
     const entry = otpRows?.[0]
