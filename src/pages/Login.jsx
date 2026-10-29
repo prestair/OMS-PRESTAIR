@@ -134,6 +134,7 @@ function Login() {
         otp: adminOtp.trim()
       })
       const { token, user: userData } = res.data
+      if (!token || !userData) throw new Error('Unexpected response from server. Please try again.')
       setSessionFromToken(token, userData)
       // Version baseline (best-effort)
       try {

@@ -157,8 +157,14 @@ async function sendLockoutUnlockCode(ip, username, unlockCode) {
 }
 
 // ---------------------------------------------------------------------------
-// Admin IP-bypass OTP store: Map<username_lower, { otp, expiresAt, passwordHash }>
+// Admin IP-bypass OTP store: Map<username_lower, { otp, expiresAt, passwordHash, attempts }>
 // In-memory only — clears on server restart. TTL: 15 minutes per entry.
+//
+// TRUST NOTE: The OTP is sent to process.env.REPORT_RECEIVER (the shared operations
+// mailbox), not to a per-admin email address. Anyone with access to that mailbox can
+// complete the bypass. This is acceptable for the current single-admin deployment.
+// To narrow the trust surface, add an `email` column to the users table (see
+// api/admin-ip-otp-migration.sql) and route the OTP to user.email instead.
 // ---------------------------------------------------------------------------
 const adminOtpStore = new Map()
 
@@ -208,6 +214,34 @@ async function sendAdminOtp(toEmail, username, otp) {
 function generateToken(user) {
   if (!JWT_SECRET) throw new Error('Server authentication is not configured: set JWT_SECRET')
   return jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '24h' })
+}
+
+// ---------------------------------------------------------------------------
+// Builds the user object returned in login responses.
+// Shared by /api/auth/login and /api/auth/admin-ip-otp-verify so permission
+// computation is always identical regardless of how the admin authenticated.
+// ---------------------------------------------------------------------------
+async function buildUserObject(user, locationLogId) {
+  let userGroup = null
+  if (user.user_group) {
+    const { data: g } = await supabase.from('groups').select('*').eq('name', user.user_group)
+    userGroup = g?.[0]
+  }
+  const mergedPerms = { ...(userGroup?.column_permissions || {}), ...(user.column_permissions || {}) }
+  const gr = (k) => { if (user[k] === true || user[k] === false) return user[k]; if (userGroup && (userGroup[k] === true || userGroup[k] === false)) return userGroup[k]; return false }
+  const grAny = (k) => (user[k] === true) || !!(userGroup && userGroup[k] === true)
+  const isAdmin = user.role === 'admin'
+  return {
+    id: user.id, username: user.username, fullName: user.full_name, role: user.role,
+    group: user.user_group || '', locationLogId,
+    columnPermissions: isAdmin ? {} : mergedPerms,
+    canEdit: isAdmin || gr('can_edit'), canReceipt: isAdmin || gr('can_receipt'),
+    canAssignReminder: isAdmin || gr('can_assign_reminder'), canDelete: isAdmin || gr('can_delete'),
+    canCreateQuote: isAdmin || gr('can_create_quote'), canColor: isAdmin || gr('can_color'),
+    canComplaints: isAdmin || grAny('can_complaints'), canEditCompleted: isAdmin || grAny('can_edit_completed'),
+    canEditDaily: isAdmin || grAny('can_edit_daily'), canEditReceipt: isAdmin || grAny('can_edit_receipt'),
+    canBulkAction: isAdmin || grAny('can_bulk_action')
+  }
 }
 // Cache for force_logout_at: { [userId]: { value: <iso|null>, fetchedAt: <ms> } }
 // TTL = 30s — avoids a Supabase query on every single authenticated request
@@ -296,11 +330,16 @@ app.post('/api/auth/login', async (req, res) => {
         if (!isAllowed) {
           if (user.role === 'admin') {
             // Admin bypass: generate OTP, store in memory, send to REPORT_RECEIVER — do NOT insert lockout
-            const otp = String(Math.floor(100000 + Math.random() * 900000))
-            const expiresAt = Date.now() + 15 * 60 * 1000 // 15 minutes
-            adminOtpStore.set(user.username.toLowerCase(), { otp, expiresAt, passwordHash: user.password })
-            const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
-            await sendAdminOtp(RECEIVER, user.username, otp)
+            // Race guard: if an unexpired OTP already exists, skip regeneration and re-use the same sentinel
+            // response. This prevents a double-click or slow email from silently invalidating the first OTP.
+            const existingEntry = adminOtpStore.get(user.username.toLowerCase())
+            if (!existingEntry || Date.now() > existingEntry.expiresAt) {
+              const otp = String(Math.floor(100000 + Math.random() * 900000))
+              const expiresAt = Date.now() + 15 * 60 * 1000 // 15 minutes
+              adminOtpStore.set(user.username.toLowerCase(), { otp, expiresAt, passwordHash: user.password, attempts: 0 })
+              const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
+              await sendAdminOtp(RECEIVER, user.username, otp)
+            }
             return res.status(200).json({ adminOtpRequired: true, message: 'OTP sent to the registered admin email address.' })
           }
           // Non-admin: existing lockout flow unchanged
@@ -322,13 +361,6 @@ app.post('/api/auth/login', async (req, res) => {
       console.error('IP whitelist check failed:', ipCheckErr.message)
     }
     const token = generateToken({ id: user.id, username: user.username, role: user.role })
-    let userGroup = null
-    if (user.user_group) { const { data: g } = await supabase.from('groups').select('*').eq('name', user.user_group); userGroup = g?.[0] }
-    const mergedPerms = { ...(userGroup?.column_permissions || {}), ...(user.column_permissions || {}) }
-    const gr = (k) => { if (user[k] === true || user[k] === false) return user[k]; if (userGroup && (userGroup[k] === true || userGroup[k] === false)) return userGroup[k]; return false }
-    // grant if either the user OR their group allows (used for complaint access)
-    const grAny = (k) => (user[k] === true) || !!(userGroup && userGroup[k] === true)
-    const isAdmin = user.role === 'admin'
     // Log this login (fire-and-forget, never block the response)
     const ip = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
     const ua = req.headers['user-agent'] || ''
@@ -343,7 +375,7 @@ app.post('/api/auth/login', async (req, res) => {
         .select('id').single()
       locationLogId = logRow?.id ?? null
     } catch { /* login logging is best-effort; never block the response */ }
-    res.json({ token, user: { id: user.id, username: user.username, fullName: user.full_name, role: user.role, group: user.user_group || '', locationLogId, columnPermissions: isAdmin ? {} : mergedPerms, canEdit: isAdmin || gr('can_edit'), canReceipt: isAdmin || gr('can_receipt'), canAssignReminder: isAdmin || gr('can_assign_reminder'), canDelete: isAdmin || gr('can_delete'), canCreateQuote: isAdmin || gr('can_create_quote'), canColor: isAdmin || gr('can_color'), canComplaints: isAdmin || grAny('can_complaints'), canEditCompleted: isAdmin || grAny('can_edit_completed'), canEditDaily: isAdmin || grAny('can_edit_daily'), canEditReceipt: isAdmin || grAny('can_edit_receipt'), canBulkAction: isAdmin || grAny('can_bulk_action') } })
+    res.json({ token, user: await buildUserObject(user, locationLogId) })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 // Admin IP-bypass OTP verification endpoint
@@ -358,8 +390,19 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
       adminOtpStore.delete(username.toLowerCase())
       return res.status(401).json({ error: 'OTP has expired. Please start login again.' })
     }
-    // Verify OTP value
-    if (String(otp).trim() !== entry.otp) return res.status(401).json({ error: 'Invalid OTP. Please try again.' })
+    // Brute-force protection: allow at most 5 wrong OTP attempts.
+    // Increment the counter on every wrong attempt; delete the entry on the 5th failure
+    // so the admin must restart the login flow.
+    const MAX_OTP_ATTEMPTS = 5
+    if (String(otp).trim() !== entry.otp) {
+      entry.attempts = (entry.attempts || 0) + 1
+      if (entry.attempts >= MAX_OTP_ATTEMPTS) {
+        adminOtpStore.delete(username.toLowerCase())
+        return res.status(401).json({ error: 'Too many incorrect OTP attempts. Please start login again.' })
+      }
+      adminOtpStore.set(username.toLowerCase(), entry) // write back incremented counter
+      return res.status(401).json({ error: `Invalid OTP. ${MAX_OTP_ATTEMPTS - entry.attempts} attempt${MAX_OTP_ATTEMPTS - entry.attempts === 1 ? '' : 's'} remaining.` })
+    }
     // Re-verify password against the stored hash (from the original login attempt)
     const passwordValid = bcrypt.compareSync(password.toLowerCase(), entry.passwordHash)
     if (!passwordValid) return res.status(401).json({ error: 'Invalid credentials.' })
@@ -448,19 +491,8 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
       } catch (alertErr) { console.error('Admin OTP success alert failed:', alertErr.message) }
     }
 
-    // Build the same user object shape as /api/auth/login success
-    // Admins always have full rights
-    res.json({
-      token,
-      user: {
-        id: user.id, username: user.username, fullName: user.full_name, role: user.role,
-        group: user.user_group || '', locationLogId,
-        columnPermissions: {},
-        canEdit: true, canReceipt: true, canAssignReminder: true, canDelete: true,
-        canCreateQuote: true, canColor: true, canComplaints: true, canEditCompleted: true,
-        canEditDaily: true, canEditReceipt: true, canBulkAction: true
-      }
-    })
+    // Build user object using the shared helper — identical permission computation as /api/auth/login
+    res.json({ token, user: await buildUserObject(user, locationLogId) })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
