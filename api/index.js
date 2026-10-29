@@ -406,7 +406,12 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
         await supabase.from('admin_otps').delete().eq('id', entry.id)
         return res.status(401).json({ error: 'Too many incorrect attempts. Please start login again.' })
       }
-      await supabase.from('admin_otps').update({ attempts: newAttempts }).eq('id', entry.id)
+      // Use DELETE + INSERT instead of UPDATE to avoid RLS issues
+      await supabase.from('admin_otps').delete().eq('id', entry.id)
+      await supabase.from('admin_otps').insert({ 
+        username: entry.username, otp: entry.otp, 
+        expires_at: entry.expires_at, attempts: newAttempts, used: false 
+      })
       return res.status(401).json({ error: `Invalid OTP. ${MAX_OTP_ATTEMPTS - newAttempts} attempt${MAX_OTP_ATTEMPTS - newAttempts === 1 ? '' : 's'} remaining.` })
     }
 
