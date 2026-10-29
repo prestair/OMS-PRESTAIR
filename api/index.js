@@ -414,8 +414,12 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
       return res.status(401).json({ error: `Invalid OTP. ${MAX_OTP_ATTEMPTS - newAttempts} attempt${MAX_OTP_ATTEMPTS - newAttempts === 1 ? '' : 's'} remaining.` })
     }
 
-    // OTP is correct — mark as used immediately (single-use)
-    await supabase.from('admin_otps').update({ used: true }).eq('id', entry.id)
+    // OTP is correct — DELETE it immediately (single-use, no UPDATE needed)
+    const { error: delErr } = await supabase.from('admin_otps').delete().eq('id', entry.id)
+    if (delErr) {
+      console.error('admin_otps delete failed:', delErr.message)
+      return res.status(500).json({ error: 'OTP verification failed. Please try again.' })
+    }
 
     // Re-verify password against the LIVE hash fetched from DB.
     const { data: users } = await supabase.from('users').select('*').ilike('username', username)
@@ -440,12 +444,13 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
         .eq('ip_address', ip)
         .limit(1)
       if (!existingIp || existingIp.length === 0) {
-        await supabase.from('authorised_ips').insert({
+        const { error: ipInsErr } = await supabase.from('authorised_ips').insert({
           ip_address: ip,
           label: 'Auto-added via Admin OTP bypass',
           created_by: user.username
         })
-        ipAutoAdded = true
+        if (ipInsErr) console.error('IP whitelist insert failed:', ipInsErr.message)
+        else ipAutoAdded = true
       }
       // Always bust the cache regardless of whether we inserted — ensures consistency
       cacheDel('authorised_ips_guard')
