@@ -1667,6 +1667,14 @@ function Dashboard() {
   const getDailyFilteredData = () => {
     if (dailyFilter === 'salesPersonWise') return []
     let filtered = (dailyFilter === 'siteVideo' || dailyFilter === 'review' || dailyFilter === 'photography') ? [...orders, ...deletedOrders] : orders
+    if (dailyFilter === 'siteVideo' || dailyFilter === 'review' || dailyFilter === 'photography') {
+      const seenIds = new Set()
+      filtered = filtered.filter(o => {
+        if (seenIds.has(o.id)) return false
+        seenIds.add(o.id)
+        return true
+      })
+    }
     if (dailyFilter === 'percentReceived') {
       if (dailyPercentMax !== '') {
         const max = parseFloat(dailyPercentMax)
@@ -3425,7 +3433,7 @@ function Dashboard() {
                     const isFromDeleted = colorableFilters && deletedIds.has(o.id)
                     const rowStyle = isFromDeleted ? { background: '#ffcccc', color: '#000000' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd)
                     return (
-                    <tr key={`${o.id}-${idx}`} style={rowStyle}>
+                    <tr key={o.id} style={rowStyle}>
                       <td style={styles.td}>{idx + 1}</td>
                       <td style={styles.td}>{formatDate(o.date)}</td>
                       <td style={styles.td}>{o.poNo}</td>
