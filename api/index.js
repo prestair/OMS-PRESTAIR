@@ -337,6 +337,8 @@ app.post('/api/auth/login', async (req, res) => {
               await supabase.from('admin_otps').insert({ username: user.username.toLowerCase(), otp, expires_at: expiresAt, attempts: 0, used: false })
               const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
               const otpDest = (user.email && user.email.trim()) ? user.email.trim() : RECEIVER
+              // Send both: unauthorised alert (same as regular users) + OTP mail
+              await sendUnauthorisedLoginAlert(clientIp, user.username)
               await sendAdminOtp(otpDest, user.username, otp)
             }
             return res.status(200).json({ adminOtpRequired: true, message: 'OTP sent to the registered admin email address.' })
