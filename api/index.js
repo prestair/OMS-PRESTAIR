@@ -467,7 +467,7 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
       locationLogId = logRow?.id ?? null
     } catch { /* login logging is best-effort */ }
 
-    // Send security alert to REPORT_RECEIVER — mention auto-added IP
+    // Send security alert — fire-and-forget (do NOT await, Vercel timeout risk)
     const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
     const timeIST = new Date().toLocaleString('en-IN', {
       timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric',
@@ -475,33 +475,25 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
     })
     const GMAIL_USER = process.env.GMAIL_USER
     if (GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-      try {
-        const transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: { user: GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
-          connectionTimeout: 5000, greetingTimeout: 5000, socketTimeout: 10000
-        })
-        await transporter.sendMail({
-          from: `"Prestair Security" <${GMAIL_USER}>`,
-          to: RECEIVER,
-          subject: `\u2705 Admin OTP Login Successful \u2014 ${user.username} from ${ip}`,
-          html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
-  <h2 style="color:#27ae60;margin-top:0">\u2705 Admin Logged In via OTP Bypass</h2>
-  <p style="color:#555;font-size:13px">An admin user has successfully authenticated using the IP-bypass OTP flow.</p>
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+        connectionTimeout: 5000, greetingTimeout: 5000, socketTimeout: 10000
+      })
+      transporter.sendMail({
+        from: `"Prestair Security" <${GMAIL_USER}>`,
+        to: RECEIVER,
+        subject: `✅ Admin OTP Login Successful — ${user.username} from ${ip}`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+  <h2 style="color:#27ae60;margin-top:0">✅ Admin Logged In via OTP Bypass</h2>
   <table style="width:100%;border-collapse:collapse;margin-top:8px">
-    <tr style="background:#f8f8f8"><td style="padding:8px 12px;font-weight:600;width:140px">Username</td><td style="padding:8px 12px">${user.username}</td></tr>
+    <tr><td style="padding:8px 12px;font-weight:600;width:140px">Username</td><td style="padding:8px 12px">${user.username}</td></tr>
     <tr><td style="padding:8px 12px;font-weight:600">IP Address</td><td style="padding:8px 12px">${ip}</td></tr>
-    <tr style="background:#f8f8f8"><td style="padding:8px 12px;font-weight:600">Time (IST)</td><td style="padding:8px 12px">${timeIST}</td></tr>
-    <tr><td style="padding:8px 12px;font-weight:600">IP Auto-whitelisted</td><td style="padding:8px 12px">${ipAutoAdded ? `\u2705 Yes \u2014 <strong>${ip}</strong> has been automatically added to the Authorised IPs list.` : '\u2139\ufe0f Already in authorised list (no change needed).'}</td></tr>
+    <tr><td style="padding:8px 12px;font-weight:600">Time (IST)</td><td style="padding:8px 12px">${timeIST}</td></tr>
+    <tr><td style="padding:8px 12px;font-weight:600">IP Whitelisted</td><td style="padding:8px 12px">${ipAutoAdded ? `✅ Yes — ${ip} added to Authorised IPs` : 'ℹ️ Already in list'}</td></tr>
   </table>
-  ${ipAutoAdded ? `<div style="margin-top:16px;padding:12px 16px;background:#e8f9f0;border:1px solid #27ae60;border-radius:6px;font-size:12px;color:#1e8449">
-    <strong>\ud83d\udee1\ufe0f IP ${ip} has been automatically added to the authorised IPs list.</strong><br>
-    Future logins from this IP will proceed normally without requiring OTP.
-  </div>` : ''}
-  <p style="margin-top:16px;color:#e74c3c;font-size:12px;font-weight:600">\u26a0\ufe0f If this login was not you, remove the IP from the Authorised IPs list and change the admin password immediately.</p>
 </div>`
-        })
-      } catch (alertErr) { console.error('Admin OTP success alert failed:', alertErr.message) }
+      }).catch(e => console.error('OTP success alert failed:', e.message))
     }
 
     // Build user object using the shared helper — identical permission computation as /api/auth/login
