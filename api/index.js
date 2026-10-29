@@ -323,30 +323,27 @@ app.post('/api/auth/login', async (req, res) => {
         const isAllowed = allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
         if (!isAllowed) {
           if (user.role === 'admin') {
-            // Check if admin already verified OTP — IP:xxx marker in admin_otps
+            // Check if admin already verified OTP — 'VERIFIED' marker in admin_otps
             const { data: verifiedMarker } = await supabase
               .from('admin_otps')
-              .select('otp, expires_at')
+              .select('id')
               .eq('username', user.username.toLowerCase())
+              .eq('otp', 'VERIFIED')
               .gt('expires_at', new Date().toISOString())
               .limit(1)
-            const marker = verifiedMarker?.[0]
-            if (marker && marker.otp && marker.otp.startsWith('IP:')) {
-              const verifiedIp = marker.otp.replace('IP:', '').trim()
-              // Delete the marker
+            if (verifiedMarker?.length > 0) {
+              // Delete marker and whitelist current IP
               await supabase.from('admin_otps').delete().eq('username', user.username.toLowerCase())
-              // Whitelist this IP
-              const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', verifiedIp).limit(1)
+              const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', clientIp).limit(1)
               if (!existingIp || existingIp.length === 0) {
-                await supabase.from('authorised_ips').insert({ ip_address: verifiedIp, label: 'Auto-added via Admin OTP bypass', created_by: user.username })
+                await supabase.from('authorised_ips').insert({ ip_address: clientIp, label: 'Auto-added via Admin OTP bypass', created_by: user.username })
               }
               cacheDel('authorised_ips_guard')
-              // Now allow login to proceed normally — fall through to token generation below
+              // Fall through to normal login below
             } else {
               // No verified marker — send OTP
               const { data: existingOtp } = await supabase
-                .from('admin_otps')
-                .select('id')
+                .from('admin_otps').select('id')
                 .eq('username', user.username.toLowerCase())
                 .gt('expires_at', new Date().toISOString())
                 .limit(1)
@@ -435,25 +432,15 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
       return res.status(401).json({ error: `Invalid OTP. ${MAX_OTP_ATTEMPTS - newAttempts} attempt${MAX_OTP_ATTEMPTS - newAttempts === 1 ? '' : 's'} remaining.` })
     }
 
-    // OTP correct — delete it (single-use)
-    await supabase.from('admin_otps').delete().eq('id', entry.id)
-
-    // Store the verified IP so login endpoint can whitelist it
-    const xForwardedFor = (req.headers['x-forwarded-for'] || '').toString()
-    const xRealIp = (req.headers['x-real-ip'] || '').toString().trim()
-    const ip = xRealIp || xForwardedFor.split(',').pop().trim() || (req.socket?.remoteAddress || '').toString().trim()
-
-    // Save IP:xxx marker — login endpoint reads this and adds to authorised_ips
+    // OTP correct — delete it and store a simple 'verified' marker (no IP needed here)
     await supabase.from('admin_otps').delete().eq('username', username.toLowerCase())
-    if (ip) {
-      await supabase.from('admin_otps').insert({
-        username: username.toLowerCase(),
-        otp: `IP:${ip}`,
-        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-        attempts: 0,
-        used: false
-      })
-    }
+    await supabase.from('admin_otps').insert({
+      username: username.toLowerCase(),
+      otp: 'VERIFIED',
+      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      attempts: 0,
+      used: false
+    })
 
     res.json({ success: true, message: 'OTP verified. Please click Sign In to continue.' })
   } catch (e) { res.status(500).json({ error: e.message }) }
