@@ -21,6 +21,7 @@ function Login() {
   const [adminOtpLoading, setAdminOtpLoading] = useState(false)
   const [gpsData, setGpsData] = useState(null)
   const [gpsTimestamp, setGpsTimestamp] = useState(null)
+  const [bypassToken, setBypassToken] = useState(null)
   const { login, setSessionFromToken } = useAuth()
   const navigate = useNavigate()
 
@@ -70,7 +71,7 @@ function Login() {
       return
     }
     try {
-      const loggedInUser = await login(username, password)
+      const loggedInUser = await login(username, password, bypassToken)
       if (loggedInUser?.adminOtpRequired) {
         setAdminOtpRequired(true)
         setError('Unauthorised IP Address. An OTP has been sent to the admin email address.')
@@ -131,8 +132,9 @@ function Login() {
     setAdminOtpLoading(true)
     setAdminOtpError('')
     try {
-      await axios.post('/api/auth/admin-ip-otp-verify', { username, password, otp: adminOtp.trim() })
-      // IP whitelisted — hide OTP form, let admin click Sign In normally
+      const res = await axios.post('/api/auth/admin-ip-otp-verify', { username, password, otp: adminOtp.trim() })
+      // Store bypass token — will be sent with next login call
+      setBypassToken(res.data.bypass_token || null)
       setAdminOtpRequired(false)
       setAdminOtp('')
       setError('✅ IP verified! Please click Sign In to continue.')

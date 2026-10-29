@@ -123,8 +123,10 @@ export function AuthProvider({ children }) {
     return () => { stopped = true; clearInterval(versionInterval) }
   }, [user])
 
-  const login = async (username, password) => {
-    const res = await axios.post('/api/auth/login', { username, password })
+  const login = async (username, password, bypassToken = null) => {
+    const body = { username, password }
+    if (bypassToken) body.bypass_token = bypassToken
+    const res = await axios.post('/api/auth/login', body)
     // Admin OTP bypass — return special sentinel, do not set session
     if (res.data.adminOtpRequired) return { adminOtpRequired: true }
     const { token, user: userData } = res.data

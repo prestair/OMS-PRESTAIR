@@ -323,27 +323,24 @@ app.post('/api/auth/login', async (req, res) => {
         const isAllowed = allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
         if (!isAllowed) {
           if (user.role === 'admin') {
-            // Check if admin already verified OTP — 'VERIFIED' marker in admin_otps
-            const { data: verifiedMarker } = await supabase
-              .from('admin_otps')
-              .select('id')
-              .eq('username', user.username.toLowerCase())
-              .eq('otp', 'VERIFIED')
-              .gt('expires_at', new Date().toISOString())
-              .limit(1)
-            if (verifiedMarker?.length > 0) {
-              // Delete marker and whitelist current IP
-              await supabase.from('admin_otps').delete().eq('username', user.username.toLowerCase())
-              const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', clientIp).limit(1)
-              if (!existingIp || existingIp.length === 0) {
-                await supabase.from('authorised_ips').insert({ ip_address: clientIp, label: 'Auto-added via Admin OTP bypass', created_by: user.username })
-              }
-              // Also unlock any lockout for this IP+username so login proceeds
-              await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', clientIp).eq('username', user.username).eq('is_unlocked', false)
-              cacheDel('authorised_ips_guard')
-              // Fall through to normal login below
+            // Check if admin has a bypass_token (OTP already verified)
+            const bypassToken = req.body.bypass_token
+            if (bypassToken) {
+              try {
+                const decoded = require('jsonwebtoken').verify(bypassToken, process.env.JWT_SECRET)
+                if (decoded.type === 'otp_verified' && decoded.username === user.username.toLowerCase()) {
+                  // Valid bypass — whitelist IP and unlock lockout
+                  const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', clientIp).limit(1)
+                  if (!existingIp || existingIp.length === 0) {
+                    await supabase.from('authorised_ips').insert({ ip_address: clientIp, label: 'Auto-added via Admin OTP bypass', created_by: user.username })
+                  }
+                  await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', clientIp).eq('username', user.username).eq('is_unlocked', false)
+                  cacheDel('authorised_ips_guard')
+                  // Fall through to normal login
+                }
+              } catch (e) { /* invalid bypass token — treat as no OTP */ }
             } else {
-              // No verified marker — send OTP
+              // No bypass token — send OTP
               const { data: existingOtp } = await supabase
                 .from('admin_otps').select('id')
                 .eq('username', user.username.toLowerCase())
@@ -434,17 +431,23 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
       return res.status(401).json({ error: `Invalid OTP. ${MAX_OTP_ATTEMPTS - newAttempts} attempt${MAX_OTP_ATTEMPTS - newAttempts === 1 ? '' : 's'} remaining.` })
     }
 
-    // OTP correct — delete it and store a simple 'verified' marker (no IP needed here)
-    await supabase.from('admin_otps').delete().eq('username', username.toLowerCase())
-    await supabase.from('admin_otps').insert({
-      username: username.toLowerCase(),
-      otp: 'VERIFIED',
-      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-      attempts: 0,
-      used: false
-    })
+    // OTP correct — just return success. Login endpoint handles IP whitelisting.
+    // We do NOT write to DB here to avoid Vercel timeout on DB operations.
+    // The login endpoint checks: if OTP matched recently (within expiry), whitelist IP.
+    // To signal this, we mark the OTP as matched by setting attempts to -1.
+    // Actually — simplest: just delete the OTP row. Login endpoint will see no OTP
+    // and know verification already happened if clientIp matches the lockout IP.
+    // 
+    // Real fix: store nothing here, pass a signed token back to frontend instead.
+    // Frontend sends this token on next login call, backend verifies and whitelists IP.
+    const jwt2 = require('jsonwebtoken')
+    const bypass_token = jwt2.sign(
+      { username: username.toLowerCase(), type: 'otp_verified' },
+      process.env.JWT_SECRET,
+      { expiresIn: '10m' }
+    )
 
-    res.json({ success: true, message: 'OTP verified. Please click Sign In to continue.' })
+    res.json({ success: true, bypass_token, message: 'OTP verified. Please click Sign In to continue.' })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
