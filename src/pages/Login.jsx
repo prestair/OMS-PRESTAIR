@@ -150,7 +150,9 @@ function Login() {
         axios.post('/api/auth/log-location', { lat: gpsData.lat, lon: gpsData.lon, accuracy: gpsData.accuracy, logId: userData?.locationLogId }).catch(() => {})
       }
       setAdminOtpRequired(false)
-      navigate('/dashboard')
+      // Use window.location instead of navigate — avoids React state timing issue
+      // where ProtectedRoute checks user before setSessionFromToken state update completes
+      window.location.href = '/dashboard'
     } catch (err) {
       setAdminOtpError(err.response?.data?.error || 'Invalid OTP. Please try again.')
     } finally {
