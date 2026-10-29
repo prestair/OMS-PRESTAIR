@@ -393,9 +393,10 @@ function OrReportNew({ orders, deletedOrders, paperRequests, returnRequests, all
   )
 }
 
-function SpWiseTable({ spOrders, totalAmt, styles, formatDate }) {
+function SpWiseTable({ spOrders, totalAmt, styles, formatDate, deletedIds = new Set() }) {
   const [filters, setFilters] = React.useState({})
   const [openFilter, setOpenFilter] = React.useState(null)
+  const [searchText, setSearchText] = React.useState({})
   const cols = [
     { key: 'date', label: 'Date' },
     { key: 'client', label: 'Client' },
@@ -404,12 +405,7 @@ function SpWiseTable({ spOrders, totalAmt, styles, formatDate }) {
     { key: 'totalAmount', label: 'Total Amount' },
     { key: 'amount18', label: 'Amount (18%)' },
   ]
-  const getVal = (o, key) => {
-    if (key === 'date') return formatDate(o.date)
-    if (key === 'amount18') return '₹' + ((parseFloat(o.totalAmount)||0)*0.18).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})
-    if (key === 'totalAmount') return '₹' + (parseFloat(o.totalAmount)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})
-    return String(o[key] || '')
-  }
+  const searchCols = ['client', 'orderNo']
   const getRaw = (o, key) => {
     if (key === 'date') return formatDate(o.date)
     if (key === 'amount18') return String(((parseFloat(o.totalAmount)||0)*0.18).toFixed(2))
@@ -419,17 +415,18 @@ function SpWiseTable({ spOrders, totalAmt, styles, formatDate }) {
   let filtered = spOrders
   cols.forEach(col => {
     const sel = filters[col.key]
-    if (sel && sel.length > 0) {
-      filtered = filtered.filter(o => sel.includes(getRaw(o, col.key)))
-    }
+    if (sel && sel.length > 0) filtered = filtered.filter(o => sel.includes(getRaw(o, col.key)))
   })
   const totalFiltered = filtered.reduce((s, o) => s + (parseFloat(o.totalAmount)||0)*0.18, 0)
+  const hasFilter = Object.keys(filters).some(k => filters[k]?.length > 0)
   return (
     <div style={styles.tableWrap}>
-      <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+      <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '12px', fontWeight: '700' }}>Total: {filtered.length} orders</span>
         <span style={{ fontSize: '12px', fontWeight: '700', color: '#27ae60' }}>Amount (18%): ₹{totalFiltered.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        {Object.keys(filters).some(k => filters[k]?.length > 0) && <button onClick={() => setFilters({})} style={{ fontSize: '10px', background: 'none', border: '1px solid #e74c3c', color: '#e74c3c', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer' }}>Clear Filters</button>}
+        {hasFilter && <button onClick={() => { setFilters({}); setSearchText({}) }} style={{ fontSize: '10px', background: 'none', border: '1px solid #e74c3c', color: '#e74c3c', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer' }}>Clear Filters</button>}
+        {hasFilter && <button onClick={() => setOpenFilter(null)} style={{ fontSize: '10px', background: 'none', border: '1px solid #27ae60', color: '#27ae60', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer' }}>Done</button>}
+        <span style={{ fontSize: '10px', color: '#e74c3c', fontWeight: '600' }}>■ Completed</span>
       </div>
       <div style={{ overflowX: 'auto', width: '100%' }}>
         <table style={{ ...styles.table, minWidth: '750px' }}>
@@ -437,7 +434,10 @@ function SpWiseTable({ spOrders, totalAmt, styles, formatDate }) {
             <tr>
               <th style={{ ...styles.th, width: '35px' }}>#</th>
               {cols.map(col => {
-                const uniqueVals = [...new Set(spOrders.map(o => getRaw(o, col.key)).filter(Boolean))].sort()
+                const isSearch = searchCols.includes(col.key)
+                const uniqueVals = isSearch
+                  ? [...new Set(spOrders.map(o => getRaw(o, col.key)).filter(Boolean))].sort().filter(v => !searchText[col.key] || v.toLowerCase().includes((searchText[col.key]||'').toLowerCase()))
+                  : [...new Set(spOrders.map(o => getRaw(o, col.key)).filter(Boolean))].sort()
                 const active = filters[col.key]?.length > 0
                 return (
                   <th key={col.key} style={{ ...styles.th, position: 'relative', ...(col.key === 'client' ? { width: '160px', maxWidth: '160px' } : col.key === 'orderNo' ? { width: '120px' } : col.key === 'date' ? { width: '80px' } : { width: '110px' }) }}>
@@ -446,17 +446,27 @@ function SpWiseTable({ spOrders, totalAmt, styles, formatDate }) {
                       <button onClick={() => setOpenFilter(openFilter === col.key ? null : col.key)} style={{ background: active ? '#f39c12' : 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '3px', color: '#fff', fontSize: '9px', padding: '1px 4px', cursor: 'pointer' }}>▼</button>
                     </div>
                     {openFilter === col.key && (
-                      <div style={{ position: 'absolute', top: '100%', left: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', zIndex: 100, minWidth: '150px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', padding: '6px' }} onClick={e => e.stopPropagation()}>
+                      <div style={{ position: 'absolute', top: '100%', left: 0, background: '#fff', border: '1px solid #ddd', borderRadius: '4px', zIndex: 100, minWidth: '180px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', padding: '6px' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '10px', fontWeight: '700', color: '#333' }}>Filter</span>
-                          <button onClick={() => { setFilters(f => ({ ...f, [col.key]: [] })); setOpenFilter(null) }} style={{ fontSize: '9px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
+                          <span style={{ fontSize: '10px', fontWeight: '700', color: '#333' }}>Filter: {col.label}</span>
+                          <button onClick={() => { setFilters(f => ({ ...f, [col.key]: [] })); setSearchText(s => ({ ...s, [col.key]: '' })); setOpenFilter(null) }} style={{ fontSize: '9px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
                         </div>
-                        {uniqueVals.map(v => (
-                          <label key={v} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', padding: '2px 0', cursor: 'pointer', color: '#333' }}>
-                            <input type="checkbox" checked={(filters[col.key] || []).includes(v)} onChange={e => setFilters(f => ({ ...f, [col.key]: e.target.checked ? [...(f[col.key]||[]), v] : (f[col.key]||[]).filter(x => x !== v) }))} />
-                            {v}
-                          </label>
-                        ))}
+                        {isSearch && (
+                          <input
+                            value={searchText[col.key] || ''}
+                            onChange={e => setSearchText(s => ({ ...s, [col.key]: e.target.value }))}
+                            placeholder={`Search ${col.label}...`}
+                            style={{ width: '100%', padding: '4px 6px', border: '1px solid #ddd', borderRadius: '3px', fontSize: '10px', marginBottom: '4px', boxSizing: 'border-box' }}
+                          />
+                        )}
+                        <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                          {uniqueVals.map(v => (
+                            <label key={v} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', padding: '2px 0', cursor: 'pointer', color: '#333' }}>
+                              <input type="checkbox" checked={(filters[col.key] || []).includes(v)} onChange={e => setFilters(f => ({ ...f, [col.key]: e.target.checked ? [...(f[col.key]||[]), v] : (f[col.key]||[]).filter(x => x !== v) }))} />
+                              {v}
+                            </label>
+                          ))}
+                        </div>
                         <button onClick={() => setOpenFilter(null)} style={{ marginTop: '4px', width: '100%', padding: '3px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>Done</button>
                       </div>
                     )}
@@ -466,17 +476,21 @@ function SpWiseTable({ spOrders, totalAmt, styles, formatDate }) {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((o, idx) => (
-              <tr key={`sp-${o.id}-${idx}`} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
-                <td style={styles.td}>{idx + 1}</td>
-                <td style={styles.td}>{formatDate(o.date)}</td>
-                <td style={{ ...styles.td, textAlign: 'left', maxWidth: '160px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{o.client}</td>
-                <td style={styles.td}>{o.orderNo}</td>
-                <td style={styles.td}>{o.salesRep}</td>
-                <td style={styles.td}>₹{(parseFloat(o.totalAmount)||0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td style={{ ...styles.td, fontWeight: '600', color: '#27ae60' }}>₹{((parseFloat(o.totalAmount)||0)*0.18).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-            ))}
+            {filtered.map((o, idx) => {
+              const isCompleted = deletedIds.has(o.id)
+              const rowStyle = isCompleted ? { background: '#ffcccc' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd)
+              return (
+                <tr key={`sp-${o.id}-${idx}`} style={rowStyle}>
+                  <td style={styles.td}>{idx + 1}</td>
+                  <td style={styles.td}>{formatDate(o.date)}</td>
+                  <td style={{ ...styles.td, textAlign: 'left', maxWidth: '160px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{o.client}</td>
+                  <td style={styles.td}>{o.orderNo}</td>
+                  <td style={styles.td}>{o.salesRep}</td>
+                  <td style={styles.td}>₹{(parseFloat(o.totalAmount)||0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td style={{ ...styles.td, fontWeight: '600', color: '#27ae60' }}>₹{((parseFloat(o.totalAmount)||0)*0.18).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>
+              )
+            })}
             {filtered.length === 0 && <tr><td colSpan={7} style={{ ...styles.td, textAlign: 'center', color: '#888', padding: '20px' }}>No orders found</td></tr>}
           </tbody>
         </table>
@@ -3475,7 +3489,7 @@ function Dashboard() {
             const spF = window.__spColFilters[0] || {}
             const setSpF = (key, val) => { window.__spColFilters[0] = {...(window.__spColFilters[0]||{}), [key]: val}; window.__spForceUpdate && window.__spForceUpdate() }
             return (
-            <SpWiseTable spOrders={spOrders} totalAmt={totalAmt} styles={styles} formatDate={formatDate} />
+            <SpWiseTable spOrders={spOrders} totalAmt={totalAmt} styles={styles} formatDate={formatDate} deletedIds={new Set(deletedOrders.map(d => d.id))} />
             )
           })()}
 
