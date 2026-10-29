@@ -130,25 +130,11 @@ function Login() {
     setAdminOtpLoading(true)
     setAdminOtpError('')
     try {
-      // Step 1: Verify OTP and get token
-      const res = await axios.post('/api/auth/admin-ip-otp-verify', {
-        username,
-        password,
-        otp: adminOtp.trim()
-      })
-      const { token, user: userData } = res.data
-      if (!token || !userData) throw new Error('Unexpected response from server. Please try again.')
-      
-      // Step 2: Set session manually
-      sessionStorage.setItem('oms_token', token)
-      sessionStorage.setItem('oms_user', JSON.stringify(userData))
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      
-      // Step 3: Wait for IP whitelist to propagate
-      await new Promise(r => setTimeout(r, 1500))
-      
-      // Step 4: Hard reload to dashboard — sessionStorage already set above
-      window.location.replace('/dashboard')
+      await axios.post('/api/auth/admin-ip-otp-verify', { username, password, otp: adminOtp.trim() })
+      // IP whitelisted — hide OTP form, let admin click Sign In normally
+      setAdminOtpRequired(false)
+      setAdminOtp('')
+      setError('✅ IP verified! Please click Sign In to continue.')
     } catch (err) {
       setAdminOtpError(err.response?.data?.error || 'Invalid OTP. Please try again.')
     } finally {

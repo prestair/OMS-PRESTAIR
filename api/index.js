@@ -323,8 +323,7 @@ app.post('/api/auth/login', async (req, res) => {
         const isAllowed = allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
         if (!isAllowed) {
           if (user.role === 'admin') {
-            // Admin bypass: generate OTP, store in Supabase (serverless-safe), send email
-            // Race guard: if an unexpired OTP already exists in DB, reuse it (no new email)
+            // Admin bypass: generate OTP, store in Supabase, send to email
             const { data: existingOtp } = await supabase
               .from('admin_otps')
               .select('id')
@@ -334,11 +333,8 @@ app.post('/api/auth/login', async (req, res) => {
             if (!existingOtp || existingOtp.length === 0) {
               const otp = String(Math.floor(100000 + Math.random() * 900000))
               const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString()
-              // Delete any old/expired OTPs for this user first
               await supabase.from('admin_otps').delete().eq('username', user.username.toLowerCase())
-              // Insert fresh OTP
               await supabase.from('admin_otps').insert({ username: user.username.toLowerCase(), otp, expires_at: expiresAt, attempts: 0, used: false })
-              // Send OTP to admin's own email if set, otherwise fall back to REPORT_RECEIVER
               const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
               const otpDest = (user.email && user.email.trim()) ? user.email.trim() : RECEIVER
               await sendAdminOtp(otpDest, user.username, otp)
@@ -384,10 +380,10 @@ app.post('/api/auth/login', async (req, res) => {
 // Admin IP-bypass OTP verification endpoint
 app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
   try {
-    const { username, password, otp } = req.body
-    if (!username || !password || !otp) return res.status(400).json({ error: 'username, password, and otp are required' })
+    const { username, otp } = req.body
+    if (!username || !otp) return res.status(400).json({ error: 'username and otp are required' })
 
-    // Fetch OTP from Supabase (serverless-safe — no in-memory store)
+    // Fetch OTP from Supabase
     const { data: otpRows } = await supabase
       .from('admin_otps')
       .select('*')
@@ -395,7 +391,7 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
       .order('created_at', { ascending: false })
       .limit(1)
     const entry = otpRows?.[0]
-    if (!entry) return res.status(401).json({ error: 'No pending OTP for this user. Please start login again.' })
+    if (!entry) return res.status(401).json({ error: 'No pending OTP. Please start login again.' })
     if (new Date(entry.expires_at).getTime() < Date.now()) {
       await supabase.from('admin_otps').delete().eq('id', entry.id)
       return res.status(401).json({ error: 'OTP has expired. Please start login again.' })
@@ -403,101 +399,29 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
     const MAX_OTP_ATTEMPTS = 5
     if (String(otp).trim() !== entry.otp) {
       const newAttempts = (entry.attempts || 0) + 1
-      await new Promise(r => setTimeout(r, 200)) // anti-brute-force delay
+      await new Promise(r => setTimeout(r, 200))
       if (newAttempts >= MAX_OTP_ATTEMPTS) {
         await supabase.from('admin_otps').delete().eq('id', entry.id)
-        return res.status(401).json({ error: 'Too many incorrect OTP attempts. Please start login again.' })
+        return res.status(401).json({ error: 'Too many incorrect attempts. Please start login again.' })
       }
       await supabase.from('admin_otps').update({ attempts: newAttempts }).eq('id', entry.id)
       return res.status(401).json({ error: `Invalid OTP. ${MAX_OTP_ATTEMPTS - newAttempts} attempt${MAX_OTP_ATTEMPTS - newAttempts === 1 ? '' : 's'} remaining.` })
     }
 
-    // OTP is correct — DELETE it immediately (single-use, no UPDATE needed)
-    const { error: delErr } = await supabase.from('admin_otps').delete().eq('id', entry.id)
-    if (delErr) {
-      console.error('admin_otps delete failed:', delErr.message)
-      return res.status(500).json({ error: 'OTP verification failed. Please try again.' })
-    }
+    // OTP correct — delete it (single-use)
+    await supabase.from('admin_otps').delete().eq('id', entry.id)
 
-    // Re-verify password against the LIVE hash fetched from DB.
-    const { data: users } = await supabase.from('users').select('*').ilike('username', username)
-    const user = users?.[0]
-    if (!user) return res.status(401).json({ error: 'User not found.' })
-    if (user.role !== 'admin') return res.status(403).json({ error: 'Admin only.' })
-    const passwordValid = bcrypt.compareSync(password.toLowerCase(), user.password)
-    if (!passwordValid) return res.status(401).json({ error: 'Invalid credentials.' })
-
-    const token = generateToken({ id: user.id, username: user.username, role: user.role })
-
+    // Whitelist the IP so next normal login succeeds
     const ip = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
-
-    // Auto-whitelist the admin's current IP in authorised_ips (if not already present).
-    // This means the next login from this IP goes through normally without OTP.
-    // Always invalidate the cache so the next IP check picks up the new row immediately.
-    let ipAutoAdded = false
     try {
-      const { data: existingIp } = await supabase
-        .from('authorised_ips')
-        .select('id')
-        .eq('ip_address', ip)
-        .limit(1)
+      const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', ip).limit(1)
       if (!existingIp || existingIp.length === 0) {
-        const { error: ipInsErr } = await supabase.from('authorised_ips').insert({
-          ip_address: ip,
-          label: 'Auto-added via Admin OTP bypass',
-          created_by: user.username
-        })
-        if (ipInsErr) console.error('IP whitelist insert failed:', ipInsErr.message)
-        else ipAutoAdded = true
+        await supabase.from('authorised_ips').insert({ ip_address: ip, label: 'Auto-added via Admin OTP bypass', created_by: username })
       }
-      // Always bust the cache regardless of whether we inserted — ensures consistency
       cacheDel('authorised_ips_guard')
-    } catch (ipAddErr) {
-      console.error('Auto-whitelist IP failed:', ipAddErr.message)
-      // Non-fatal: login still succeeds even if auto-whitelist fails
-    }
+    } catch (ipErr) { console.error('IP whitelist failed:', ipErr.message) }
 
-    // Log this login (same pattern as normal login)
-    const ua = req.headers['user-agent'] || ''
-    let locationLogId = null
-    try {
-      const { data: logRow } = await supabase.from('login_logs')
-        .insert({ username: user.username, full_name: user.full_name || '', role: user.role, ip_address: ip, user_agent: ua })
-        .select('id').single()
-      locationLogId = logRow?.id ?? null
-    } catch { /* login logging is best-effort */ }
-
-    // Send security alert — fire-and-forget (do NOT await, Vercel timeout risk)
-    const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
-    const timeIST = new Date().toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
-    })
-    const GMAIL_USER = process.env.GMAIL_USER
-    if (GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
-        connectionTimeout: 5000, greetingTimeout: 5000, socketTimeout: 10000
-      })
-      transporter.sendMail({
-        from: `"Prestair Security" <${GMAIL_USER}>`,
-        to: RECEIVER,
-        subject: `✅ Admin OTP Login Successful — ${user.username} from ${ip}`,
-        html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
-  <h2 style="color:#27ae60;margin-top:0">✅ Admin Logged In via OTP Bypass</h2>
-  <table style="width:100%;border-collapse:collapse;margin-top:8px">
-    <tr><td style="padding:8px 12px;font-weight:600;width:140px">Username</td><td style="padding:8px 12px">${user.username}</td></tr>
-    <tr><td style="padding:8px 12px;font-weight:600">IP Address</td><td style="padding:8px 12px">${ip}</td></tr>
-    <tr><td style="padding:8px 12px;font-weight:600">Time (IST)</td><td style="padding:8px 12px">${timeIST}</td></tr>
-    <tr><td style="padding:8px 12px;font-weight:600">IP Whitelisted</td><td style="padding:8px 12px">${ipAutoAdded ? `✅ Yes — ${ip} added to Authorised IPs` : 'ℹ️ Already in list'}</td></tr>
-  </table>
-</div>`
-      }).catch(e => console.error('OTP success alert failed:', e.message))
-    }
-
-    // Build user object using the shared helper — identical permission computation as /api/auth/login
-    res.json({ token, user: await buildUserObject(user, locationLogId) })
+    res.json({ success: true, message: 'IP verified. Please click Sign In to continue.' })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
