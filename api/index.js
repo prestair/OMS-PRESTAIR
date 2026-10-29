@@ -415,13 +415,20 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
 
     // Whitelist the IP so next normal login succeeds
     const ip = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
-    try {
-      const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', ip).limit(1)
-      if (!existingIp || existingIp.length === 0) {
-        await supabase.from('authorised_ips').insert({ ip_address: ip, label: 'Auto-added via Admin OTP bypass', created_by: username })
+    
+    const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', ip).limit(1)
+    if (!existingIp || existingIp.length === 0) {
+      const { error: ipErr } = await supabase.from('authorised_ips').insert({ 
+        ip_address: ip, 
+        label: 'Auto-added via Admin OTP bypass', 
+        created_by: username 
+      })
+      if (ipErr) {
+        console.error('IP whitelist insert failed:', ipErr.message)
+        return res.status(500).json({ error: `OTP verified but IP whitelist failed: ${ipErr.message}. Please contact support.` })
       }
-      cacheDel('authorised_ips_guard')
-    } catch (ipErr) { console.error('IP whitelist failed:', ipErr.message) }
+    }
+    cacheDel('authorised_ips_guard')
 
     res.json({ success: true, message: 'IP verified. Please click Sign In to continue.' })
   } catch (e) { res.status(500).json({ error: e.message }) }
