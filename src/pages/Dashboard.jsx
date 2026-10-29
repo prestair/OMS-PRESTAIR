@@ -3413,7 +3413,7 @@ function Dashboard() {
                   {dailyFilter === 'photography' && <th style={styles.th}>Photography Remarks</th>}
                   {dailyFilter === 'siteVideo' && <th style={styles.th}>Site Video Remarks</th>}
                   {dailyFilter === 'review' && <th style={styles.th}>Review Remarks</th>}
-                  {DAILY_EDITABLE.includes(dailyFilter) && canEditDaily && <th style={styles.th}>Action</th>}
+                  {DAILY_EDITABLE.includes(dailyFilter) && (canEditDaily || canEditCompleted) && <th style={styles.th}>Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -3450,7 +3450,7 @@ function Dashboard() {
                       {dailyFilter === 'photography' && <td style={styles.td}>{o.photographyRemarks}</td>}
                       {dailyFilter === 'siteVideo' && <td style={styles.td}>{o.siteVideoRemarks}</td>}
                       {dailyFilter === 'review' && <td style={styles.td}>{o.reviewRemarks}</td>}
-                      {DAILY_EDITABLE.includes(dailyFilter) && canEditDaily && (
+                      {DAILY_EDITABLE.includes(dailyFilter) && (canEditDaily || (canEditCompleted && isFromDeleted)) && (
                         <td style={styles.td}>
                           <button onClick={() => {
                             const fieldMap = {
