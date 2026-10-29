@@ -154,7 +154,9 @@ function Login() {
     } finally {
       setAdminOtpLoading(false)
     }
-  }eturn (
+  }
+
+  return (
     <div style={styles.container}>
       <div style={styles.leftPanel}>
         <div style={styles.overlay}></div>
