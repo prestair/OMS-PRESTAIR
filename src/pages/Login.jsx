@@ -71,7 +71,9 @@ function Login() {
       return
     }
     try {
-      const loggedInUser = await login(username, password, bypassToken)
+      const activeBypassToken = bypassToken || sessionStorage.getItem('admin_bypass_token') || null
+      const loggedInUser = await login(username, password, activeBypassToken)
+      sessionStorage.removeItem('admin_bypass_token')
       if (loggedInUser?.adminOtpRequired) {
         setAdminOtpRequired(true)
         setError('Unauthorised IP Address. An OTP has been sent to the admin email address.')
@@ -133,8 +135,9 @@ function Login() {
     setAdminOtpError('')
     try {
       const res = await axios.post('/api/auth/admin-ip-otp-verify', { username, password, otp: adminOtp.trim() })
-      // Store bypass token — will be sent with next login call
-      setBypassToken(res.data.bypass_token || null)
+      const bt = res.data.bypass_token || null
+      setBypassToken(bt)
+      if (bt) sessionStorage.setItem('admin_bypass_token', bt)
       setAdminOtpRequired(false)
       setAdminOtp('')
       setError('✅ IP verified! Please click Sign In to continue.')
