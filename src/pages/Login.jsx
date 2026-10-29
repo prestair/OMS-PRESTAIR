@@ -130,6 +130,7 @@ function Login() {
     setAdminOtpLoading(true)
     setAdminOtpError('')
     try {
+      // Step 1: Verify OTP and get token
       const res = await axios.post('/api/auth/admin-ip-otp-verify', {
         username,
         password,
@@ -137,30 +138,23 @@ function Login() {
       })
       const { token, user: userData } = res.data
       if (!token || !userData) throw new Error('Unexpected response from server. Please try again.')
-      setSessionFromToken(token, userData)
-      // Version baseline (best-effort)
-      try {
-        const vr = await axios.get('/api/app-version')
-        if (vr?.data?.version != null) localStorage.setItem('oms_app_version', String(vr.data.version))
-      } catch { /* ignore */ }
-      try { localStorage.setItem('oms_build', __APP_BUILD__) } catch { /* ignore */ }
-      // Only log GPS location if the fix is fresh (captured ≤ 2 minutes ago).
-      const GPS_MAX_AGE_MS = 2 * 60 * 1000
-      if (gpsData && gpsTimestamp && (Date.now() - gpsTimestamp) <= GPS_MAX_AGE_MS) {
-        axios.post('/api/auth/log-location', { lat: gpsData.lat, lon: gpsData.lon, accuracy: gpsData.accuracy, logId: userData?.locationLogId }).catch(() => {})
-      }
-      setAdminOtpRequired(false)
-      // Small delay so IP whitelist propagates before next login check
+      
+      // Step 2: Set session manually
+      sessionStorage.setItem('oms_token', token)
+      sessionStorage.setItem('oms_user', JSON.stringify(userData))
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      
+      // Step 3: Wait for IP whitelist to propagate
       await new Promise(r => setTimeout(r, 1500))
-      window.location.href = '/dashboard'
+      
+      // Step 4: Hard reload to dashboard — sessionStorage already set above
+      window.location.replace('/dashboard')
     } catch (err) {
       setAdminOtpError(err.response?.data?.error || 'Invalid OTP. Please try again.')
     } finally {
       setAdminOtpLoading(false)
     }
-  }
-
-  return (
+  }eturn (
     <div style={styles.container}>
       <div style={styles.leftPanel}>
         <div style={styles.overlay}></div>
