@@ -323,25 +323,45 @@ app.post('/api/auth/login', async (req, res) => {
         const isAllowed = allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
         if (!isAllowed) {
           if (user.role === 'admin') {
-            // Admin bypass: generate OTP, store in Supabase, send to email
-            const { data: existingOtp } = await supabase
+            // Check if admin already verified OTP — IP:xxx marker in admin_otps
+            const { data: verifiedMarker } = await supabase
               .from('admin_otps')
-              .select('id')
+              .select('otp, expires_at')
               .eq('username', user.username.toLowerCase())
               .gt('expires_at', new Date().toISOString())
               .limit(1)
-            if (!existingOtp || existingOtp.length === 0) {
-              const otp = String(Math.floor(100000 + Math.random() * 900000))
-              const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+            const marker = verifiedMarker?.[0]
+            if (marker && marker.otp && marker.otp.startsWith('IP:')) {
+              const verifiedIp = marker.otp.replace('IP:', '').trim()
+              // Delete the marker
               await supabase.from('admin_otps').delete().eq('username', user.username.toLowerCase())
-              await supabase.from('admin_otps').insert({ username: user.username.toLowerCase(), otp, expires_at: expiresAt, attempts: 0, used: false })
-              const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
-              const otpDest = (user.email && user.email.trim()) ? user.email.trim() : RECEIVER
-              // Send both: unauthorised alert (same as regular users) + OTP mail
-              await sendUnauthorisedLoginAlert(clientIp, user.username)
-              await sendAdminOtp(otpDest, user.username, otp)
+              // Whitelist this IP
+              const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', verifiedIp).limit(1)
+              if (!existingIp || existingIp.length === 0) {
+                await supabase.from('authorised_ips').insert({ ip_address: verifiedIp, label: 'Auto-added via Admin OTP bypass', created_by: user.username })
+              }
+              cacheDel('authorised_ips_guard')
+              // Now allow login to proceed normally — fall through to token generation below
+            } else {
+              // No verified marker — send OTP
+              const { data: existingOtp } = await supabase
+                .from('admin_otps')
+                .select('id')
+                .eq('username', user.username.toLowerCase())
+                .gt('expires_at', new Date().toISOString())
+                .limit(1)
+              if (!existingOtp || existingOtp.length === 0) {
+                const otp = String(Math.floor(100000 + Math.random() * 900000))
+                const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+                await supabase.from('admin_otps').delete().eq('username', user.username.toLowerCase())
+                await supabase.from('admin_otps').insert({ username: user.username.toLowerCase(), otp, expires_at: expiresAt, attempts: 0, used: false })
+                const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
+                const otpDest = (user.email && user.email.trim()) ? user.email.trim() : RECEIVER
+                await sendUnauthorisedLoginAlert(clientIp, user.username)
+                await sendAdminOtp(otpDest, user.username, otp)
+              }
+              return res.status(200).json({ adminOtpRequired: true, message: 'OTP sent to the registered admin email address.' })
             }
-            return res.status(200).json({ adminOtpRequired: true, message: 'OTP sent to the registered admin email address.' })
           }
           // Non-admin: existing lockout flow unchanged
           const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
@@ -418,35 +438,24 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
     // OTP correct — delete it (single-use)
     await supabase.from('admin_otps').delete().eq('id', entry.id)
 
-    // Whitelist the IP — use x-real-ip first (more reliable on Vercel), then x-forwarded-for last entry
-    const xForwardedFor = req.headers['x-forwarded-for'] || ''
-    const xRealIp = req.headers['x-real-ip'] || ''
-    let ip = ''
-    if (xRealIp) {
-      ip = xRealIp.toString().trim()
-    } else if (xForwardedFor) {
-      // x-forwarded-for can be "client, proxy1, proxy2" — last is most reliable on Vercel
-      const parts = xForwardedFor.toString().split(',')
-      ip = parts[parts.length - 1].trim()
-    } else {
-      ip = (req.socket?.remoteAddress || '').toString().trim()
-    }
-    
-    const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', ip).limit(1)
-    if (!existingIp || existingIp.length === 0) {
-      const { error: ipErr } = await supabase.from('authorised_ips').insert({ 
-        ip_address: ip, 
-        label: 'Auto-added via Admin OTP bypass', 
-        created_by: username 
-      })
-      if (ipErr) {
-        console.error('IP whitelist insert failed:', ipErr.message)
-        return res.status(500).json({ error: `OTP verified but IP whitelist failed: ${ipErr.message}. Please contact support.` })
-      }
-    }
-    cacheDel('authorised_ips_guard')
+    // Store the verified IP so login endpoint can whitelist it
+    const xForwardedFor = (req.headers['x-forwarded-for'] || '').toString()
+    const xRealIp = (req.headers['x-real-ip'] || '').toString().trim()
+    const ip = xRealIp || xForwardedFor.split(',').pop().trim() || (req.socket?.remoteAddress || '').toString().trim()
 
-    res.json({ success: true, ip, message: 'IP verified. Please click Sign In to continue.' })
+    // Save IP:xxx marker — login endpoint reads this and adds to authorised_ips
+    await supabase.from('admin_otps').delete().eq('username', username.toLowerCase())
+    if (ip) {
+      await supabase.from('admin_otps').insert({
+        username: username.toLowerCase(),
+        otp: `IP:${ip}`,
+        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        attempts: 0,
+        used: false
+      })
+    }
+
+    res.json({ success: true, message: 'OTP verified. Please click Sign In to continue.' })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
