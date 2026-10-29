@@ -325,8 +325,11 @@ function Login() {
                   <span style={{ fontSize: '20px' }}>🔐</span>
                   <strong style={{ color: '#1a1a2e', fontSize: '13px' }}>Admin OTP Verification</strong>
                 </div>
-                <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#555', lineHeight: '1.5' }}>
+                <p style={{ margin: '0 0 6px', fontSize: '12px', color: '#555', lineHeight: '1.5' }}>
                   Your IP address is not in the authorised list. An OTP has been sent to the admin email address. Enter it below to continue.
+                </p>
+                <p style={{ margin: '0 0 10px', fontSize: '11px', color: '#888', lineHeight: '1.5' }}>
+                  ⚠️ OTP is valid for 15 minutes. If the server restarted after the OTP was sent, it will be invalid — click <em>Back to login</em> and try again.
                 </p>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <input
