@@ -14,7 +14,13 @@ function Login() {
   const [unlockCode, setUnlockCode] = useState('')
   const [unlockError, setUnlockError] = useState('')
   const [unlockLoading, setUnlockLoading] = useState(false)
-  const { login } = useAuth()
+  // Admin IP-bypass OTP state
+  const [adminOtpRequired, setAdminOtpRequired] = useState(false)
+  const [adminOtp, setAdminOtp] = useState('')
+  const [adminOtpError, setAdminOtpError] = useState('')
+  const [adminOtpLoading, setAdminOtpLoading] = useState(false)
+  const [gpsData, setGpsData] = useState(null)
+  const { login, setSessionFromToken } = useAuth()
   const navigate = useNavigate()
 
   // Detect browser for tailored instructions
@@ -43,10 +49,13 @@ function Login() {
     e.preventDefault()
     setError('')
     setLocationBlocked(false)
+    setAdminOtpRequired(false)
+    setAdminOtpError('')
     setLoading(true)
     let gps = null
     try {
       gps = await getGPS()
+      setGpsData(gps)
     } catch (locErr) {
       setLoading(false)
       if (locErr.type === 'denied' || locErr.type === 'unsupported') {
@@ -60,6 +69,10 @@ function Login() {
     }
     try {
       const loggedInUser = await login(username, password)
+      if (loggedInUser?.adminOtpRequired) {
+        setAdminOtpRequired(true)
+        return
+      }
       if (gps) axios.post('/api/auth/log-location', { lat: gps.lat, lon: gps.lon, accuracy: gps.accuracy, logId: loggedInUser?.locationLogId }).catch(() => {})
       navigate('/dashboard')
     } catch (err) {
@@ -106,6 +119,34 @@ function Login() {
       setUnlockError(err.response?.data?.error || 'Failed to resend')
     } finally {
       setUnlockLoading(false)
+    }
+  }
+
+  const handleAdminOtpSubmit = async (e) => {
+    e.preventDefault()
+    if (!adminOtp.trim()) { setAdminOtpError('Enter the OTP from your email'); return }
+    setAdminOtpLoading(true)
+    setAdminOtpError('')
+    try {
+      const res = await axios.post('/api/auth/admin-ip-otp-verify', {
+        username,
+        password,
+        otp: adminOtp.trim()
+      })
+      const { token, user: userData } = res.data
+      setSessionFromToken(token, userData)
+      // Version baseline (best-effort)
+      try {
+        const vr = await axios.get('/api/app-version')
+        if (vr?.data?.version != null) localStorage.setItem('oms_app_version', String(vr.data.version))
+      } catch { /* ignore */ }
+      try { localStorage.setItem('oms_build', __APP_BUILD__) } catch { /* ignore */ }
+      if (gpsData) axios.post('/api/auth/log-location', { lat: gpsData.lat, lon: gpsData.lon, accuracy: gpsData.accuracy, logId: userData?.locationLogId }).catch(() => {})
+      navigate('/dashboard')
+    } catch (err) {
+      setAdminOtpError(err.response?.data?.error || 'Invalid OTP. Please try again.')
+    } finally {
+      setAdminOtpLoading(false)
     }
   }
 
@@ -241,7 +282,7 @@ function Login() {
               )
             })()}
 
-            <button type="submit" style={{ ...styles.button, opacity: locked ? 0.4 : 1, background: locked ? '#c0392b' : '#1a1a2e' }} disabled={loading || locationBlocked || locked}>
+            <button type="submit" style={{ ...styles.button, opacity: locked || adminOtpRequired ? 0.4 : 1, background: locked ? '#c0392b' : '#1a1a2e' }} disabled={loading || locationBlocked || locked || adminOtpRequired}>
               {loading ? 'Logging in in few seconds ........ Please Wait .......' : locked ? '🔒 LOGIN DISABLED' : 'Sign In'}
             </button>
 
@@ -265,6 +306,42 @@ function Login() {
                 <div style={{ marginTop: '8px', textAlign: 'center' }}>
                   <button type="button" onClick={handleResendCode} disabled={unlockLoading} style={{ background: 'none', border: 'none', color: '#2980b9', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline' }}>
                     {unlockLoading ? 'Sending...' : 'Resend Code'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {adminOtpRequired && (
+              <form onSubmit={handleAdminOtpSubmit} style={{ marginTop: '12px', padding: '16px', background: '#e8f0fe', border: '2px solid #1a73e8', borderRadius: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '20px' }}>🔐</span>
+                  <strong style={{ color: '#1a1a2e', fontSize: '13px' }}>Admin OTP Verification</strong>
+                </div>
+                <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#555', lineHeight: '1.5' }}>
+                  Your IP address is not in the authorised list. An OTP has been sent to the admin email address. Enter it below to continue.
+                </p>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    value={adminOtp}
+                    onChange={e => { setAdminOtp(e.target.value); setAdminOtpError('') }}
+                    placeholder="6-digit OTP"
+                    maxLength={6}
+                    style={{ flex: 1, padding: '10px 12px', border: '2px solid #1a73e8', borderRadius: '6px', fontSize: '18px', fontWeight: '700', letterSpacing: '6px', textAlign: 'center', outline: 'none', background: '#fff' }}
+                    autoFocus
+                    inputMode="numeric"
+                  />
+                  <button type="submit" disabled={adminOtpLoading} style={{ padding: '10px 16px', background: '#1a73e8', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {adminOtpLoading ? '...' : 'Verify'}
+                  </button>
+                </div>
+                {adminOtpError && (
+                  <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#e74c3c', fontWeight: '600', textAlign: 'center' }}>
+                    {adminOtpError}
+                  </p>
+                )}
+                <div style={{ marginTop: '8px', textAlign: 'center' }}>
+                  <button type="button" onClick={() => { setAdminOtpRequired(false); setAdminOtp(''); setAdminOtpError('') }} style={{ background: 'none', border: 'none', color: '#666', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline' }}>
+                    ← Back to login
                   </button>
                 </div>
               </form>

@@ -156,6 +156,55 @@ async function sendLockoutUnlockCode(ip, username, unlockCode) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Admin IP-bypass OTP store: Map<username_lower, { otp, expiresAt, passwordHash }>
+// In-memory only — clears on server restart. TTL: 15 minutes per entry.
+// ---------------------------------------------------------------------------
+const adminOtpStore = new Map()
+
+// Sends a 6-digit OTP email so the admin can log in from an unrecognised IP.
+// toEmail is REPORT_RECEIVER (users table has no email column).
+async function sendAdminOtp(toEmail, username, otp) {
+  try {
+    const GMAIL_USER = process.env.GMAIL_USER
+    if (!GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return
+    const timeIST = new Date().toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: true
+    })
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 10000
+    })
+    await transporter.sendMail({
+      from: `"Prestair Security" <${GMAIL_USER}>`,
+      to: toEmail,
+      subject: `🔐 Admin Login OTP - OMS Dashboard`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+  <h2 style="color:#1a1a2e;margin-top:0">🔐 Admin Login OTP</h2>
+  <p style="color:#555;font-size:13px">An admin login was attempted from an unrecognised IP address. Use the OTP below to proceed. It expires in <strong>15 minutes</strong>.</p>
+  <table style="width:100%;border-collapse:collapse;margin-top:8px">
+    <tr style="background:#f8f8f8"><td style="padding:8px 12px;font-weight:600;width:140px">Username</td><td style="padding:8px 12px">${username}</td></tr>
+    <tr><td style="padding:8px 12px;font-weight:600">Time (IST)</td><td style="padding:8px 12px">${timeIST}</td></tr>
+  </table>
+  <div style="margin-top:20px;padding:16px 20px;background:#e8f0fe;border:2px solid #1a73e8;border-radius:8px;text-align:center">
+    <p style="margin:0 0 8px;font-size:13px;color:#1a1a2e;font-weight:600">YOUR ONE-TIME PASSWORD</p>
+    <p style="margin:0;font-size:40px;font-weight:900;letter-spacing:10px;color:#1a73e8">${otp}</p>
+  </div>
+  <p style="margin-top:16px;color:#e74c3c;font-size:12px;font-weight:600">⚠️ If you did not attempt to log in, please change your password immediately.</p>
+  <p style="color:#555;font-size:11px">This OTP is valid for 15 minutes only. Do not share it with anyone.</p>
+</div>`
+    })
+  } catch (emailErr) {
+    console.error('Admin OTP email failed:', emailErr.message)
+  }
+}
+
 function generateToken(user) {
   if (!JWT_SECRET) throw new Error('Server authentication is not configured: set JWT_SECRET')
   return jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '24h' })
@@ -245,7 +294,16 @@ app.post('/api/auth/login', async (req, res) => {
         const normalised = clientIp.toLowerCase().trim()
         const isAllowed = allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
         if (!isAllowed) {
-          // Generate 6-digit unlock code and store in ip_lockouts table
+          if (user.role === 'admin') {
+            // Admin bypass: generate OTP, store in memory, send to REPORT_RECEIVER — do NOT insert lockout
+            const otp = String(Math.floor(100000 + Math.random() * 900000))
+            const expiresAt = Date.now() + 15 * 60 * 1000 // 15 minutes
+            adminOtpStore.set(user.username.toLowerCase(), { otp, expiresAt, passwordHash: user.password })
+            const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
+            await sendAdminOtp(RECEIVER, user.username, otp)
+            return res.status(200).json({ adminOtpRequired: true, message: 'OTP sent to the registered admin email address.' })
+          }
+          // Non-admin: existing lockout flow unchanged
           const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
           try {
             // Remove any existing active lockouts for this IP+username
@@ -288,6 +346,124 @@ app.post('/api/auth/login', async (req, res) => {
     res.json({ token, user: { id: user.id, username: user.username, fullName: user.full_name, role: user.role, group: user.user_group || '', locationLogId, columnPermissions: isAdmin ? {} : mergedPerms, canEdit: isAdmin || gr('can_edit'), canReceipt: isAdmin || gr('can_receipt'), canAssignReminder: isAdmin || gr('can_assign_reminder'), canDelete: isAdmin || gr('can_delete'), canCreateQuote: isAdmin || gr('can_create_quote'), canColor: isAdmin || gr('can_color'), canComplaints: isAdmin || grAny('can_complaints'), canEditCompleted: isAdmin || grAny('can_edit_completed'), canEditDaily: isAdmin || grAny('can_edit_daily'), canEditReceipt: isAdmin || grAny('can_edit_receipt'), canBulkAction: isAdmin || grAny('can_bulk_action') } })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
+// Admin IP-bypass OTP verification endpoint
+app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
+  try {
+    const { username, password, otp } = req.body
+    if (!username || !password || !otp) return res.status(400).json({ error: 'username, password, and otp are required' })
+
+    const entry = adminOtpStore.get(username.toLowerCase())
+    if (!entry) return res.status(401).json({ error: 'No pending OTP for this user. Please start login again.' })
+    if (Date.now() > entry.expiresAt) {
+      adminOtpStore.delete(username.toLowerCase())
+      return res.status(401).json({ error: 'OTP has expired. Please start login again.' })
+    }
+    // Verify OTP value
+    if (String(otp).trim() !== entry.otp) return res.status(401).json({ error: 'Invalid OTP. Please try again.' })
+    // Re-verify password against the stored hash (from the original login attempt)
+    const passwordValid = bcrypt.compareSync(password.toLowerCase(), entry.passwordHash)
+    if (!passwordValid) return res.status(401).json({ error: 'Invalid credentials.' })
+
+    // All checks passed — consume the OTP (single-use, delete before any async work)
+    adminOtpStore.delete(username.toLowerCase())
+
+    // Fetch full user record to build the same response shape as /api/auth/login
+    const { data: users } = await supabase.from('users').select('*').ilike('username', username)
+    const user = users?.[0]
+    if (!user) return res.status(401).json({ error: 'User not found.' })
+
+    const token = generateToken({ id: user.id, username: user.username, role: user.role })
+
+    const ip = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
+
+    // Auto-whitelist the admin's current IP in authorised_ips (if not already present).
+    // This means the next login from this IP goes through normally without OTP.
+    // Always invalidate the cache so the next IP check picks up the new row immediately.
+    let ipAutoAdded = false
+    try {
+      const { data: existingIp } = await supabase
+        .from('authorised_ips')
+        .select('id')
+        .eq('ip_address', ip)
+        .limit(1)
+      if (!existingIp || existingIp.length === 0) {
+        await supabase.from('authorised_ips').insert({
+          ip_address: ip,
+          label: 'Auto-added via Admin OTP bypass',
+          created_by: user.username
+        })
+        ipAutoAdded = true
+      }
+      // Always bust the cache regardless of whether we inserted — ensures consistency
+      cacheDel('authorised_ips_guard')
+    } catch (ipAddErr) {
+      console.error('Auto-whitelist IP failed:', ipAddErr.message)
+      // Non-fatal: login still succeeds even if auto-whitelist fails
+    }
+
+    // Log this login (same pattern as normal login)
+    const ua = req.headers['user-agent'] || ''
+    let locationLogId = null
+    try {
+      const { data: logRow } = await supabase.from('login_logs')
+        .insert({ username: user.username, full_name: user.full_name || '', role: user.role, ip_address: ip, user_agent: ua })
+        .select('id').single()
+      locationLogId = logRow?.id ?? null
+    } catch { /* login logging is best-effort */ }
+
+    // Send security alert to REPORT_RECEIVER — mention auto-added IP
+    const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
+    const timeIST = new Date().toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+    })
+    const GMAIL_USER = process.env.GMAIL_USER
+    if (GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+      try {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: { user: GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+          connectionTimeout: 5000, greetingTimeout: 5000, socketTimeout: 10000
+        })
+        await transporter.sendMail({
+          from: `"Prestair Security" <${GMAIL_USER}>`,
+          to: RECEIVER,
+          subject: `\u2705 Admin OTP Login Successful \u2014 ${user.username} from ${ip}`,
+          html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+  <h2 style="color:#27ae60;margin-top:0">\u2705 Admin Logged In via OTP Bypass</h2>
+  <p style="color:#555;font-size:13px">An admin user has successfully authenticated using the IP-bypass OTP flow.</p>
+  <table style="width:100%;border-collapse:collapse;margin-top:8px">
+    <tr style="background:#f8f8f8"><td style="padding:8px 12px;font-weight:600;width:140px">Username</td><td style="padding:8px 12px">${user.username}</td></tr>
+    <tr><td style="padding:8px 12px;font-weight:600">IP Address</td><td style="padding:8px 12px">${ip}</td></tr>
+    <tr style="background:#f8f8f8"><td style="padding:8px 12px;font-weight:600">Time (IST)</td><td style="padding:8px 12px">${timeIST}</td></tr>
+    <tr><td style="padding:8px 12px;font-weight:600">IP Auto-whitelisted</td><td style="padding:8px 12px">${ipAutoAdded ? `\u2705 Yes \u2014 <strong>${ip}</strong> has been automatically added to the Authorised IPs list.` : '\u2139\ufe0f Already in authorised list (no change needed).'}</td></tr>
+  </table>
+  ${ipAutoAdded ? `<div style="margin-top:16px;padding:12px 16px;background:#e8f9f0;border:1px solid #27ae60;border-radius:6px;font-size:12px;color:#1e8449">
+    <strong>\ud83d\udee1\ufe0f IP ${ip} has been automatically added to the authorised IPs list.</strong><br>
+    Future logins from this IP will proceed normally without requiring OTP.
+  </div>` : ''}
+  <p style="margin-top:16px;color:#e74c3c;font-size:12px;font-weight:600">\u26a0\ufe0f If this login was not you, remove the IP from the Authorised IPs list and change the admin password immediately.</p>
+</div>`
+        })
+      } catch (alertErr) { console.error('Admin OTP success alert failed:', alertErr.message) }
+    }
+
+    // Build the same user object shape as /api/auth/login success
+    // Admins always have full rights
+    res.json({
+      token,
+      user: {
+        id: user.id, username: user.username, fullName: user.full_name, role: user.role,
+        group: user.user_group || '', locationLogId,
+        columnPermissions: {},
+        canEdit: true, canReceipt: true, canAssignReminder: true, canDelete: true,
+        canCreateQuote: true, canColor: true, canComplaints: true, canEditCompleted: true,
+        canEditDaily: true, canEditReceipt: true, canBulkAction: true
+      }
+    })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 // Reject unreliable geolocation (68%-confidence radius worse than this many metres).
 // User requirement: approximations up to ~2 km are acceptable, but 30-40 km blunders
 // (wrong city) must not be shown as a confident location.

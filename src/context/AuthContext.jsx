@@ -125,6 +125,8 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     const res = await axios.post('/api/auth/login', { username, password })
+    // Admin OTP bypass — return special sentinel, do not set session
+    if (res.data.adminOtpRequired) return { adminOtpRequired: true }
     const { token, user: userData } = res.data
     sessionStorage.setItem('oms_token', token)
     sessionStorage.setItem('oms_user', JSON.stringify(userData))
@@ -144,10 +146,19 @@ export function AuthProvider({ children }) {
     await axios.post('/api/auth/change-password', { currentPassword, newPassword })
   }
 
+  // Helper for OTP-verify flow: set up session state from an already-issued token + user object.
+  // Mirrors what login() does after the API call, without making another API call.
+  const setSessionFromToken = (token, userData) => {
+    sessionStorage.setItem('oms_token', token)
+    sessionStorage.setItem('oms_user', JSON.stringify(userData))
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+    setUser(userData)
+  }
+
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, changePassword }}>
+    <AuthContext.Provider value={{ user, login, logout, changePassword, setSessionFromToken }}>
       {children}
     </AuthContext.Provider>
   )
