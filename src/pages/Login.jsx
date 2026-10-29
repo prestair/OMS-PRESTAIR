@@ -73,6 +73,7 @@ function Login() {
       const loggedInUser = await login(username, password)
       if (loggedInUser?.adminOtpRequired) {
         setAdminOtpRequired(true)
+        setError('Unauthorised IP Address. An OTP has been sent to the admin email address.')
         return
       }
       if (gps) axios.post('/api/auth/log-location', { lat: gps.lat, lon: gps.lon, accuracy: gps.accuracy, logId: loggedInUser?.locationLogId }).catch(() => {})
