@@ -129,19 +129,17 @@ export function AuthProvider({ children }) {
     const res = await axios.post('/api/auth/login', body)
     // Admin OTP bypass — return special sentinel, do not set session
     if (res.data.adminOtpRequired) return { adminOtpRequired: true }
-    const { token, user: userData } = res.data
+    const { token, user: userData, ipAdded } = res.data
     sessionStorage.setItem('oms_token', token)
     sessionStorage.setItem('oms_user', JSON.stringify(userData))
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     setUser(userData)
-    // Baseline the deploy version + running build so a fresh login never
-    // immediately triggers an auto hard-refresh. A failed fetch must not block login.
     try {
       const vr = await axios.get('/api/app-version')
       if (vr?.data?.version != null) localStorage.setItem('oms_app_version', String(vr.data.version))
-    } catch { /* version fetch is best-effort; ignore */ }
+    } catch { /* ignore */ }
     try { localStorage.setItem('oms_build', __APP_BUILD__) } catch { /* ignore */ }
-    return userData
+    return { ...userData, ipAdded: ipAdded || null }
   }
 
   const changePassword = async (currentPassword, newPassword) => {

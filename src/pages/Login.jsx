@@ -79,6 +79,11 @@ function Login() {
         setError('Unauthorised IP Address. An OTP has been sent to the admin email address.')
         return
       }
+      if (loggedInUser?.ipAdded) {
+        // Show IP added message briefly before navigating
+        setError(`✅ IP No. ${loggedInUser.ipAdded} added to Authorised List`)
+        await new Promise(r => setTimeout(r, 2000))
+      }
       if (gps) axios.post('/api/auth/log-location', { lat: gps.lat, lon: gps.lon, accuracy: gps.accuracy, logId: loggedInUser?.locationLogId }).catch(() => {})
       navigate('/dashboard')
     } catch (err) {

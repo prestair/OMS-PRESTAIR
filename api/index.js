@@ -330,12 +330,15 @@ app.post('/api/auth/login', async (req, res) => {
                 const decoded = require('jsonwebtoken').verify(bypassToken, process.env.JWT_SECRET)
                 if (decoded.type === 'otp_verified' && decoded.username === user.username.toLowerCase()) {
                   // Valid bypass — whitelist IP and unlock lockout
+                  let ipAdded = false
                   const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', clientIp).limit(1)
                   if (!existingIp || existingIp.length === 0) {
                     await supabase.from('authorised_ips').insert({ ip_address: clientIp, label: 'Auto-added via Admin OTP bypass', created_by: user.username })
+                    ipAdded = true
                   }
                   await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', clientIp).eq('username', user.username).eq('is_unlocked', false)
                   cacheDel('authorised_ips_guard')
+                  req._adminIpAdded = ipAdded ? clientIp : null
                   // Fall through to normal login
                 }
               } catch (e) { /* invalid bypass token — treat as no OTP */ }
@@ -392,7 +395,7 @@ app.post('/api/auth/login', async (req, res) => {
         .select('id').single()
       locationLogId = logRow?.id ?? null
     } catch { /* login logging is best-effort; never block the response */ }
-    res.json({ token, user: await buildUserObject(user, locationLogId) })
+    res.json({ token, user: await buildUserObject(user, locationLogId), ipAdded: req._adminIpAdded || null })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 // Admin IP-bypass OTP verification endpoint
