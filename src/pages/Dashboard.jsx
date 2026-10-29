@@ -567,6 +567,11 @@ function Dashboard() {
   const [dailyLopFilter, setDailyLopFilter] = useState([])
   const [dailyPercentMax, setDailyPercentMax] = useState('')
   const [dailyPercentDateFrom, setDailyPercentDateFrom] = useState('')
+  const [dailyClientFilter, setDailyClientFilter] = useState([])
+  const [dailyOrderNoFilter, setDailyOrderNoFilter] = useState([])
+  const [dailyClientSearch, setDailyClientSearch] = useState('')
+  const [dailyOrderNoSearch, setDailyOrderNoSearch] = useState('')
+  const [openDailyColFilter, setOpenDailyColFilter] = useState(null) // 'client' | 'orderNo' | null
   const [showPrintPreview, setShowPrintPreview] = useState(false)
   const [selectedRep, setSelectedRep] = useState(null)
   const [selectedPayStatus, setSelectedPayStatus] = useState(null)
@@ -2443,6 +2448,97 @@ function Dashboard() {
     return map
   })()
 
+  // Click-outside handler for daily column filter dropdowns
+  useEffect(() => {
+    if (openDailyColFilter === null) return
+    const handler = (e) => {
+      if (!e.target.closest('[data-daily-col-filter]')) {
+        setOpenDailyColFilter(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [openDailyColFilter])
+
+  // Escape key handler for daily column filter dropdowns
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') setOpenDailyColFilter(null) }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
+
+  // Inline filter-header component for Client and Order No columns in the daily report table
+  const DailyColFilterHeader = ({ label, fieldKey, allData, activeFilter, setActiveFilter, searchVal, setSearchVal }) => {
+    const isActive = activeFilter.length > 0
+    const isOpen = openDailyColFilter === fieldKey
+    const fieldAccessor = fieldKey === 'client' ? (o => o.client || '') : (o => o.orderNo || '')
+    const uniqueValues = [...new Set(allData.map(fieldAccessor))].filter(v => v !== '').sort()
+    const filtered = uniqueValues.filter(v => v.toLowerCase().includes(searchVal.toLowerCase()))
+
+    return (
+      <div data-daily-col-filter style={{position: 'relative', display: 'inline-block'}}>
+        <span
+          onClick={(e) => { e.stopPropagation(); setOpenDailyColFilter(isOpen ? null : fieldKey) }}
+          style={{cursor: 'pointer', userSelect: 'none', color: isActive ? '#2563eb' : 'inherit', fontWeight: isActive ? 700 : 'inherit'}}
+        >
+          {label} {isActive ? '▼' : '⬇'}
+        </span>
+        {isOpen && (
+          <div
+            style={{position: 'absolute',
+              top: '100%',
+              left: 0,
+              zIndex: 999,
+              background: '#fff',
+              border: '1px solid #d1d5db',
+              borderRadius: 6,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+              minWidth: 220,
+              padding: 8}}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* TOP: search + Clear + Done */}
+            <div style={{display: 'flex', gap: 4, marginBottom: 6, alignItems: 'center'}}>
+              <input
+                type="text"
+                placeholder={`Search ${label}...`}
+                value={searchVal}
+                onChange={e => setSearchVal(e.target.value)}
+                style={{flex: 1, padding: '3px 6px', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 12}}
+                autoFocus
+              />
+              <button
+                onClick={() => { setActiveFilter([]); setSearchVal('') }}
+                style={{padding: '3px 8px', fontSize: 12, background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer'}}
+              >Clear</button>
+              <button
+                onClick={() => setOpenDailyColFilter(null)}
+                style={{padding: '3px 8px', fontSize: 12, background: '#2563eb', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer'}}
+              >Done</button>
+            </div>
+            {/* BELOW: scrollable checklist */}
+            <div style={{maxHeight: 200, overflowY: 'auto'}}>
+              {filtered.length === 0 && <div style={{fontSize: 12, color: '#6b7280', padding: '4px 0'}}>No values</div>}
+              {filtered.map(v => (
+                <label key={v} style={{display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0', cursor: 'pointer', fontSize: 13}}>
+                  <input
+                    type="checkbox"
+                    checked={activeFilter.includes(v)}
+                    onChange={e => {
+                      if (e.target.checked) setActiveFilter(prev => [...prev, v])
+                      else setActiveFilter(prev => prev.filter(x => x !== v))
+                    }}
+                  />
+                  {v}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div style={styles.wrapper}>
       {/* Header */}
@@ -3415,8 +3511,8 @@ function Dashboard() {
                   <th style={{...styles.th, width:'25px', minWidth:'25px'}}>#</th>
                   <th style={{...styles.th, width:'58px', minWidth:'58px'}}>Date</th>
                   <th style={{...styles.th, width:'38px', minWidth:'38px'}}>PO No</th>
-                  <th style={{...styles.th, minWidth:'150px'}}>Client</th>
-                  <th style={{...styles.th, width:'85px', minWidth:'85px'}}>Order No</th>
+                  <th style={{...styles.th, minWidth:'150px'}}><DailyColFilterHeader label="Client" fieldKey="client" allData={getDailyFilteredData()} activeFilter={dailyClientFilter} setActiveFilter={setDailyClientFilter} searchVal={dailyClientSearch} setSearchVal={setDailyClientSearch} /></th>
+                  <th style={{...styles.th, width:'85px', minWidth:'85px'}}><DailyColFilterHeader label="Order No" fieldKey="orderNo" allData={getDailyFilteredData()} activeFilter={dailyOrderNoFilter} setActiveFilter={setDailyOrderNoFilter} searchVal={dailyOrderNoSearch} setSearchVal={setDailyOrderNoSearch} /></th>
                   <th style={{...styles.th, width:'90px', minWidth:'90px'}}>GST</th>
                   <th style={{...styles.th, width:'50px', minWidth:'50px'}}>Follow Up</th>
                   {dailyFilter && <th style={{...styles.th, ...(dailyFilter === 'photography' || dailyFilter === 'siteVideo' || dailyFilter === 'review' ? {width:'70px', minWidth:'70px'} : {})}}>{ALL_COLUMNS.find(c => c.key === dailyFilter)?.label}</th>}
@@ -3441,10 +3537,16 @@ function Dashboard() {
               </thead>
               <tbody>
                 {(() => {
-                  const filtered = getDailyFilteredData()
+                  let displayData = getDailyFilteredData()
+                  if (dailyClientFilter.length > 0) {
+                    displayData = displayData.filter(o => dailyClientFilter.includes(o.client || ''))
+                  }
+                  if (dailyOrderNoFilter.length > 0) {
+                    displayData = displayData.filter(o => dailyOrderNoFilter.includes(o.orderNo || ''))
+                  }
                   const deletedIds = new Set(deletedOrders.map(d => d.id))
                   const colorableFilters = dailyFilter === 'photography' || dailyFilter === 'siteVideo' || dailyFilter === 'review'
-                  return filtered.map((o, idx) => {
+                  return displayData.map((o, idx) => {
                     const isFromDeleted = colorableFilters && deletedIds.has(o.id)
                     const rowStyle = isFromDeleted ? { background: '#ffcccc', color: '#000000' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd)
                     return (
