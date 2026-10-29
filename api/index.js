@@ -471,18 +471,16 @@ app.post('/api/auth/admin-whitelist-ip', async (req, res) => {
     if (decoded.type !== 'otp_verified') return res.status(401).json({ error: 'Invalid token' })
     const ip = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
     
-    // Respond immediately — do DB work async (fire-and-forget) to avoid Vercel timeout
-    res.json({ success: true, ip })
+    // Insert IP synchronously — must be done before responding so Sign In works immediately
+    const { data: existing } = await supabase.from('authorised_ips').select('id').eq('ip_address', ip).limit(1)
+    if (!existing || existing.length === 0) {
+      await supabase.from('authorised_ips').insert({ ip_address: ip, label: 'Auto-added via Admin OTP bypass', created_by: decoded.username })
+    }
+    cacheDel('authorised_ips_guard')
+    // Unlock lockout fire-and-forget (non-critical)
+    supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', ip).eq('username', decoded.username).eq('is_unlocked', false).then(() => {}).catch(() => {})
     
-    // DB work after response is sent
-    try {
-      const { data: existing } = await supabase.from('authorised_ips').select('id').eq('ip_address', ip).limit(1)
-      if (!existing || existing.length === 0) {
-        await supabase.from('authorised_ips').insert({ ip_address: ip, label: 'Auto-added via Admin OTP bypass', created_by: decoded.username })
-      }
-      cacheDel('authorised_ips_guard')
-      await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', ip).eq('username', decoded.username).eq('is_unlocked', false)
-    } catch (dbErr) { console.error('whitelist-ip DB error:', dbErr.message) }
+    res.json({ success: true, ip })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
