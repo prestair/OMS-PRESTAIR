@@ -1666,14 +1666,20 @@ function Dashboard() {
 
   const getDailyFilteredData = () => {
     if (dailyFilter === 'salesPersonWise') return []
+    // For review/photography/siteVideo, include both active and completed orders.
+    // Orders should only ever exist in ONE table at a time (delete removes from orders,
+    // restore removes from deleted_orders). The dedup below is a safety net for any
+    // legacy data inconsistency — completed copy wins because it holds the latest state.
     let filtered = (dailyFilter === 'siteVideo' || dailyFilter === 'review' || dailyFilter === 'photography') ? [...orders, ...deletedOrders] : orders
     if (dailyFilter === 'siteVideo' || dailyFilter === 'review' || dailyFilter === 'photography') {
-      // Dedup by orderNo — active orders come first so they win over deleted snapshots.
-      // Cannot use o.id because active orders and deleted_orders snapshots have different ids
-      // for the same logical order.
+      // Safety-net dedup: if an orderNo somehow appears in both tables, keep the completed
+      // (deletedOrders) copy which is the authoritative final state.
+      const deletedOrderNos = new Set(deletedOrders.map(o => o.orderNo))
       const seenOrderNos = new Set()
       filtered = filtered.filter(o => {
         const key = o.orderNo || o.id
+        // Skip active-side duplicate when a completed copy exists for the same orderNo
+        if (deletedOrderNos.has(o.orderNo) && !deletedOrders.includes(o)) return false
         if (seenOrderNos.has(key)) return false
         seenOrderNos.add(key)
         return true
@@ -2554,7 +2560,12 @@ function Dashboard() {
               const results = []
               orders.forEach(o => { if ((o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) results.push({ ...o, status_type: 'ACTIVE' }) })
               deletedOrders.forEach(o => { if ((o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) results.push({ ...o, status_type: 'COMPLETED' }) })
-              setStatusCheckResults(results.slice(0, 10))
+              // Dedup by orderNo keeping COMPLETED over ACTIVE (completed is the final state)
+              const seen = new Map()
+              results.forEach(r => {
+                if (!seen.has(r.orderNo) || r.status_type === 'COMPLETED') seen.set(r.orderNo, r)
+              })
+              setStatusCheckResults([...seen.values()].slice(0, 10))
             } else {
               setStatusCheckResults([])
             }
