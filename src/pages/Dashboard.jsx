@@ -1668,10 +1668,14 @@ function Dashboard() {
     if (dailyFilter === 'salesPersonWise') return []
     let filtered = (dailyFilter === 'siteVideo' || dailyFilter === 'review' || dailyFilter === 'photography') ? [...orders, ...deletedOrders] : orders
     if (dailyFilter === 'siteVideo' || dailyFilter === 'review' || dailyFilter === 'photography') {
-      const seenIds = new Set()
+      // Dedup by orderNo — active orders come first so they win over deleted snapshots.
+      // Cannot use o.id because active orders and deleted_orders snapshots have different ids
+      // for the same logical order.
+      const seenOrderNos = new Set()
       filtered = filtered.filter(o => {
-        if (seenIds.has(o.id)) return false
-        seenIds.add(o.id)
+        const key = o.orderNo || o.id
+        if (seenOrderNos.has(key)) return false
+        seenOrderNos.add(key)
         return true
       })
     }
