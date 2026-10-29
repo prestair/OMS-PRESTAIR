@@ -418,8 +418,19 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
     // OTP correct — delete it (single-use)
     await supabase.from('admin_otps').delete().eq('id', entry.id)
 
-    // Whitelist the IP so next normal login succeeds
-    const ip = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
+    // Whitelist the IP — use x-real-ip first (more reliable on Vercel), then x-forwarded-for last entry
+    const xForwardedFor = req.headers['x-forwarded-for'] || ''
+    const xRealIp = req.headers['x-real-ip'] || ''
+    let ip = ''
+    if (xRealIp) {
+      ip = xRealIp.toString().trim()
+    } else if (xForwardedFor) {
+      // x-forwarded-for can be "client, proxy1, proxy2" — last is most reliable on Vercel
+      const parts = xForwardedFor.toString().split(',')
+      ip = parts[parts.length - 1].trim()
+    } else {
+      ip = (req.socket?.remoteAddress || '').toString().trim()
+    }
     
     const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', ip).limit(1)
     if (!existingIp || existingIp.length === 0) {
@@ -435,7 +446,7 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
     }
     cacheDel('authorised_ips_guard')
 
-    res.json({ success: true, message: 'IP verified. Please click Sign In to continue.' })
+    res.json({ success: true, ip, message: 'IP verified. Please click Sign In to continue.' })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
