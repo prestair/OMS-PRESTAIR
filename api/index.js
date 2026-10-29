@@ -401,9 +401,12 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
     // Brute-force protection: allow at most 5 wrong OTP attempts.
     // Increment the counter on every wrong attempt; delete the entry on the 5th failure
     // so the admin must restart the login flow.
+    // A 200 ms artificial delay on each wrong attempt slows enumeration without
+    // noticeably impacting legitimate use.
     const MAX_OTP_ATTEMPTS = 5
     if (String(otp).trim() !== entry.otp) {
       entry.attempts = (entry.attempts || 0) + 1
+      await new Promise(r => setTimeout(r, 200)) // anti-brute-force delay
       if (entry.attempts >= MAX_OTP_ATTEMPTS) {
         adminOtpStore.delete(username.toLowerCase())
         return res.status(401).json({ error: 'Too many incorrect OTP attempts. Please start login again.' })
@@ -411,18 +414,20 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
       adminOtpStore.set(username.toLowerCase(), entry) // write back incremented counter
       return res.status(401).json({ error: `Invalid OTP. ${MAX_OTP_ATTEMPTS - entry.attempts} attempt${MAX_OTP_ATTEMPTS - entry.attempts === 1 ? '' : 's'} remaining.` })
     }
+
+    // OTP is correct — consume it immediately (single-use), before any async work,
+    // so a concurrent request or a DB/network failure in the tail cannot leave it live.
+    adminOtpStore.delete(username.toLowerCase())
+
     // Re-verify password against the LIVE hash fetched from DB.
-    // Done before consuming the OTP so a password change between generation and
-    // verification is respected (invalidates the bypass for the old password).
+    // Using the live hash (not a cached copy) means a password change between OTP
+    // generation and verification is respected — the old password can no longer succeed.
     const { data: users } = await supabase.from('users').select('*').ilike('username', username)
     const user = users?.[0]
     if (!user) return res.status(401).json({ error: 'User not found.' })
     if (user.role !== 'admin') return res.status(403).json({ error: 'Admin only.' })
     const passwordValid = bcrypt.compareSync(password.toLowerCase(), user.password)
     if (!passwordValid) return res.status(401).json({ error: 'Invalid credentials.' })
-
-    // All checks passed — consume the OTP (single-use, delete before any further async work)
-    adminOtpStore.delete(username.toLowerCase())
 
     const token = generateToken({ id: user.id, username: user.username, role: user.role })
 
