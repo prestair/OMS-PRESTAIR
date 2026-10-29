@@ -145,11 +145,11 @@ function Login() {
       } catch { /* ignore */ }
       try { localStorage.setItem('oms_build', __APP_BUILD__) } catch { /* ignore */ }
       // Only log GPS location if the fix is fresh (captured ≤ 2 minutes ago).
-      // Skipping is safer than logging a stale position from a much earlier attempt.
       const GPS_MAX_AGE_MS = 2 * 60 * 1000
       if (gpsData && gpsTimestamp && (Date.now() - gpsTimestamp) <= GPS_MAX_AGE_MS) {
         axios.post('/api/auth/log-location', { lat: gpsData.lat, lon: gpsData.lon, accuracy: gpsData.accuracy, logId: userData?.locationLogId }).catch(() => {})
       }
+      setAdminOtpRequired(false)
       navigate('/dashboard')
     } catch (err) {
       setAdminOtpError(err.response?.data?.error || 'Invalid OTP. Please try again.')

@@ -157,21 +157,10 @@ async function sendLockoutUnlockCode(ip, username, unlockCode) {
 }
 
 // ---------------------------------------------------------------------------
-// Admin IP-bypass OTP store: Map<username_lower, { otp, expiresAt, attempts }>
-// NOTE: passwordHash is NOT stored — the verify endpoint re-fetches the live hash
-// from DB so a password change between OTP generation and verification is respected.
-//
-// In-memory only — clears on server restart. TTL: 15 minutes per entry.
-// KNOWN LIMITATION: a server restart during a 15-minute OTP window silently drops
-// the pending OTP; the admin must start the login flow again. Acceptable for the
-// current deployment. See api/admin-ip-otp-migration.sql for the full limitation note.
-//
-// TRUST NOTE: The OTP is sent to user.email when that column exists and is non-null;
-// otherwise it falls back to process.env.REPORT_RECEIVER (shared operations mailbox).
-// Run the migration in api/admin-ip-otp-migration.sql to add the email column, then
-// set user.email via the admin UI so each admin receives OTPs in their own inbox.
+// Admin IP-bypass OTP — stored in Supabase `admin_otps` table (serverless-safe).
+// Run api/admin-otp-migration.sql in Supabase SQL editor once before deploying.
+// TRUST NOTE: OTP goes to user.email if set, else REPORT_RECEIVER fallback.
 // ---------------------------------------------------------------------------
-const adminOtpStore = new Map()
 
 // Sends a 6-digit OTP email so the admin can log in from an unrecognised IP.
 // toEmail: user.email if set, otherwise REPORT_RECEIVER.
@@ -334,15 +323,22 @@ app.post('/api/auth/login', async (req, res) => {
         const isAllowed = allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
         if (!isAllowed) {
           if (user.role === 'admin') {
-            // Admin bypass: generate OTP, store in memory, send to REPORT_RECEIVER — do NOT insert lockout
-            // Race guard: if an unexpired OTP already exists, skip regeneration and re-use the same sentinel
-            // response. This prevents a double-click or slow email from silently invalidating the first OTP.
-            const existingEntry = adminOtpStore.get(user.username.toLowerCase())
-            if (!existingEntry || Date.now() > existingEntry.expiresAt) {
+            // Admin bypass: generate OTP, store in Supabase (serverless-safe), send email
+            // Race guard: if an unexpired OTP already exists in DB, reuse it (no new email)
+            const { data: existingOtp } = await supabase
+              .from('admin_otps')
+              .select('id')
+              .eq('username', user.username.toLowerCase())
+              .eq('used', false)
+              .gt('expires_at', new Date().toISOString())
+              .limit(1)
+            if (!existingOtp || existingOtp.length === 0) {
               const otp = String(Math.floor(100000 + Math.random() * 900000))
-              const expiresAt = Date.now() + 15 * 60 * 1000 // 15 minutes
-              // passwordHash is NOT stored — verify endpoint re-fetches live hash from DB
-              adminOtpStore.set(user.username.toLowerCase(), { otp, expiresAt, attempts: 0 })
+              const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+              // Delete any old/expired OTPs for this user first
+              await supabase.from('admin_otps').delete().eq('username', user.username.toLowerCase())
+              // Insert fresh OTP
+              await supabase.from('admin_otps').insert({ username: user.username.toLowerCase(), otp, expires_at: expiresAt, attempts: 0, used: false })
               // Send OTP to admin's own email if set, otherwise fall back to REPORT_RECEIVER
               const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
               const otpDest = (user.email && user.email.trim()) ? user.email.trim() : RECEIVER
@@ -392,36 +388,36 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
     const { username, password, otp } = req.body
     if (!username || !password || !otp) return res.status(400).json({ error: 'username, password, and otp are required' })
 
-    const entry = adminOtpStore.get(username.toLowerCase())
+    // Fetch OTP from Supabase (serverless-safe — no in-memory store)
+    const { data: otpRows } = await supabase
+      .from('admin_otps')
+      .select('*')
+      .eq('username', username.toLowerCase())
+      .eq('used', false)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    const entry = otpRows?.[0]
     if (!entry) return res.status(401).json({ error: 'No pending OTP for this user. Please start login again.' })
-    if (Date.now() > entry.expiresAt) {
-      adminOtpStore.delete(username.toLowerCase())
+    if (new Date(entry.expires_at).getTime() < Date.now()) {
+      await supabase.from('admin_otps').delete().eq('id', entry.id)
       return res.status(401).json({ error: 'OTP has expired. Please start login again.' })
     }
-    // Brute-force protection: allow at most 5 wrong OTP attempts.
-    // Increment the counter on every wrong attempt; delete the entry on the 5th failure
-    // so the admin must restart the login flow.
-    // A 200 ms artificial delay on each wrong attempt slows enumeration without
-    // noticeably impacting legitimate use.
     const MAX_OTP_ATTEMPTS = 5
     if (String(otp).trim() !== entry.otp) {
-      entry.attempts = (entry.attempts || 0) + 1
+      const newAttempts = (entry.attempts || 0) + 1
       await new Promise(r => setTimeout(r, 200)) // anti-brute-force delay
-      if (entry.attempts >= MAX_OTP_ATTEMPTS) {
-        adminOtpStore.delete(username.toLowerCase())
+      if (newAttempts >= MAX_OTP_ATTEMPTS) {
+        await supabase.from('admin_otps').delete().eq('id', entry.id)
         return res.status(401).json({ error: 'Too many incorrect OTP attempts. Please start login again.' })
       }
-      adminOtpStore.set(username.toLowerCase(), entry) // write back incremented counter
-      return res.status(401).json({ error: `Invalid OTP. ${MAX_OTP_ATTEMPTS - entry.attempts} attempt${MAX_OTP_ATTEMPTS - entry.attempts === 1 ? '' : 's'} remaining.` })
+      await supabase.from('admin_otps').update({ attempts: newAttempts }).eq('id', entry.id)
+      return res.status(401).json({ error: `Invalid OTP. ${MAX_OTP_ATTEMPTS - newAttempts} attempt${MAX_OTP_ATTEMPTS - newAttempts === 1 ? '' : 's'} remaining.` })
     }
 
-    // OTP is correct — consume it immediately (single-use), before any async work,
-    // so a concurrent request or a DB/network failure in the tail cannot leave it live.
-    adminOtpStore.delete(username.toLowerCase())
+    // OTP is correct — mark as used immediately (single-use)
+    await supabase.from('admin_otps').update({ used: true }).eq('id', entry.id)
 
     // Re-verify password against the LIVE hash fetched from DB.
-    // Using the live hash (not a cached copy) means a password change between OTP
-    // generation and verification is respected — the old password can no longer succeed.
     const { data: users } = await supabase.from('users').select('*').ilike('username', username)
     const user = users?.[0]
     if (!user) return res.status(401).json({ error: 'User not found.' })
