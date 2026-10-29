@@ -20,6 +20,7 @@ function Login() {
   const [adminOtpError, setAdminOtpError] = useState('')
   const [adminOtpLoading, setAdminOtpLoading] = useState(false)
   const [gpsData, setGpsData] = useState(null)
+  const [gpsTimestamp, setGpsTimestamp] = useState(null)
   const { login, setSessionFromToken } = useAuth()
   const navigate = useNavigate()
 
@@ -56,6 +57,7 @@ function Login() {
     try {
       gps = await getGPS()
       setGpsData(gps)
+      setGpsTimestamp(Date.now())
     } catch (locErr) {
       setLoading(false)
       if (locErr.type === 'denied' || locErr.type === 'unsupported') {
@@ -142,7 +144,12 @@ function Login() {
         if (vr?.data?.version != null) localStorage.setItem('oms_app_version', String(vr.data.version))
       } catch { /* ignore */ }
       try { localStorage.setItem('oms_build', __APP_BUILD__) } catch { /* ignore */ }
-      if (gpsData) axios.post('/api/auth/log-location', { lat: gpsData.lat, lon: gpsData.lon, accuracy: gpsData.accuracy, logId: userData?.locationLogId }).catch(() => {})
+      // Only log GPS location if the fix is fresh (captured ≤ 2 minutes ago).
+      // Skipping is safer than logging a stale position from a much earlier attempt.
+      const GPS_MAX_AGE_MS = 2 * 60 * 1000
+      if (gpsData && gpsTimestamp && (Date.now() - gpsTimestamp) <= GPS_MAX_AGE_MS) {
+        axios.post('/api/auth/log-location', { lat: gpsData.lat, lon: gpsData.lon, accuracy: gpsData.accuracy, logId: userData?.locationLogId }).catch(() => {})
+      }
       navigate('/dashboard')
     } catch (err) {
       setAdminOtpError(err.response?.data?.error || 'Invalid OTP. Please try again.')

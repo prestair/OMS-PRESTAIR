@@ -157,19 +157,24 @@ async function sendLockoutUnlockCode(ip, username, unlockCode) {
 }
 
 // ---------------------------------------------------------------------------
-// Admin IP-bypass OTP store: Map<username_lower, { otp, expiresAt, passwordHash, attempts }>
-// In-memory only — clears on server restart. TTL: 15 minutes per entry.
+// Admin IP-bypass OTP store: Map<username_lower, { otp, expiresAt, attempts }>
+// NOTE: passwordHash is NOT stored — the verify endpoint re-fetches the live hash
+// from DB so a password change between OTP generation and verification is respected.
 //
-// TRUST NOTE: The OTP is sent to process.env.REPORT_RECEIVER (the shared operations
-// mailbox), not to a per-admin email address. Anyone with access to that mailbox can
-// complete the bypass. This is acceptable for the current single-admin deployment.
-// To narrow the trust surface, add an `email` column to the users table (see
-// api/admin-ip-otp-migration.sql) and route the OTP to user.email instead.
+// In-memory only — clears on server restart. TTL: 15 minutes per entry.
+// KNOWN LIMITATION: a server restart during a 15-minute OTP window silently drops
+// the pending OTP; the admin must start the login flow again. Acceptable for the
+// current deployment. See api/admin-ip-otp-migration.sql for the full limitation note.
+//
+// TRUST NOTE: The OTP is sent to user.email when that column exists and is non-null;
+// otherwise it falls back to process.env.REPORT_RECEIVER (shared operations mailbox).
+// Run the migration in api/admin-ip-otp-migration.sql to add the email column, then
+// set user.email via the admin UI so each admin receives OTPs in their own inbox.
 // ---------------------------------------------------------------------------
 const adminOtpStore = new Map()
 
 // Sends a 6-digit OTP email so the admin can log in from an unrecognised IP.
-// toEmail is REPORT_RECEIVER (users table has no email column).
+// toEmail: user.email if set, otherwise REPORT_RECEIVER.
 async function sendAdminOtp(toEmail, username, otp) {
   try {
     const GMAIL_USER = process.env.GMAIL_USER
@@ -336,9 +341,12 @@ app.post('/api/auth/login', async (req, res) => {
             if (!existingEntry || Date.now() > existingEntry.expiresAt) {
               const otp = String(Math.floor(100000 + Math.random() * 900000))
               const expiresAt = Date.now() + 15 * 60 * 1000 // 15 minutes
-              adminOtpStore.set(user.username.toLowerCase(), { otp, expiresAt, passwordHash: user.password, attempts: 0 })
+              // passwordHash is NOT stored — verify endpoint re-fetches live hash from DB
+              adminOtpStore.set(user.username.toLowerCase(), { otp, expiresAt, attempts: 0 })
+              // Send OTP to admin's own email if set, otherwise fall back to REPORT_RECEIVER
               const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
-              await sendAdminOtp(RECEIVER, user.username, otp)
+              const otpDest = (user.email && user.email.trim()) ? user.email.trim() : RECEIVER
+              await sendAdminOtp(otpDest, user.username, otp)
             }
             return res.status(200).json({ adminOtpRequired: true, message: 'OTP sent to the registered admin email address.' })
           }
@@ -403,17 +411,18 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
       adminOtpStore.set(username.toLowerCase(), entry) // write back incremented counter
       return res.status(401).json({ error: `Invalid OTP. ${MAX_OTP_ATTEMPTS - entry.attempts} attempt${MAX_OTP_ATTEMPTS - entry.attempts === 1 ? '' : 's'} remaining.` })
     }
-    // Re-verify password against the stored hash (from the original login attempt)
-    const passwordValid = bcrypt.compareSync(password.toLowerCase(), entry.passwordHash)
-    if (!passwordValid) return res.status(401).json({ error: 'Invalid credentials.' })
-
-    // All checks passed — consume the OTP (single-use, delete before any async work)
-    adminOtpStore.delete(username.toLowerCase())
-
-    // Fetch full user record to build the same response shape as /api/auth/login
+    // Re-verify password against the LIVE hash fetched from DB.
+    // Done before consuming the OTP so a password change between generation and
+    // verification is respected (invalidates the bypass for the old password).
     const { data: users } = await supabase.from('users').select('*').ilike('username', username)
     const user = users?.[0]
     if (!user) return res.status(401).json({ error: 'User not found.' })
+    if (user.role !== 'admin') return res.status(403).json({ error: 'Admin only.' })
+    const passwordValid = bcrypt.compareSync(password.toLowerCase(), user.password)
+    if (!passwordValid) return res.status(401).json({ error: 'Invalid credentials.' })
+
+    // All checks passed — consume the OTP (single-use, delete before any further async work)
+    adminOtpStore.delete(username.toLowerCase())
 
     const token = generateToken({ id: user.id, username: user.username, role: user.role })
 
