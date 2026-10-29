@@ -462,6 +462,25 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
 // User requirement: approximations up to ~2 km are acceptable, but 30-40 km blunders
 // (wrong city) must not be shown as a confident location.
 const ACCURACY_THRESHOLD_M = 2000
+// Admin IP whitelist endpoint — called from frontend after OTP verify
+// Uses bypass_token (JWT) to authenticate, then adds clientIp to authorised_ips
+app.post('/api/auth/admin-whitelist-ip', async (req, res) => {
+  try {
+    const { bypass_token } = req.body
+    if (!bypass_token) return res.status(400).json({ error: 'bypass_token required' })
+    const decoded = require('jsonwebtoken').verify(bypass_token, process.env.JWT_SECRET)
+    if (decoded.type !== 'otp_verified') return res.status(401).json({ error: 'Invalid token' })
+    const ip = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
+    const { data: existing } = await supabase.from('authorised_ips').select('id').eq('ip_address', ip).limit(1)
+    if (!existing || existing.length === 0) {
+      await supabase.from('authorised_ips').insert({ ip_address: ip, label: 'Auto-added via Admin OTP bypass', created_by: decoded.username })
+    }
+    cacheDel('authorised_ips_guard')
+    await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', ip).eq('username', decoded.username).eq('is_unlocked', false)
+    res.json({ success: true, ip })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 app.post('/api/auth/resend-unlock-code', async (req, res) => {
   try {
     const { username } = req.body
