@@ -306,7 +306,7 @@ app.post('/api/auth/login', async (req, res) => {
     // Check if this IP+username is currently locked out
     try {
       const { data: activeLocks } = await supabase.from('ip_lockouts')
-        .select('created_at').eq('ip_address', clientIp).eq('username', user.username).eq('is_unlocked', false)
+        .select('created_at').eq('username', user.username).eq('is_unlocked', false)
         .order('created_at', { ascending: false }).limit(1)
       const lock = activeLocks?.[0]
       if (lock) {
@@ -438,8 +438,8 @@ app.post('/api/auth/verify-unlock-code', async (req, res) => {
     const lockout = lockouts?.[0]
     if (!lockout) return res.status(400).json({ error: 'No active lockout found' })
     if (lockout.unlock_code !== String(code).trim()) return res.status(400).json({ error: 'Invalid unlock code' })
-    // Mark as unlocked
-    await supabase.from('ip_lockouts').update({ is_unlocked: true, unlocked_at: new Date().toISOString() }).eq('id', lockout.id)
+    // Mark ALL active lockouts for this username as unlocked
+    await supabase.from('ip_lockouts').update({ is_unlocked: true, unlocked_at: new Date().toISOString() }).eq('username', username).eq('is_unlocked', false)
     res.json({ success: true, message: 'Login unlocked. You may now try logging in.' })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
