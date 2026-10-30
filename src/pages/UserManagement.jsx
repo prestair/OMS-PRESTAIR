@@ -26,8 +26,19 @@ function UserManagement() {
   const [groupForm, setGroupForm] = useState({ name: '', columnPermissions: {}, canEdit: false, canReceipt: false, canAssignReminder: false, canDelete: false, canEditReceipt: false })
   const [showRepForm, setShowRepForm] = useState(false)
   const [salesReps, setSalesReps] = useState([])
+  const [repTab, setRepTab] = useState('active')
   const [newRepName, setNewRepName] = useState('')
+  const [editingRep, setEditingRep] = useState(null)
+  const [editRepName, setEditRepName] = useState('')
   const [repError, setRepError] = useState('')
+  // Follow Up Agents
+  const [showFollowUpForm, setShowFollowUpForm] = useState(false)
+  const [followUpAgents, setFollowUpAgents] = useState([])
+  const [fuTab, setFuTab] = useState('active')
+  const [newFuName, setNewFuName] = useState('')
+  const [editingFu, setEditingFu] = useState(null)
+  const [editFuName, setEditFuName] = useState('')
+  const [fuError, setFuError] = useState('')
   // Login Activity
   const [showLoginActivity, setShowLoginActivity] = useState(false)
   const [loginLogs, setLoginLogs] = useState([])
@@ -37,10 +48,11 @@ function UserManagement() {
   const [expandedGroups, setExpandedGroups] = useState(new Set())
   const [expandTick, setExpandTick] = useState(0) // dummy counter to force re-render on Set mutation
 
-  useEffect(() => { fetchUsers(); fetchGroups(); fetchSalesReps() }, [])
+  useEffect(() => { fetchUsers(); fetchGroups(); fetchSalesReps(); fetchFollowUpAgents() }, [])
   const fetchUsers = async () => { try { setUsers((await axios.get('/api/users')).data) } catch {} }
   const fetchGroups = async () => { try { setGroups((await axios.get('/api/users/groups')).data) } catch {} }
-  const fetchSalesReps = async () => { try { setSalesReps((await axios.get('/api/sales-reps')).data) } catch {} }
+  const fetchSalesReps = async () => { try { setSalesReps((await axios.get('/api/sales-reps?all=1')).data) } catch {} }
+  const fetchFollowUpAgents = async () => { try { setFollowUpAgents((await axios.get('/api/follow-up-agents?all=1')).data) } catch {} }
 
   const fetchLoginLogs = async (username) => {
     setLogsLoading(true)
@@ -59,9 +71,40 @@ function UserManagement() {
     try { await axios.post('/api/sales-reps', { name: newRepName.trim().toUpperCase() }); setNewRepName(''); fetchSalesReps() }
     catch (err) { setRepError(err.response?.data?.error || 'Failed') }
   }
+  const saveEditRep = async () => {
+    setRepError('')
+    if (!editRepName.trim()) { setRepError('Name required'); return }
+    try { await axios.put(`/api/sales-reps/${editingRep.id}`, { name: editRepName.trim() }); setEditingRep(null); setEditRepName(''); fetchSalesReps() }
+    catch (err) { setRepError(err.response?.data?.error || 'Failed') }
+  }
+  const toggleRepActive = async (rep) => {
+    try { await axios.put(`/api/sales-reps/${rep.id}`, { isActive: !rep.isActive }); fetchSalesReps() }
+    catch (err) { alert(err.response?.data?.error || 'Failed') }
+  }
   const deleteSalesRep = async (id) => {
-    if (!window.confirm('Delete this sales rep?')) return
+    if (!window.confirm('Permanently delete this sales rep?')) return
     try { await axios.delete(`/api/sales-reps/${id}`); fetchSalesReps() } catch (err) { alert(err.response?.data?.error || 'Failed') }
+  }
+  // Follow Up Agents
+  const addFollowUpAgent = async () => {
+    setFuError('')
+    if (!newFuName.trim()) { setFuError('Name required'); return }
+    try { await axios.post('/api/follow-up-agents', { name: newFuName.trim().toUpperCase() }); setNewFuName(''); fetchFollowUpAgents() }
+    catch (err) { setFuError(err.response?.data?.error || 'Failed') }
+  }
+  const saveEditFu = async () => {
+    setFuError('')
+    if (!editFuName.trim()) { setFuError('Name required'); return }
+    try { await axios.put(`/api/follow-up-agents/${editingFu.id}`, { name: editFuName.trim() }); setEditingFu(null); setEditFuName(''); fetchFollowUpAgents() }
+    catch (err) { setFuError(err.response?.data?.error || 'Failed') }
+  }
+  const toggleFuActive = async (fu) => {
+    try { await axios.put(`/api/follow-up-agents/${fu.id}`, { isActive: !fu.isActive }); fetchFollowUpAgents() }
+    catch (err) { alert(err.response?.data?.error || 'Failed') }
+  }
+  const deleteFollowUpAgent = async (id) => {
+    if (!window.confirm('Permanently delete this follow up agent?')) return
+    try { await axios.delete(`/api/follow-up-agents/${id}`); fetchFollowUpAgents() } catch (err) { alert(err.response?.data?.error || 'Failed') }
   }
 
   // When group changes on user form, auto-fill rights from group
@@ -192,6 +235,7 @@ function UserManagement() {
           <button onClick={() => { setEditingUser(null); setForm({ username:'', password:'', fullName:'', role:'user', group:'', columnPermissions:{}, canEdit:false, canReceipt:false, canAssignReminder:false, canDelete:false }); setShowForm(true) }} style={s.addBtn}>+ Add User</button>
           <button onClick={() => { setEditingGroup(null); setGroupForm({ name:'', columnPermissions:{}, canEdit:false, canReceipt:false, canAssignReminder:false, canDelete:false }); setShowGroupForm(true) }} style={{ ...s.addBtn, background:'#8e44ad' }}>Manage Groups</button>
           <button onClick={() => { setNewRepName(''); setRepError(''); setShowRepForm(true) }} style={{ ...s.addBtn, background:'#16a085' }}>Manage Sales Reps</button>
+          <button onClick={() => { setNewFuName(''); setFuError(''); setShowFollowUpForm(true) }} style={{...s.addBtn, background:'#8e44ad'}}>Manage Follow Up</button>
           <button onClick={() => { setLogUserFilter(''); setShowLoginActivity(true); fetchLoginLogs(''); axios.get('/api/authorised-ips').then(r => { const map = {}; (r.data || []).forEach(entry => { if (entry.label) map[entry.ip_address] = entry.label }); setAuthorisedIPMap(map) }).catch(() => {}) }} style={{ ...s.addBtn, background:'#c0392b' }}>Login Activity</button>
           <input value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search by Full Name..." style={{padding:'7px 12px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px',flex:'1',maxWidth:'250px'}}/>
         </div>
@@ -347,22 +391,116 @@ function UserManagement() {
 
       {/* Sales Reps Management */}
       {showRepForm && (
-        <div style={s.overlay}><div style={{ ...s.modal, maxWidth:'450px' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
-            <h3 style={{ margin:0 }}>Manage Sales Reps</h3>
-            <button onClick={()=>setShowRepForm(false)} style={{ background:'none', border:'none', fontSize:'20px', cursor:'pointer', fontWeight:'700' }}>X</button>
+        <div style={s.overlay}><div style={{...s.modal, maxWidth:'480px'}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px'}}>
+            <h3 style={{margin:0}}>Manage Sales Reps</h3>
+            <button onClick={()=>setShowRepForm(false)} style={{background:'none', border:'none', fontSize:'20px', cursor:'pointer', fontWeight:'700'}}>X</button>
           </div>
-          <div style={{ display:'flex', gap:'8px', marginBottom:'6px' }}>
-            <input value={newRepName} onChange={e=>setNewRepName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addSalesRep()}} placeholder="Enter sales rep name..." style={{...s.i, textTransform:'uppercase'}}/>
-            <button onClick={addSalesRep} style={{ ...s.sBtn, background:'#16a085', whiteSpace:'nowrap' }}>+ Add</button>
+          {/* Tabs */}
+          <div style={{display:'flex', gap:'6px', marginBottom:'12px'}}>
+            {['active','deleted'].map(tab => (
+              <button key={tab} onClick={()=>setRepTab(tab)} style={{padding:'6px 14px', background: repTab===tab ? '#16a085' : '#eee', color: repTab===tab ? '#fff' : '#333', border:'none', borderRadius:'5px', fontSize:'12px', fontWeight:'600', cursor:'pointer'}}>
+                {tab==='active' ? 'Active' : 'Deleted'}
+                <span style={{marginLeft:'5px', background: repTab===tab ? 'rgba(255,255,255,0.3)' : '#ccc', color: repTab===tab ? '#fff' : '#555', borderRadius:'10px', padding:'1px 6px', fontSize:'10px'}}>
+                  {salesReps.filter(r => tab==='active' ? r.isActive!==false : r.isActive===false).length}
+                </span>
+              </button>
+            ))}
           </div>
-          {repError && <p style={{ color:'#e74c3c', fontSize:'11px', margin:'0 0 8px' }}>{repError}</p>}
-          <div style={{ maxHeight:'320px', overflow:'auto', border:'1px solid #e0e0e0', borderRadius:'6px', marginTop:'6px' }}>
-            {salesReps.length === 0 && <p style={{ textAlign:'center', color:'#999', fontSize:'12px', padding:'16px' }}>No sales reps yet. Add one above.</p>}
-            {salesReps.map((r, i) => (
-              <div key={r.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', borderBottom:'1px solid #f0f0f0', background: i%2?'#f8f9fa':'#fff' }}>
-                <span style={{ fontSize:'13px', fontWeight:'500' }}>{r.name}</span>
-                <button onClick={()=>deleteSalesRep(r.id)} style={{ background:'#e74c3c', color:'#fff', border:'none', borderRadius:'3px', fontSize:'10px', padding:'3px 9px', cursor:'pointer' }}>Delete</button>
+          {/* Add / Edit row */}
+          {editingRep ? (
+            <div style={{display:'flex', gap:'8px', marginBottom:'6px'}}>
+              <input value={editRepName} onChange={e=>setEditRepName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveEditRep()}} style={{...s.i, textTransform:'uppercase', flex:1}} placeholder="Edit name..."/>
+              <button onClick={saveEditRep} style={{...s.sBtn, background:'#16a085', whiteSpace:'nowrap'}}>Save</button>
+              <button onClick={()=>{setEditingRep(null);setEditRepName('');setRepError('')}} style={{...s.cBtn, whiteSpace:'nowrap'}}>Cancel</button>
+            </div>
+          ) : (
+            <div style={{display:'flex', gap:'8px', marginBottom:'6px'}}>
+              <input value={newRepName} onChange={e=>setNewRepName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addSalesRep()}} placeholder="Enter sales rep name..." style={{...s.i, textTransform:'uppercase', flex:1}}/>
+              <button onClick={addSalesRep} style={{...s.sBtn, background:'#16a085', whiteSpace:'nowrap'}}>+ Add</button>
+            </div>
+          )}
+          {repError && <p style={{color:'#e74c3c', fontSize:'11px', margin:'0 0 8px'}}>{repError}</p>}
+          {/* List */}
+          <div style={{maxHeight:'320px', overflow:'auto', border:'1px solid #e0e0e0', borderRadius:'6px', marginTop:'6px'}}>
+            {salesReps.filter(r => repTab==='active' ? r.isActive!==false : r.isActive===false).length === 0 && (
+              <p style={{textAlign:'center', color:'#999', fontSize:'12px', padding:'16px'}}>No {repTab} sales reps.</p>
+            )}
+            {salesReps.filter(r => repTab==='active' ? r.isActive!==false : r.isActive===false).map((r, i) => (
+              <div key={r.id} style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', borderBottom:'1px solid #f0f0f0', background: i%2?'#f8f9fa':'#fff'}}>
+                <span style={{fontSize:'13px', fontWeight:'500'}}>{r.name}</span>
+                <div style={{display:'flex', gap:'4px'}}>
+                  {repTab === 'active' ? (
+                    <>
+                      <button onClick={()=>{setEditingRep(r);setEditRepName(r.name);setRepError('')}} style={{background:'#16a085', color:'#fff', border:'none', borderRadius:'3px', fontSize:'10px', padding:'3px 9px', cursor:'pointer'}}>Edit</button>
+                      <button onClick={()=>toggleRepActive(r)} style={{background:'#e67e22', color:'#fff', border:'none', borderRadius:'3px', fontSize:'10px', padding:'3px 9px', cursor:'pointer'}}>Deactivate</button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={()=>toggleRepActive(r)} style={{background:'#27ae60', color:'#fff', border:'none', borderRadius:'3px', fontSize:'10px', padding:'3px 9px', cursor:'pointer'}}>Restore</button>
+                      <button onClick={()=>deleteSalesRep(r.id)} style={{background:'#e74c3c', color:'#fff', border:'none', borderRadius:'3px', fontSize:'10px', padding:'3px 9px', cursor:'pointer'}}>Delete</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div></div>
+      )}
+
+      {/* Follow Up Agents Management */}
+      {showFollowUpForm && (
+        <div style={s.overlay}><div style={{...s.modal, maxWidth:'480px'}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px'}}>
+            <h3 style={{margin:0}}>Manage Follow Up Agents</h3>
+            <button onClick={()=>setShowFollowUpForm(false)} style={{background:'none', border:'none', fontSize:'20px', cursor:'pointer', fontWeight:'700'}}>X</button>
+          </div>
+          {/* Tabs */}
+          <div style={{display:'flex', gap:'6px', marginBottom:'12px'}}>
+            {['active','deleted'].map(tab => (
+              <button key={tab} onClick={()=>setFuTab(tab)} style={{padding:'6px 14px', background: fuTab===tab ? '#8e44ad' : '#eee', color: fuTab===tab ? '#fff' : '#333', border:'none', borderRadius:'5px', fontSize:'12px', fontWeight:'600', cursor:'pointer'}}>
+                {tab==='active' ? 'Active' : 'Deleted'}
+                <span style={{marginLeft:'5px', background: fuTab===tab ? 'rgba(255,255,255,0.3)' : '#ccc', color: fuTab===tab ? '#fff' : '#555', borderRadius:'10px', padding:'1px 6px', fontSize:'10px'}}>
+                  {followUpAgents.filter(f => tab==='active' ? f.isActive!==false : f.isActive===false).length}
+                </span>
+              </button>
+            ))}
+          </div>
+          {/* Add / Edit row */}
+          {editingFu ? (
+            <div style={{display:'flex', gap:'8px', marginBottom:'6px'}}>
+              <input value={editFuName} onChange={e=>setEditFuName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveEditFu()}} style={{...s.i, textTransform:'uppercase', flex:1}} placeholder="Edit name..."/>
+              <button onClick={saveEditFu} style={{...s.sBtn, background:'#8e44ad', whiteSpace:'nowrap'}}>Save</button>
+              <button onClick={()=>{setEditingFu(null);setEditFuName('');setFuError('')}} style={{...s.cBtn, whiteSpace:'nowrap'}}>Cancel</button>
+            </div>
+          ) : (
+            <div style={{display:'flex', gap:'8px', marginBottom:'6px'}}>
+              <input value={newFuName} onChange={e=>setNewFuName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addFollowUpAgent()}} placeholder="Enter follow up agent name..." style={{...s.i, textTransform:'uppercase', flex:1}}/>
+              <button onClick={addFollowUpAgent} style={{...s.sBtn, background:'#8e44ad', whiteSpace:'nowrap'}}>+ Add</button>
+            </div>
+          )}
+          {fuError && <p style={{color:'#e74c3c', fontSize:'11px', margin:'0 0 8px'}}>{fuError}</p>}
+          {/* List */}
+          <div style={{maxHeight:'320px', overflow:'auto', border:'1px solid #e0e0e0', borderRadius:'6px', marginTop:'6px'}}>
+            {followUpAgents.filter(f => fuTab==='active' ? f.isActive!==false : f.isActive===false).length === 0 && (
+              <p style={{textAlign:'center', color:'#999', fontSize:'12px', padding:'16px'}}>No {fuTab} follow up agents.</p>
+            )}
+            {followUpAgents.filter(f => fuTab==='active' ? f.isActive!==false : f.isActive===false).map((f, i) => (
+              <div key={f.id} style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', borderBottom:'1px solid #f0f0f0', background: i%2?'#f8f9fa':'#fff'}}>
+                <span style={{fontSize:'13px', fontWeight:'500'}}>{f.name}</span>
+                <div style={{display:'flex', gap:'4px'}}>
+                  {fuTab === 'active' ? (
+                    <>
+                      <button onClick={()=>{setEditingFu(f);setEditFuName(f.name);setFuError('')}} style={{background:'#8e44ad', color:'#fff', border:'none', borderRadius:'3px', fontSize:'10px', padding:'3px 9px', cursor:'pointer'}}>Edit</button>
+                      <button onClick={()=>toggleFuActive(f)} style={{background:'#e67e22', color:'#fff', border:'none', borderRadius:'3px', fontSize:'10px', padding:'3px 9px', cursor:'pointer'}}>Deactivate</button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={()=>toggleFuActive(f)} style={{background:'#27ae60', color:'#fff', border:'none', borderRadius:'3px', fontSize:'10px', padding:'3px 9px', cursor:'pointer'}}>Restore</button>
+                      <button onClick={()=>deleteFollowUpAgent(f.id)} style={{background:'#e74c3c', color:'#fff', border:'none', borderRadius:'3px', fontSize:'10px', padding:'3px 9px', cursor:'pointer'}}>Delete</button>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>

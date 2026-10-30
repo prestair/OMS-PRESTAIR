@@ -86,6 +86,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted,
   })
   const [error, setError] = useState('')
   const [salesReps, setSalesReps] = useState([])
+  const [followUpAgents, setFollowUpAgents] = useState([])
   const [saving, setSaving] = useState(false)
   const [proofFile, setProofFile] = useState(null)
   const [proofFileName, setProofFileName] = useState('')
@@ -100,6 +101,11 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted,
   // Fetch sales reps for dropdown
   React.useEffect(() => {
     axios.get('/api/sales-reps').then(res => setSalesReps(res.data || [])).catch(() => {})
+  }, [])
+
+  // Fetch follow up agents for dropdown
+  React.useEffect(() => {
+    axios.get('/api/follow-up-agents').then(res => setFollowUpAgents(res.data || [])).catch(() => {})
   }, [])
 
   // Fetch next order number on mount for new orders
@@ -277,7 +283,7 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted,
                 : (isDeleted
                     ? ((isAdmin || allowCompletedEdit) && !isOrderNoLocked && inRestricted)
                     : (((isAdmin || (restrictToFields && restrictToFields.length && inRestricted)) || canEditColumn(field.key)) && !isOrderNoLocked && !isDateLocked && inRestricted))
-              const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit','advanceBill','orRecvd','salesRep','followUpType','wappGroup','wappGroupMade'].includes(field.key)
+              const isDropdown = ['photography','siteVideo','review','status','installation','inProduction','siteVerification','lop','sectionDrawing','installationStatus','akhilSirAudit','advanceBill','orRecvd','salesRep','followUpType','wappGroup','wappGroupMade','followUp'].includes(field.key)
               return (
                 <div key={field.key} style={styles.field}>
                   <label style={styles.label}>{field.label}</label>
@@ -293,6 +299,12 @@ function OrderForm({ order, onClose, onSaved, canEditColumn, isAdmin, isDeleted,
                           <option value="">-- Select --</option>
                           <option value="Direct">Direct</option>
                           <option value="Sir">Sir</option>
+                        </>
+                      ) : field.key === 'followUp' ? (
+                        <>
+                          <option value="">-- Select --</option>
+                          {followUpAgents.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                          {form.followUp && !followUpAgents.some(r => r.name === form.followUp) && <option value={form.followUp}>{form.followUp}</option>}
                         </>
                       ) : field.key === 'salesRep' ? (
                         <>
