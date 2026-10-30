@@ -3642,7 +3642,7 @@ function Dashboard() {
 
           {/* Sales Person Wise View */}
           {dailyFilter === 'salesPersonWise' && (() => {
-            const allOrders = [...orders, ...deletedOrders]
+            const allOrders = [...orders]
             const spOrders = allOrders.filter(o => (o.salesPerson || '').trim().toLowerCase() === 'yes')
             const totalAmt = spOrders.reduce((sum, o) => sum + Math.round((parseFloat(o.totalAmount) || 0) / 1.18), 0)
             // Per-column filter state using refs to avoid hooks-in-callback issue
