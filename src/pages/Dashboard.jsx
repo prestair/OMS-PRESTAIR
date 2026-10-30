@@ -3642,8 +3642,10 @@ function Dashboard() {
 
           {/* Sales Person Wise View */}
           {dailyFilter === 'salesPersonWise' && (() => {
-            const allOrders = [...orders]
+            const deletedOrderNos = new Set(deletedOrders.map(d => d.orderNo).filter(Boolean))
+            const allOrders = [...orders, ...deletedOrders.filter(d => !orders.some(o => o.orderNo === d.orderNo))]
             const spOrders = allOrders.filter(o => (o.salesPerson || '').trim().toLowerCase() === 'yes')
+            const spDeletedIds = new Set(spOrders.filter(o => deletedOrderNos.has(o.orderNo)).map(o => o.id))
             const totalAmt = spOrders.reduce((sum, o) => sum + Math.round((parseFloat(o.totalAmount) || 0) / 1.18), 0)
             // Per-column filter state using refs to avoid hooks-in-callback issue
             const [spColFilters, setSpColFilters] = window.__spColFilters || [{}]
@@ -3651,7 +3653,7 @@ function Dashboard() {
             const spF = window.__spColFilters[0] || {}
             const setSpF = (key, val) => { window.__spColFilters[0] = {...(window.__spColFilters[0]||{}), [key]: val}; window.__spForceUpdate && window.__spForceUpdate() }
             return (
-            <SpWiseTable spOrders={spOrders} totalAmt={totalAmt} styles={styles} formatDate={formatDate} />
+            <SpWiseTable spOrders={spOrders} totalAmt={totalAmt} styles={styles} formatDate={formatDate} deletedIds={spDeletedIds} />
             )
           })()}
 
