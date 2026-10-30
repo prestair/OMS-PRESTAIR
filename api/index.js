@@ -306,12 +306,18 @@ app.post('/api/auth/login', async (req, res) => {
     // Check if this IP+username is currently locked out
     try {
       const { data: activeLocks } = await supabase.from('ip_lockouts')
-        .select('created_at').eq('username', user.username).eq('is_unlocked', false)
+        .select('id, unlock_code').eq('username', user.username).eq('is_unlocked', false)
         .order('created_at', { ascending: false }).limit(1)
       const lock = activeLocks?.[0]
       if (lock) {
+        const providedCode = (req.body.unlock_code || '').toString().trim()
+        if (providedCode && providedCode === lock.unlock_code) {
+          // Code matches — mark unlocked and allow login
+          await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('id', lock.id)
+        } else {
           return res.status(403).json({ error: 'LOGIN DISABLED ENTER CODE TO ENABLE', locked: true })
         }
+      }
     } catch (lockCheckErr) { console.error('lockout check failed:', lockCheckErr.message) }
     try {
       const allowedIps = await cachedRead('authorised_ips_guard', TTL_AUTHORISED_IPS, async () => {

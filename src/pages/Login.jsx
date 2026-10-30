@@ -78,11 +78,9 @@ function Login() {
     setUnlockLoading(true)
     setUnlockError('')
     try {
-      await axios.post('/api/auth/verify-unlock-code', { username, code: unlockCode.trim() })
+      const loggedInUser = await login(username, password, null, unlockCode.trim())
       setLocked(false)
-      setUnlockCode('')
-      setError('')
-      setUnlockError('')
+      navigate('/dashboard')
     } catch (err) {
       setUnlockError(err.response?.data?.error || 'Invalid code')
     } finally {

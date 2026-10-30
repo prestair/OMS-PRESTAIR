@@ -123,8 +123,11 @@ export function AuthProvider({ children }) {
     return () => { stopped = true; clearInterval(versionInterval) }
   }, [user])
 
-  const login = async (username, password) => {
-    const res = await axios.post('/api/auth/login', { username, password })
+  const login = async (username, password, bypassToken = null, unlockCode = null) => {
+    const body = { username, password }
+    if (bypassToken) body.bypass_token = bypassToken
+    if (unlockCode) body.unlock_code = unlockCode
+    const res = await axios.post('/api/auth/login', body)
     if (res.data.adminOtpRequired) return { adminOtpRequired: true, otpToken: res.data.otpToken || null }
     const { token, user: userData } = res.data
     sessionStorage.setItem('oms_token', token)
