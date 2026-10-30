@@ -312,8 +312,16 @@ app.post('/api/auth/login', async (req, res) => {
       if (lock) {
         const providedCode = (req.body.unlock_code || '').toString().trim()
         if (providedCode && providedCode === lock.unlock_code) {
-          // Code matches — mark unlocked and allow login
+          // Code matches — mark unlocked and add IP to authorised list
           await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('id', lock.id)
+          // Auto-add IP to authorised list so next login works without code
+          try {
+            const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', clientIp).limit(1)
+            if (!existingIp || existingIp.length === 0) {
+              await supabase.from('authorised_ips').insert({ ip_address: clientIp, label: 'Auto-added via unlock code', created_by: user.username })
+            }
+            cacheDel('authorised_ips_guard')
+          } catch (e) { console.error('auto-add IP failed:', e.message) }
         } else {
           return res.status(403).json({ error: 'LOGIN DISABLED ENTER CODE TO ENABLE', locked: true })
         }
