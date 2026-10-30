@@ -12,9 +12,9 @@ import { startPolling } from '../lib/polling.mjs'
 
 const ALL_COLUMNS = [
   { key: 'date', label: 'Date' },
-  { key: 'poNo', label: 'PO No' },
   { key: 'client', label: 'Client' },
   { key: 'orderNo', label: 'Order No' },
+  { key: 'poNo', label: 'PO No' },
   { key: 'photography', label: 'Photography' },
   { key: 'photographyRemarks', label: 'Photography Remarks' },
   { key: 'siteVideo', label: 'Site Video' },
@@ -58,7 +58,7 @@ const ALL_COLUMNS = [
   { key: 'orRecvd', label: 'OR Recvd' }
 ]
 
-const DEFAULT_VISIBLE = ['date', 'poNo', 'client', 'orderNo', 'status', 'customerName', 'salesRep', 'totalAmount', 'receivedAmount', 'balance', 'followUpType', 'percentReceived']
+const DEFAULT_VISIBLE = ['date', 'client', 'orderNo', 'poNo', 'status', 'customerName', 'salesRep', 'totalAmount', 'receivedAmount', 'balance', 'followUpType', 'percentReceived']
 
 // OR Issue Report — fully self-contained component with multi-view navigation.
 // All filter/search/selection state lives here; Dashboard state is never read or written.
@@ -2432,21 +2432,24 @@ function Dashboard() {
   // with an independent selection. Column order matches Active exactly.
   const completedDisplayedColumns = allowedColumns.filter(c => completedVisibleColumns.includes(c.key))
 
-  // Freeze the leading columns up to and including Order No (only the contiguous leading run,
-  // so cumulative left offsets stay correct). Widths must match the <td>/<th> minWidths below.
-  const COMPLETED_FREEZE_WIDTHS = { date: 85, poNo: 85, client: 160, orderNo: 160 }
-  const completedStickyMap = (() => {
+  // Freeze the leading columns up to and including Order No (PO No is intentionally NOT frozen —
+  // it sits just after Order No and scrolls). Only the contiguous leading run is frozen so the
+  // cumulative left offsets stay correct. Widths must match the <td>/<th> minWidths below.
+  const FREEZE_WIDTHS = { date: 85, client: 160, orderNo: 160 }
+  const buildStickyMap = (cols) => {
     const map = {}
     let left = 35 // width of the leading '#' column
-    for (const col of completedDisplayedColumns) {
-      if (!(col.key in COMPLETED_FREEZE_WIDTHS)) break // stop at first non-freeze column
-      const width = COMPLETED_FREEZE_WIDTHS[col.key]
+    for (const col of cols) {
+      if (!(col.key in FREEZE_WIDTHS)) break // stop at first non-freeze column
+      const width = FREEZE_WIDTHS[col.key]
       map[col.key] = { left, width }
       left += width
       if (col.key === 'orderNo') break // freeze only up to Order No
     }
     return map
-  })()
+  }
+  const stickyMap = buildStickyMap(displayedColumns)
+  const completedStickyMap = buildStickyMap(completedDisplayedColumns)
 
   // Click-outside handler for daily column filter dropdowns
   useEffect(() => {
@@ -2723,12 +2726,14 @@ function Dashboard() {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={{...styles.th, width:'35px', minWidth:'35px'}}>#</th>
+              <th style={{...styles.th, position:'sticky', top:0, left:0, zIndex:25, width:'35px', minWidth:'35px', background:'#1a1a2e'}}>#</th>
               {displayedColumns.map((col, colIdx) => {
                 const centerCols = ['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','orRecvd','photography','siteVideo','review','status']
                 const isCenter = centerCols.includes(col.key)
                 const userW = colWidthOverrides[col.key]
-                const colStyle = {...styles.th, whiteSpace:'normal', ...(isCenter?{textAlign:'center'}:{}), ...(col.key === 'client' && !userW ? {minWidth:'180px'} : {}), ...(col.key === 'poNo' && !userW ? {width:'70px', maxWidth:'70px'} : {}), ...(userW ? {width: userW+'px', minWidth: userW+'px'} : {})}
+                const sticky = stickyMap[col.key]
+                const thStickyStyle = sticky ? { left: sticky.left + 'px', minWidth: sticky.width + 'px', zIndex: 25, background: '#1a1a2e' } : {}
+                const colStyle = {...styles.th, whiteSpace:'normal', ...(isCenter?{textAlign:'center'}:{}), ...(col.key === 'client' && !userW ? {minWidth:'180px'} : {}), ...(col.key === 'poNo' && !userW ? {width:'70px', maxWidth:'70px'} : {}), ...thStickyStyle, ...(userW ? {width: userW+'px', minWidth: userW+'px'} : {})}
                 return (
                 <th key={col.key} style={colStyle}>
                   <div style={styles.thContent}>
@@ -2779,13 +2784,15 @@ function Dashboard() {
               const rowBg = order.rowColor === 'red' ? '#ffcccc' : order.rowColor === 'orange' ? '#ffe0b2' : order.rowColor === 'yellow' ? '#fff9c4' : (idx % 2 === 0 ? '#f8f9fa' : '#fff')
               return (
               <tr key={order.id} style={{ ...styles.trEven, background: rowBg }}>
-                <td style={{...styles.td, width:'35px'}}>{idx + 1}</td>
+                <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: rowBg, width:'35px', minWidth:'35px'}}>{idx + 1}</td>
                 {displayedColumns.map((col, colIdx) => {
                   const centerCols = ['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','orRecvd','photography','siteVideo','review','status']
                   const isCenter = centerCols.includes(col.key)
                   const userW = colWidthOverrides[col.key]
+                  const sticky = stickyMap[col.key]
+                  const tdStickyStyle = sticky ? { position:'sticky', left: sticky.left + 'px', minWidth: sticky.width + 'px', zIndex:5, background: rowBg } : {}
                   return (
-                  <td key={col.key} style={{...styles.td, ...(col.key === 'client' || col.key === 'customerName' ? {textAlign:'left'} : {}), ...(userW ? {width: userW+'px', minWidth: userW+'px'} : {})}}>{getCellValue(order, col.key)}</td>
+                  <td key={col.key} style={{...styles.td, ...(col.key === 'client' || col.key === 'customerName' ? {textAlign:'left'} : {}), ...tdStickyStyle, ...(userW ? {width: userW+'px', minWidth: userW+'px'} : {})}}>{getCellValue(order, col.key)}</td>
                   )
                 })}
                 <td style={{ ...styles.td, whiteSpace: 'nowrap', position:'sticky', right:0, zIndex:5, background: rowBg, minWidth:'260px', boxShadow:'-2px 0 4px rgba(0,0,0,0.06)' }}>
