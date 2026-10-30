@@ -322,62 +322,18 @@ app.post('/api/auth/login', async (req, res) => {
         const normalised = clientIp.toLowerCase().trim()
         const isAllowed = allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
         if (!isAllowed) {
-          if (user.role === 'admin') {
-            // Check if admin has a bypass_token (OTP already verified)
-            const bypassToken = req.body.bypass_token
-            if (bypassToken) {
-              try {
-                const decoded = require('jsonwebtoken').verify(bypassToken, process.env.JWT_SECRET)
-                if (decoded.type === 'otp_verified' && decoded.username === user.username.toLowerCase()) {
-                  // Valid bypass — whitelist IP and unlock lockout
-                  let ipAdded = false
-                  const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', clientIp).limit(1)
-                  if (!existingIp || existingIp.length === 0) {
-                    await supabase.from('authorised_ips').insert({ ip_address: clientIp, label: 'Auto-added via Admin OTP bypass', created_by: user.username })
-                    ipAdded = true
-                  }
-                  await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', clientIp).eq('username', user.username).eq('is_unlocked', false)
-                  cacheDel('authorised_ips_guard')
-                  req._adminIpAdded = ipAdded ? clientIp : null
-                  // Fall through to normal login
-                }
-              } catch (e) { /* invalid bypass token — treat as no OTP */ }
-            } else {
-              // No bypass token — send OTP
-              const { data: existingOtp } = await supabase
-                .from('admin_otps').select('id')
-                .eq('username', user.username.toLowerCase())
-                .gt('expires_at', new Date().toISOString())
-                .limit(1)
-              if (!existingOtp || existingOtp.length === 0) {
-                const otp = String(Math.floor(100000 + Math.random() * 900000))
-                const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString()
-                await supabase.from('admin_otps').delete().eq('username', user.username.toLowerCase())
-                await supabase.from('admin_otps').insert({ username: user.username.toLowerCase(), otp, expires_at: expiresAt, attempts: 0, used: false })
-                const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
-                const otpDest = (user.email && user.email.trim()) ? user.email.trim() : RECEIVER
-                await sendUnauthorisedLoginAlert(clientIp, user.username)
-                await sendAdminOtp(otpDest, user.username, otp)
-              }
-              return res.status(200).json({ adminOtpRequired: true, message: 'OTP sent to the registered admin email address.' })
-            }
-          }
-          // Non-admin: existing lockout flow unchanged
+          // All users including admin: same lockout flow
           const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
           try {
-            // Remove any existing active lockouts for this IP+username
             await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', clientIp).eq('username', user.username).eq('is_unlocked', false)
-            // Insert new lockout
             await supabase.from('ip_lockouts').insert({ ip_address: clientIp, username: user.username, unlock_code: unlockCode })
           } catch (lockErr) { console.error('ip_lockouts insert failed:', lockErr.message) }
-          // Send both emails: unauthorized alert + unlock code
           await sendUnauthorisedLoginAlert(clientIp, user.username)
           await sendLockoutUnlockCode(clientIp, user.username, unlockCode)
           return res.status(403).json({ error: 'Login not allowed from this IP address.', locked: true })
         }
       }
     } catch (ipCheckErr) {
-      // If the IP table read fails, fail-open (allow login) to avoid locking everyone out
       console.error('IP whitelist check failed:', ipCheckErr.message)
     }
     const token = generateToken({ id: user.id, username: user.username, role: user.role })
@@ -398,67 +354,38 @@ app.post('/api/auth/login', async (req, res) => {
     res.json({ token, user: await buildUserObject(user, locationLogId), ipAdded: req._adminIpAdded || null })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
-// Admin IP-bypass OTP verification endpoint
+// Admin IP-bypass OTP verification endpoint — NO DB calls, JWT only
 app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
   try {
-    const { username, otp } = req.body
-    if (!username || !otp) return res.status(400).json({ error: 'username and otp are required' })
-
-    // Fetch OTP from Supabase
-    const { data: otpRows } = await supabase
-      .from('admin_otps')
-      .select('*')
-      .eq('username', username.toLowerCase())
-      .order('created_at', { ascending: false })
-      .limit(1)
-    const entry = otpRows?.[0]
-    if (!entry) return res.status(401).json({ error: 'No pending OTP. Please start login again.' })
-    if (new Date(entry.expires_at).getTime() < Date.now()) {
-      await supabase.from('admin_otps').delete().eq('id', entry.id)
+    const { username, otp, otp_token } = req.body
+    if (!username || !otp || !otp_token) return res.status(400).json({ error: 'username, otp and otp_token required' })
+    
+    // Verify JWT — contains the correct OTP
+    let decoded
+    try {
+      decoded = require('jsonwebtoken').verify(otp_token, process.env.JWT_SECRET)
+    } catch (e) {
       return res.status(401).json({ error: 'OTP has expired. Please start login again.' })
     }
-    const MAX_OTP_ATTEMPTS = 5
-    if (String(otp).trim() !== entry.otp) {
-      const newAttempts = (entry.attempts || 0) + 1
-      await new Promise(r => setTimeout(r, 200))
-      if (newAttempts >= MAX_OTP_ATTEMPTS) {
-        await supabase.from('admin_otps').delete().eq('id', entry.id)
-        return res.status(401).json({ error: 'Too many incorrect attempts. Please start login again.' })
-      }
-      // Use DELETE + INSERT instead of UPDATE to avoid RLS issues
-      await supabase.from('admin_otps').delete().eq('id', entry.id)
-      await supabase.from('admin_otps').insert({ 
-        username: entry.username, otp: entry.otp, 
-        expires_at: entry.expires_at, attempts: newAttempts, used: false 
-      })
-      return res.status(401).json({ error: `Invalid OTP. ${MAX_OTP_ATTEMPTS - newAttempts} attempt${MAX_OTP_ATTEMPTS - newAttempts === 1 ? '' : 's'} remaining.` })
+    if (decoded.type !== 'otp_challenge' || decoded.username !== username.toLowerCase()) {
+      return res.status(401).json({ error: 'Invalid OTP token. Please start login again.' })
+    }
+    if (String(otp).trim() !== String(decoded.otp)) {
+      return res.status(401).json({ error: 'Invalid OTP. Please try again.' })
     }
 
-    // OTP correct — delete OTP and whitelist IP in same request
-    await supabase.from('admin_otps').delete().eq('id', entry.id)
-
-    // Get client IP
+    // OTP correct — get client IP and return ignore_token (NO DB calls)
     const xForwardedFor = (req.headers['x-forwarded-for'] || '').toString()
     const xRealIp = (req.headers['x-real-ip'] || '').toString().trim()
     const ip = xRealIp || xForwardedFor.split(',')[0].trim() || (req.socket?.remoteAddress || '').toString().trim()
 
-    // Whitelist IP directly here
-    let ipAdded = false
-    if (ip) {
-      const { data: existing } = await supabase.from('authorised_ips').select('id').eq('ip_address', ip).limit(1)
-      if (!existing || existing.length === 0) {
-        const { error: insertErr } = await supabase.from('authorised_ips').insert({ ip_address: ip, label: 'Auto-added via Admin OTP bypass', created_by: username })
-        if (!insertErr) ipAdded = true
-        else console.error('IP insert error:', insertErr.message)
-      } else {
-        ipAdded = true // already exists
-      }
-      cacheDel('authorised_ips_guard')
-      // Unlock lockout
-      await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', ip).eq('username', username).eq('is_unlocked', false)
-    }
+    const ignore_token = require('jsonwebtoken').sign(
+      { username: username.toLowerCase(), ip, type: 'ip_bypass' },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    )
 
-    res.json({ success: true, ip, ipAdded, message: ipAdded ? `IP ${ip} added to authorised list. Please click Sign In.` : 'OTP verified. Please click Sign In.' })
+    res.json({ success: true, ip, ignore_token, message: 'OTP verified.' })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
@@ -472,18 +399,15 @@ app.post('/api/auth/admin-whitelist-ip', async (req, res) => {
     const { bypass_token } = req.body
     if (!bypass_token) return res.status(400).json({ error: 'bypass_token required' })
     const decoded = require('jsonwebtoken').verify(bypass_token, process.env.JWT_SECRET)
-    if (decoded.type !== 'otp_verified') return res.status(401).json({ error: 'Invalid token' })
-    const ip = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
-    
-    // Insert IP synchronously — must be done before responding so Sign In works immediately
+    if (decoded.type !== 'ip_bypass') return res.status(401).json({ error: 'Invalid token' })
+    const ip = decoded.ip
+    // Add IP to authorised list
     const { data: existing } = await supabase.from('authorised_ips').select('id').eq('ip_address', ip).limit(1)
     if (!existing || existing.length === 0) {
       await supabase.from('authorised_ips').insert({ ip_address: ip, label: 'Auto-added via Admin OTP bypass', created_by: decoded.username })
     }
     cacheDel('authorised_ips_guard')
-    // Unlock lockout fire-and-forget (non-critical)
-    supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', ip).eq('username', decoded.username).eq('is_unlocked', false).then(() => {}).catch(() => {})
-    
+    await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', ip).eq('username', decoded.username).eq('is_unlocked', false)
     res.json({ success: true, ip })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })

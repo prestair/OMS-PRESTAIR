@@ -123,13 +123,10 @@ export function AuthProvider({ children }) {
     return () => { stopped = true; clearInterval(versionInterval) }
   }, [user])
 
-  const login = async (username, password, bypassToken = null) => {
-    const body = { username, password }
-    if (bypassToken) body.bypass_token = bypassToken
-    const res = await axios.post('/api/auth/login', body)
-    // Admin OTP bypass — return special sentinel, do not set session
-    if (res.data.adminOtpRequired) return { adminOtpRequired: true }
-    const { token, user: userData, ipAdded } = res.data
+  const login = async (username, password) => {
+    const res = await axios.post('/api/auth/login', { username, password })
+    if (res.data.adminOtpRequired) return { adminOtpRequired: true, otpToken: res.data.otpToken || null }
+    const { token, user: userData } = res.data
     sessionStorage.setItem('oms_token', token)
     sessionStorage.setItem('oms_user', JSON.stringify(userData))
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
@@ -139,7 +136,7 @@ export function AuthProvider({ children }) {
       if (vr?.data?.version != null) localStorage.setItem('oms_app_version', String(vr.data.version))
     } catch { /* ignore */ }
     try { localStorage.setItem('oms_build', __APP_BUILD__) } catch { /* ignore */ }
-    return { ...userData, ipAdded: ipAdded || null }
+    return userData
   }
 
   const changePassword = async (currentPassword, newPassword) => {
