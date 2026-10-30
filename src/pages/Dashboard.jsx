@@ -3651,7 +3651,7 @@ function Dashboard() {
             const spF = window.__spColFilters[0] || {}
             const setSpF = (key, val) => { window.__spColFilters[0] = {...(window.__spColFilters[0]||{}), [key]: val}; window.__spForceUpdate && window.__spForceUpdate() }
             return (
-            <SpWiseTable spOrders={spOrders} totalAmt={totalAmt} styles={styles} formatDate={formatDate} deletedIds={new Set(deletedOrders.map(d => d.id))} />
+            <SpWiseTable spOrders={spOrders} totalAmt={totalAmt} styles={styles} formatDate={formatDate} />
             )
           })()}
 
