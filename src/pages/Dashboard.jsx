@@ -815,8 +815,36 @@ function Dashboard() {
   const allUsersRef = useRef(allUsers)
   useEffect(() => { allUsersRef.current = allUsers }, [allUsers])
 
+  // Sales Reps master table (Dashboard)
+  const [salesReps, setSalesReps] = useState([])
+  const [showSalesRepMgr, setShowSalesRepMgr] = useState(false)
+  const [repTab, setRepTab] = useState('active')
+  const [newRepName, setNewRepName] = useState('')
+  const [editingRep, setEditingRep] = useState(null)
+  const [editRepName, setEditRepName] = useState('')
+  const [repError, setRepError] = useState('')
+  const fetchSalesReps = async () => { try { setSalesReps((await axios.get('/api/sales-reps?all=1')).data) } catch {} }
+  const addRep = async () => { setRepError(''); if (!newRepName.trim()) { setRepError('Name required'); return } try { await axios.post('/api/sales-reps', { name: newRepName.trim() }); setNewRepName(''); fetchSalesReps() } catch (e) { setRepError(e.response?.data?.error || 'Failed') } }
+  const saveEditRep = async () => { setRepError(''); if (!editRepName.trim()) { setRepError('Name required'); return } try { await axios.put(`/api/sales-reps/${editingRep.id}`, { name: editRepName.trim() }); setEditingRep(null); setEditRepName(''); fetchSalesReps() } catch (e) { setRepError(e.response?.data?.error || 'Failed') } }
+  const toggleRep = async (r) => { try { await axios.put(`/api/sales-reps/${r.id}`, { isActive: !r.isActive }); fetchSalesReps() } catch (e) { alert(e.response?.data?.error || 'Failed') } }
+  const deleteRep = async (id) => { if (!window.confirm('Permanently delete?')) return; try { await axios.delete(`/api/sales-reps/${id}`); fetchSalesReps() } catch (e) { alert(e.response?.data?.error || 'Failed') } }
+
+  // Follow Up Agents master table (Dashboard)
+  const [followUpAgents, setFollowUpAgents] = useState([])
+  const [showFollowUpMgr, setShowFollowUpMgr] = useState(false)
+  const [fuTab, setFuTab] = useState('active')
+  const [newFuName, setNewFuName] = useState('')
+  const [editingFu, setEditingFu] = useState(null)
+  const [editFuName, setEditFuName] = useState('')
+  const [fuError, setFuError] = useState('')
+  const fetchFollowUpAgents = async () => { try { setFollowUpAgents((await axios.get('/api/follow-up-agents?all=1')).data) } catch {} }
+  const addFu = async () => { setFuError(''); if (!newFuName.trim()) { setFuError('Name required'); return } try { await axios.post('/api/follow-up-agents', { name: newFuName.trim() }); setNewFuName(''); fetchFollowUpAgents() } catch (e) { setFuError(e.response?.data?.error || 'Failed') } }
+  const saveEditFu = async () => { setFuError(''); if (!editFuName.trim()) { setFuError('Name required'); return } try { await axios.put(`/api/follow-up-agents/${editingFu.id}`, { name: editFuName.trim() }); setEditingFu(null); setEditFuName(''); fetchFollowUpAgents() } catch (e) { setFuError(e.response?.data?.error || 'Failed') } }
+  const toggleFu = async (f) => { try { await axios.put(`/api/follow-up-agents/${f.id}`, { isActive: !f.isActive }); fetchFollowUpAgents() } catch (e) { alert(e.response?.data?.error || 'Failed') } }
+  const deleteFu = async (id) => { if (!window.confirm('Permanently delete?')) return; try { await axios.delete(`/api/follow-up-agents/${id}`); fetchFollowUpAgents() } catch (e) { alert(e.response?.data?.error || 'Failed') } }
+
   useEffect(() => {
-    fetchOrders(); fetchDeletedOrders(); fetchPaperRequests()
+    fetchOrders(); fetchDeletedOrders(); fetchPaperRequests(); fetchSalesReps(); fetchFollowUpAgents()
     // Seed the orders signal so the first 2-min tick doesn't trigger a redundant full refetch
     axios.get('/api/orders/signal').then(sig => { lastOrdersSignal.current = `${sig.data.count}_${sig.data.maxId}_${sig.data.sumId}` }).catch(() => {})
   }, [])
@@ -2632,6 +2660,8 @@ function Dashboard() {
         </div>
         <div style={styles.actions}>
           {canCreateOrder && <button onClick={() => { setEditingOrder(null); setShowOrderForm(true) }} style={styles.actionBtn}>+ Add New Order</button>}
+          {isAdmin && <button onClick={() => { setShowSalesRepMgr(true); setRepTab('active'); setNewRepName(''); setEditingRep(null); setRepError('') }} style={{ ...styles.actionBtn, background:'#16a085', padding:'7px 10px', fontSize:'11px' }}>Sales Reps</button>}
+          {isAdmin && <button onClick={() => { setShowFollowUpMgr(true); setFuTab('active'); setNewFuName(''); setEditingFu(null); setFuError('') }} style={{ ...styles.actionBtn, background:'#8e44ad', padding:'7px 10px', fontSize:'11px' }}>Follow Up</button>}
           <button onClick={() => setShowColumnPicker(!showColumnPicker)} style={{ ...styles.actionBtn, background: '#2980b9' }}>Select Columns</button>
           <button onClick={handleExport} style={{ ...styles.actionBtn, background: '#27ae60' }}>Download Excel</button>
           <button onClick={() => setShowPrintDialog(true)} style={{ ...styles.actionBtn, background: '#8e44ad' }}>Print</button>
@@ -3999,6 +4029,110 @@ function Dashboard() {
 
       {/* Complaints Management Modal */}
       {showComplaints && <ComplaintsManagement onClose={() => setShowComplaints(false)} />}
+
+      {/* Sales Reps Master Table Modal */}
+      {showSalesRepMgr && isAdmin && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.55)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:1000}}>
+          <div style={{background:'#fff',borderRadius:'10px',padding:'20px',width:'420px',maxHeight:'85vh',display:'flex',flexDirection:'column'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+              <h3 style={{margin:0,fontSize:'16px',fontWeight:'700'}}>Manage Sales Reps</h3>
+              <button onClick={()=>setShowSalesRepMgr(false)} style={{background:'none',border:'none',fontSize:'20px',cursor:'pointer',fontWeight:'700',lineHeight:1}}>×</button>
+            </div>
+            {/* Tabs */}
+            <div style={{display:'flex',gap:'6px',marginBottom:'12px'}}>
+              {['active','deleted'].map(t=>(
+                <button key={t} onClick={()=>setRepTab(t)} style={{padding:'5px 14px',borderRadius:'20px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'11px',background:repTab===t?'#16a085':'#f0f0f0',color:repTab===t?'#fff':'#555'}}>
+                  {t==='active'?'Active':'Deleted'} <span style={{background:repTab===t?'rgba(255,255,255,0.3)':'#ddd',borderRadius:'10px',padding:'1px 6px',fontSize:'10px',marginLeft:'3px'}}>{salesReps.filter(r=>(t==='active'?r.isActive!==false:r.isActive===false)).length}</span>
+                </button>
+              ))}
+            </div>
+            {/* Add / Edit row */}
+            {editingRep ? (
+              <div style={{display:'flex',gap:'6px',marginBottom:'8px'}}>
+                <input value={editRepName} onChange={e=>setEditRepName(e.target.value.toUpperCase())} onKeyDown={e=>{if(e.key==='Enter')saveEditRep()}} style={{flex:1,padding:'7px 10px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px',textTransform:'uppercase'}} autoFocus/>
+                <button onClick={saveEditRep} style={{padding:'7px 12px',background:'#16a085',color:'#fff',border:'none',borderRadius:'5px',fontSize:'11px',fontWeight:'600',cursor:'pointer'}}>Save</button>
+                <button onClick={()=>{setEditingRep(null);setEditRepName('');setRepError('')}} style={{padding:'7px 10px',background:'#eee',border:'none',borderRadius:'5px',fontSize:'11px',cursor:'pointer'}}>Cancel</button>
+              </div>
+            ) : (
+              <div style={{display:'flex',gap:'6px',marginBottom:'8px'}}>
+                <input value={newRepName} onChange={e=>setNewRepName(e.target.value.toUpperCase())} onKeyDown={e=>{if(e.key==='Enter')addRep()}} placeholder="Enter name..." style={{flex:1,padding:'7px 10px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px',textTransform:'uppercase'}}/>
+                <button onClick={addRep} style={{padding:'7px 14px',background:'#16a085',color:'#fff',border:'none',borderRadius:'5px',fontSize:'11px',fontWeight:'600',cursor:'pointer',whiteSpace:'nowrap'}}>+ Add</button>
+              </div>
+            )}
+            {repError && <p style={{color:'#e74c3c',fontSize:'11px',margin:'0 0 6px'}}>{repError}</p>}
+            {/* List */}
+            <div style={{flex:1,overflowY:'auto',border:'1px solid #eee',borderRadius:'6px'}}>
+              {salesReps.filter(r=>repTab==='active'?r.isActive!==false:r.isActive===false).length===0 && <p style={{textAlign:'center',color:'#aaa',fontSize:'12px',padding:'20px'}}>No entries</p>}
+              {salesReps.filter(r=>repTab==='active'?r.isActive!==false:r.isActive===false).map((r,i)=>(
+                <div key={r.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',borderBottom:'1px solid #f5f5f5',background:i%2?'#fafafa':'#fff'}}>
+                  <span style={{fontSize:'13px',fontWeight:'500'}}>{r.name}</span>
+                  <div style={{display:'flex',gap:'5px'}}>
+                    {repTab==='active' ? <>
+                      <button onClick={()=>{setEditingRep(r);setEditRepName(r.name);setRepError('')}} style={{padding:'3px 9px',background:'#16a085',color:'#fff',border:'none',borderRadius:'3px',fontSize:'10px',cursor:'pointer',fontWeight:'600'}}>Edit</button>
+                      <button onClick={()=>toggleRep(r)} style={{padding:'3px 9px',background:'#e67e22',color:'#fff',border:'none',borderRadius:'3px',fontSize:'10px',cursor:'pointer',fontWeight:'600'}}>Deactivate</button>
+                    </> : <>
+                      <button onClick={()=>toggleRep(r)} style={{padding:'3px 9px',background:'#27ae60',color:'#fff',border:'none',borderRadius:'3px',fontSize:'10px',cursor:'pointer',fontWeight:'600'}}>Restore</button>
+                      <button onClick={()=>deleteRep(r.id)} style={{padding:'3px 9px',background:'#e74c3c',color:'#fff',border:'none',borderRadius:'3px',fontSize:'10px',cursor:'pointer',fontWeight:'600'}}>Delete</button>
+                    </>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Follow Up Agents Master Table Modal */}
+      {showFollowUpMgr && isAdmin && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.55)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:1000}}>
+          <div style={{background:'#fff',borderRadius:'10px',padding:'20px',width:'420px',maxHeight:'85vh',display:'flex',flexDirection:'column'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+              <h3 style={{margin:0,fontSize:'16px',fontWeight:'700'}}>Manage Follow Up</h3>
+              <button onClick={()=>setShowFollowUpMgr(false)} style={{background:'none',border:'none',fontSize:'20px',cursor:'pointer',fontWeight:'700',lineHeight:1}}>×</button>
+            </div>
+            {/* Tabs */}
+            <div style={{display:'flex',gap:'6px',marginBottom:'12px'}}>
+              {['active','deleted'].map(t=>(
+                <button key={t} onClick={()=>setFuTab(t)} style={{padding:'5px 14px',borderRadius:'20px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'11px',background:fuTab===t?'#8e44ad':'#f0f0f0',color:fuTab===t?'#fff':'#555'}}>
+                  {t==='active'?'Active':'Deleted'} <span style={{background:fuTab===t?'rgba(255,255,255,0.3)':'#ddd',borderRadius:'10px',padding:'1px 6px',fontSize:'10px',marginLeft:'3px'}}>{followUpAgents.filter(f=>(t==='active'?f.isActive!==false:f.isActive===false)).length}</span>
+                </button>
+              ))}
+            </div>
+            {/* Add / Edit row */}
+            {editingFu ? (
+              <div style={{display:'flex',gap:'6px',marginBottom:'8px'}}>
+                <input value={editFuName} onChange={e=>setEditFuName(e.target.value.toUpperCase())} onKeyDown={e=>{if(e.key==='Enter')saveEditFu()}} style={{flex:1,padding:'7px 10px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px',textTransform:'uppercase'}} autoFocus/>
+                <button onClick={saveEditFu} style={{padding:'7px 12px',background:'#8e44ad',color:'#fff',border:'none',borderRadius:'5px',fontSize:'11px',fontWeight:'600',cursor:'pointer'}}>Save</button>
+                <button onClick={()=>{setEditingFu(null);setEditFuName('');setFuError('')}} style={{padding:'7px 10px',background:'#eee',border:'none',borderRadius:'5px',fontSize:'11px',cursor:'pointer'}}>Cancel</button>
+              </div>
+            ) : (
+              <div style={{display:'flex',gap:'6px',marginBottom:'8px'}}>
+                <input value={newFuName} onChange={e=>setNewFuName(e.target.value.toUpperCase())} onKeyDown={e=>{if(e.key==='Enter')addFu()}} placeholder="Enter name..." style={{flex:1,padding:'7px 10px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px',textTransform:'uppercase'}}/>
+                <button onClick={addFu} style={{padding:'7px 14px',background:'#8e44ad',color:'#fff',border:'none',borderRadius:'5px',fontSize:'11px',fontWeight:'600',cursor:'pointer',whiteSpace:'nowrap'}}>+ Add</button>
+              </div>
+            )}
+            {fuError && <p style={{color:'#e74c3c',fontSize:'11px',margin:'0 0 6px'}}>{fuError}</p>}
+            {/* List */}
+            <div style={{flex:1,overflowY:'auto',border:'1px solid #eee',borderRadius:'6px'}}>
+              {followUpAgents.filter(f=>fuTab==='active'?f.isActive!==false:f.isActive===false).length===0 && <p style={{textAlign:'center',color:'#aaa',fontSize:'12px',padding:'20px'}}>No entries</p>}
+              {followUpAgents.filter(f=>fuTab==='active'?f.isActive!==false:f.isActive===false).map((f,i)=>(
+                <div key={f.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',borderBottom:'1px solid #f5f5f5',background:i%2?'#fafafa':'#fff'}}>
+                  <span style={{fontSize:'13px',fontWeight:'500'}}>{f.name}</span>
+                  <div style={{display:'flex',gap:'5px'}}>
+                    {fuTab==='active' ? <>
+                      <button onClick={()=>{setEditingFu(f);setEditFuName(f.name);setFuError('')}} style={{padding:'3px 9px',background:'#8e44ad',color:'#fff',border:'none',borderRadius:'3px',fontSize:'10px',cursor:'pointer',fontWeight:'600'}}>Edit</button>
+                      <button onClick={()=>toggleFu(f)} style={{padding:'3px 9px',background:'#e67e22',color:'#fff',border:'none',borderRadius:'3px',fontSize:'10px',cursor:'pointer',fontWeight:'600'}}>Deactivate</button>
+                    </> : <>
+                      <button onClick={()=>toggleFu(f)} style={{padding:'3px 9px',background:'#27ae60',color:'#fff',border:'none',borderRadius:'3px',fontSize:'10px',cursor:'pointer',fontWeight:'600'}}>Restore</button>
+                      <button onClick={()=>deleteFu(f.id)} style={{padding:'3px 9px',background:'#e74c3c',color:'#fff',border:'none',borderRadius:'3px',fontSize:'10px',cursor:'pointer',fontWeight:'600'}}>Delete</button>
+                    </>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Print Orientation Dialog */}
       {showPrintDialog && (
