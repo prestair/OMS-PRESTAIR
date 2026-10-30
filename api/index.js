@@ -439,7 +439,8 @@ app.post('/api/auth/verify-unlock-code', async (req, res) => {
     if (!lockout) return res.status(400).json({ error: 'No active lockout found' })
     if (lockout.unlock_code !== String(code).trim()) return res.status(400).json({ error: 'Invalid unlock code' })
     // Mark ALL active lockouts for this username as unlocked
-    await supabase.from('ip_lockouts').update({ is_unlocked: true, unlocked_at: new Date().toISOString() }).eq('username', username).eq('is_unlocked', false)
+    const { error: unlockErr } = await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('username', username).eq('is_unlocked', false)
+    if (unlockErr) { console.error('unlock failed:', unlockErr.message); return res.status(500).json({ error: 'Unlock failed: ' + unlockErr.message }) }
     res.json({ success: true, message: 'Login unlocked. You may now try logging in.' })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
