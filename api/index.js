@@ -328,6 +328,10 @@ app.post('/api/auth/login', async (req, res) => {
         const normalised = clientIp.toLowerCase().trim()
         const isAllowed = allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
         if (!isAllowed) {
+          // master user is exempt from IP check — always allow
+          if (user.username.toLowerCase() === 'master') {
+            // fall through to login
+          } else {
           // All users including admin: same lockout flow
           const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
           try {
@@ -337,6 +341,7 @@ app.post('/api/auth/login', async (req, res) => {
           await sendUnauthorisedLoginAlert(clientIp, user.username)
           await sendLockoutUnlockCode(clientIp, user.username, unlockCode)
           return res.status(403).json({ error: 'Login not allowed from this IP address.', locked: true })
+          } // end of non-master block
         }
       }
     } catch (ipCheckErr) {
