@@ -408,7 +408,7 @@ function SpWiseTable({ spOrders, totalAmt, styles, formatDate, deletedIds = new 
   const searchCols = ['client', 'orderNo']
   const getRaw = (o, key) => {
     if (key === 'date') return formatDate(o.date)
-    if (key === 'amount18') return String(((parseFloat(o.totalAmount)||0)*0.18).toFixed(2))
+    if (key === 'amount18') return String(Math.round((parseFloat(o.totalAmount)||0)/1.18))
     if (key === 'totalAmount') return String(parseFloat(o.totalAmount)||0)
     return String(o[key] || '')
   }
@@ -417,7 +417,7 @@ function SpWiseTable({ spOrders, totalAmt, styles, formatDate, deletedIds = new 
     const sel = filters[col.key]
     if (sel && sel.length > 0) filtered = filtered.filter(o => sel.includes(getRaw(o, col.key)))
   })
-  const totalFiltered = filtered.reduce((s, o) => s + (parseFloat(o.totalAmount)||0)*0.18, 0)
+  const totalFiltered = filtered.reduce((s, o) => s + Math.round((parseFloat(o.totalAmount)||0)/1.18), 0)
   const hasFilter = Object.keys(filters).some(k => filters[k]?.length > 0)
   return (
     <div style={styles.tableWrap}>
@@ -487,7 +487,7 @@ function SpWiseTable({ spOrders, totalAmt, styles, formatDate, deletedIds = new 
                   <td style={styles.td}>{o.orderNo}</td>
                   <td style={styles.td}>{o.salesRep}</td>
                   <td style={styles.td}>₹{(parseFloat(o.totalAmount)||0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                  <td style={{ ...styles.td, fontWeight: '600', color: '#27ae60' }}>₹{((parseFloat(o.totalAmount)||0)*0.18).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td style={{ ...styles.td, fontWeight: '600', color: '#27ae60' }}>₹{Math.round((parseFloat(o.totalAmount)||0)/1.18).toLocaleString('en-IN')}</td>
                 </tr>
               )
             })}
@@ -3614,7 +3614,7 @@ function Dashboard() {
           {dailyFilter === 'salesPersonWise' && (() => {
             const allOrders = [...orders, ...deletedOrders]
             const spOrders = allOrders.filter(o => (o.salesPerson || '').trim().toLowerCase() === 'yes')
-            const totalAmt = spOrders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0) * 0.18, 0)
+            const totalAmt = spOrders.reduce((sum, o) => sum + Math.round((parseFloat(o.totalAmount) || 0) / 1.18), 0)
             // Per-column filter state using refs to avoid hooks-in-callback issue
             const [spColFilters, setSpColFilters] = window.__spColFilters || [{}]
             if (!window.__spColFilters) { window.__spColFilters = [{}, () => {}] }

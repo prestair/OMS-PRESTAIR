@@ -421,7 +421,7 @@ module.exports = async (req, res) => {
         'Order No':       o.order_no || o.orderNo || '',
         'Sales Rep':      o.sales_rep || o.salesRep || '',
         'Total Amount':   totalAmt,
-        'Amount (18%)':   parseFloat((totalAmt * 0.18).toFixed(2)),
+        'Amount (18%)':   Math.round(totalAmt / 1.18),
         'Status':         _source => o._source === 'completed' ? 'Completed' : 'Active'
       }
     }).map(({ Status, ...rest }, i) => ({
@@ -429,7 +429,7 @@ module.exports = async (req, res) => {
       'Status': spOrders[i]._source === 'completed' ? 'Completed' : 'Active'
     }))
 
-    const spTotalAmt = spOrders.reduce((s, o) => s + (parseFloat(o.total_amount || o.totalAmount) || 0) * 0.18, 0)
+    const spTotalAmt = spOrders.reduce((s, o) => s + Math.round((parseFloat(o.total_amount || o.totalAmount) || 0) / 1.18), 0)
     // Add a totals row at the bottom
     if (spData.length > 0) {
       spData.push({
