@@ -314,7 +314,7 @@ app.post('/api/auth/login', async (req, res) => {
         if (providedCode && providedCode === lock.unlock_code) {
           // Code matches — mark unlocked and add IP to authorised list
           await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('id', lock.id)
-          // Auto-add IP to authorised list so next login works without code
+          // Auto-add current IP to authorised list so future logins work
           try {
             const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', clientIp).limit(1)
             if (!existingIp || existingIp.length === 0) {
@@ -322,6 +322,8 @@ app.post('/api/auth/login', async (req, res) => {
             }
             cacheDel('authorised_ips_guard')
           } catch (e) { console.error('auto-add IP failed:', e.message) }
+          // Skip IP whitelist check — unlock code is sufficient proof, login directly
+          req._skipIpCheck = true
         } else {
           return res.status(403).json({ error: 'LOGIN DISABLED ENTER CODE TO ENABLE', locked: true })
         }
@@ -332,7 +334,7 @@ app.post('/api/auth/login', async (req, res) => {
         const { data } = await supabase.from('authorised_ips').select('ip_address')
         return data || []
       })
-      if (allowedIps.length > 0) {
+      if (allowedIps.length > 0 && !req._skipIpCheck) {
         const normalised = clientIp.toLowerCase().trim()
         const isAllowed = allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
         if (!isAllowed) {

@@ -78,9 +78,10 @@ function Login() {
     setUnlockLoading(true)
     setUnlockError('')
     try {
-      const loggedInUser = await login(username, password, null, unlockCode.trim())
+      await login(username, password, null, unlockCode.trim())
       setLocked(false)
-      navigate('/dashboard')
+      // Hard refresh so all cached state is cleared and dashboard loads fresh
+      window.location.href = '/dashboard'
     } catch (err) {
       setUnlockError(err.response?.data?.error || 'Invalid code')
     } finally {
