@@ -342,14 +342,24 @@ app.post('/api/auth/login', async (req, res) => {
           if (user.username.toLowerCase() === 'master') {
             // fall through to login
           } else {
-          // All users including admin: same lockout flow
-          const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
+          // Check if there's already an active lock for this user — if yes, don't generate a new code
+          let existingActiveLock = null
           try {
-            await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('ip_address', clientIp).eq('username', user.username).eq('is_unlocked', false)
-            await supabase.from('ip_lockouts').insert({ ip_address: clientIp, username: user.username, unlock_code: unlockCode })
-          } catch (lockErr) { console.error('ip_lockouts insert failed:', lockErr.message) }
-          await sendUnauthorisedLoginAlert(clientIp, user.username)
-          await sendLockoutUnlockCode(clientIp, user.username, unlockCode)
+            const { data: existingLocks } = await supabase.from('ip_lockouts')
+              .select('id').eq('username', user.username).eq('is_unlocked', false)
+              .order('created_at', { ascending: false }).limit(1)
+            existingActiveLock = existingLocks?.[0] || null
+          } catch {}
+          if (!existingActiveLock) {
+            // No active lock — generate new code, send mail
+            const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
+            try {
+              await supabase.from('ip_lockouts').insert({ ip_address: clientIp, username: user.username, unlock_code: unlockCode })
+            } catch (lockErr) { console.error('ip_lockouts insert failed:', lockErr.message) }
+            await sendUnauthorisedLoginAlert(clientIp, user.username)
+            await sendLockoutUnlockCode(clientIp, user.username, unlockCode)
+          }
+          // Active lock already exists — just return locked, don't overwrite code
           return res.status(403).json({ error: 'Login not allowed from this IP address.', locked: true })
           } // end of non-master block
         }
