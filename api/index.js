@@ -304,6 +304,19 @@ app.post('/api/auth/login', async (req, res) => {
     // IP whitelist check — fail-open when table is empty
     const clientIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
     // Check if this IP+username is currently locked out
+    // Skip lockout check entirely if IP is already in the authorised list
+    let ipIsAuthorised = false
+    try {
+      const allowedIps = await cachedRead('authorised_ips_guard', TTL_AUTHORISED_IPS, async () => {
+        const { data } = await supabase.from('authorised_ips').select('ip_address')
+        return data || []
+      })
+      const normalised = clientIp.toLowerCase().trim()
+      ipIsAuthorised = allowedIps.length === 0 || allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
+    } catch {}
+
+    if (!ipIsAuthorised) {
+    // Only check lockout for IPs that are NOT authorised
     try {
       const { data: activeLocks } = await supabase.from('ip_lockouts')
         .select('id, unlock_code').eq('username', user.username).eq('is_unlocked', false)
@@ -329,43 +342,28 @@ app.post('/api/auth/login', async (req, res) => {
         }
       }
     } catch (lockCheckErr) { console.error('lockout check failed:', lockCheckErr.message) }
-    try {
-      const allowedIps = await cachedRead('authorised_ips_guard', TTL_AUTHORISED_IPS, async () => {
-        const { data } = await supabase.from('authorised_ips').select('ip_address')
-        return data || []
-      })
-      if (allowedIps.length > 0 && !req._skipIpCheck) {
-        const normalised = clientIp.toLowerCase().trim()
-        const isAllowed = allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
-        if (!isAllowed) {
-          // master user is exempt from IP check — always allow
-          if (user.username.toLowerCase() === 'master') {
-            // fall through to login
-          } else {
-          // Check if there's already an active lock for this user — if yes, don't generate a new code
-          let existingActiveLock = null
+    } // end of !ipIsAuthorised block
+    // IP whitelist check — reuse ipIsAuthorised computed above
+    if (!ipIsAuthorised && !req._skipIpCheck) {
+      if (user.username.toLowerCase() !== 'master') {
+        // Check if there's already an active lock for this user — if yes, don't generate a new code
+        let existingActiveLock = null
+        try {
+          const { data: existingLocks } = await supabase.from('ip_lockouts')
+            .select('id').eq('username', user.username).eq('is_unlocked', false)
+            .order('created_at', { ascending: false }).limit(1)
+          existingActiveLock = existingLocks?.[0] || null
+        } catch {}
+        if (!existingActiveLock) {
+          const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
           try {
-            const { data: existingLocks } = await supabase.from('ip_lockouts')
-              .select('id').eq('username', user.username).eq('is_unlocked', false)
-              .order('created_at', { ascending: false }).limit(1)
-            existingActiveLock = existingLocks?.[0] || null
-          } catch {}
-          if (!existingActiveLock) {
-            // No active lock — generate new code, send mail
-            const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
-            try {
-              await supabase.from('ip_lockouts').insert({ ip_address: clientIp, username: user.username, unlock_code: unlockCode })
-            } catch (lockErr) { console.error('ip_lockouts insert failed:', lockErr.message) }
-            await sendUnauthorisedLoginAlert(clientIp, user.username)
-            await sendLockoutUnlockCode(clientIp, user.username, unlockCode)
-          }
-          // Active lock already exists — just return locked, don't overwrite code
-          return res.status(403).json({ error: 'Login not allowed from this IP address.', locked: true })
-          } // end of non-master block
+            await supabase.from('ip_lockouts').insert({ ip_address: clientIp, username: user.username, unlock_code: unlockCode })
+          } catch (lockErr) { console.error('ip_lockouts insert failed:', lockErr.message) }
+          await sendUnauthorisedLoginAlert(clientIp, user.username)
+          await sendLockoutUnlockCode(clientIp, user.username, unlockCode)
         }
+        return res.status(403).json({ error: 'Login not allowed from this IP address.', locked: true })
       }
-    } catch (ipCheckErr) {
-      console.error('IP whitelist check failed:', ipCheckErr.message)
     }
     const token = generateToken({ id: user.id, username: user.username, role: user.role })
     // Log this login (fire-and-forget, never block the response)
