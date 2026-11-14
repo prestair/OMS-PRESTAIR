@@ -338,6 +338,8 @@ app.post('/api/auth/login', async (req, res) => {
           // Skip IP whitelist check — unlock code is sufficient proof, login directly
           req._skipIpCheck = true
         } else {
+          // Existing lock found but no valid code — resend the existing unlock code as a reminder
+          sendLockoutUnlockCode(clientIp, user.username, lock.unlock_code).catch(() => {})
           return res.status(403).json({ error: 'LOGIN DISABLED ENTER CODE TO ENABLE', locked: true })
         }
       }
@@ -359,8 +361,9 @@ app.post('/api/auth/login', async (req, res) => {
           try {
             await supabase.from('ip_lockouts').insert({ ip_address: clientIp, username: user.username, unlock_code: unlockCode })
           } catch (lockErr) { console.error('ip_lockouts insert failed:', lockErr.message) }
-          await sendUnauthorisedLoginAlert(clientIp, user.username)
-          await sendLockoutUnlockCode(clientIp, user.username, unlockCode)
+          // Send both alert + unlock code emails (fire-and-forget, never block response)
+          sendUnauthorisedLoginAlert(clientIp, user.username).catch(() => {})
+          sendLockoutUnlockCode(clientIp, user.username, unlockCode).catch(() => {})
         }
         return res.status(403).json({ error: 'Login not allowed from this IP address.', locked: true })
       }
