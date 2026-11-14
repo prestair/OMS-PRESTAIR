@@ -56,10 +56,9 @@ function UserManagement() {
   const [lockedUsernames, setLockedUsernames] = useState(new Set())
   const [lockActionUser, setLockActionUser] = useState(null) // userId being locked/unlocked
   // Master OTP modal
-  const [masterOtpModal, setMasterOtpModal] = useState(null) // { action: 'edit'|'pass', userId, userData }
-  const [masterOtpStep, setMasterOtpStep] = useState('request') // 'request' | 'verify' | 'done'
+  const [masterOtpModal, setMasterOtpModal] = useState(null) // { action: 'edit'|'pass', u }
+  const [masterOtpStep, setMasterOtpStep] = useState('request') // 'request' | 'verify'
   const [masterOtpToken, setMasterOtpToken] = useState('')
-  const [masterOtpVerifiedToken, setMasterOtpVerifiedToken] = useState('')
   const [masterOtpInput, setMasterOtpInput] = useState('')
   const [masterOtpLoading, setMasterOtpLoading] = useState(false)
   const [masterOtpError, setMasterOtpError] = useState('')
@@ -127,12 +126,10 @@ function UserManagement() {
     setLockActionUser(null)
   }
 
-  // Master OTP helpers
   const openMasterOtp = (action, u) => {
-    setMasterOtpModal({ action, userId: u.id, userData: u })
+    setMasterOtpModal({ action, u })
     setMasterOtpStep('request')
     setMasterOtpToken('')
-    setMasterOtpVerifiedToken('')
     setMasterOtpInput('')
     setMasterOtpError('')
   }
@@ -156,17 +153,15 @@ function UserManagement() {
     setMasterOtpError('')
     try {
       const res = await axios.post('/api/master-otp/verify', { otp: masterOtpInput.trim(), otp_token: masterOtpToken })
-      setMasterOtpVerifiedToken(res.data.master_otp_token)
-      setMasterOtpStep('done')
-      // Now open the actual form
-      const { action, userId, userData: u } = masterOtpModal
+      const verifiedToken = res.data.master_otp_token
+      const { action, u } = masterOtpModal
       setMasterOtpModal(null)
       if (action === 'edit') {
-        setEditingUser({ ...u, _masterOtpToken: res.data.master_otp_token })
-        setForm({ username: u.username, password: '', fullName: u.fullName, role: u.role, group: u.group || '', columnPermissions: u.columnPermissions || {}, canEdit: u.canEdit !== undefined ? u.canEdit : false, canReceipt: u.canReceipt !== undefined ? u.canReceipt : false, canAssignReminder: u.canAssignReminder || false, canDelete: u.canDelete || false, canCreateQuote: u.canCreateQuote || false, canColor: u.canColor || false, canComplaints: u.canComplaints || false, canEditCompleted: u.canEditCompleted || false, canEditDaily: u.canEditDaily || false, canEditReceipt: u.canEditReceipt || false, _masterOtpToken: res.data.master_otp_token })
+        setEditingUser({ ...u, _masterOtpToken: verifiedToken })
+        setForm({ username: u.username, password: '', fullName: u.fullName, role: u.role, group: u.group || '', columnPermissions: u.columnPermissions || {}, canEdit: u.canEdit || false, canReceipt: u.canReceipt || false, canAssignReminder: u.canAssignReminder || false, canDelete: u.canDelete || false, canCreateQuote: u.canCreateQuote || false, canColor: u.canColor || false, canComplaints: u.canComplaints || false, canEditCompleted: u.canEditCompleted || false, canEditDaily: u.canEditDaily || false, canEditReceipt: u.canEditReceipt || false, _masterOtpToken: verifiedToken })
         setShowForm(true)
-      } else if (action === 'pass') {
-        setResetPassword({ ...u, _masterOtpToken: res.data.master_otp_token })
+      } else {
+        setResetPassword({ ...u, _masterOtpToken: verifiedToken })
       }
     } catch (err) {
       setMasterOtpError(err.response?.data?.error || 'Invalid OTP')
@@ -359,10 +354,7 @@ function UserManagement() {
               <td style={{...s.td,padding:'3px 6px',fontSize:'11px'}}><span style={u.role==='admin'?s.badgeA:s.badgeU}>{u.role}</span></td>
               <td style={{...s.td,padding:'3px 6px',fontSize:'11px'}}>{u.group||'-'}</td>
               <td style={{...s.td,padding:'3px 6px',fontSize:'11px',whiteSpace:'nowrap'}}>
-                <button onClick={() => {
-                  if (u.isMaster) { openMasterOtp('edit', u) }
-                  else { setEditingUser(u); setForm({ username:u.username, password:'', fullName:u.fullName, role:u.role, group:u.group||'', columnPermissions:u.columnPermissions||{}, canEdit:u.canEdit!==undefined?u.canEdit:false, canReceipt:u.canReceipt!==undefined?u.canReceipt:false, canAssignReminder:u.canAssignReminder||false, canDelete:u.canDelete||false, canCreateQuote:u.canCreateQuote||false, canColor:u.canColor||false, canComplaints:u.canComplaints||false, canEditCompleted:u.canEditCompleted||false, canEditDaily:u.canEditDaily||false, canEditReceipt:u.canEditReceipt||false }); setShowForm(true) }
-                }} style={s.tBtn}>Edit</button>
+                <button onClick={() => { if (u.isMaster) { openMasterOtp('edit', u) } else { setEditingUser(u); setForm({ username:u.username, password:'', fullName:u.fullName, role:u.role, group:u.group||'', columnPermissions:u.columnPermissions||{}, canEdit:u.canEdit!==undefined?u.canEdit:false, canReceipt:u.canReceipt!==undefined?u.canReceipt:false, canAssignReminder:u.canAssignReminder||false, canDelete:u.canDelete||false, canCreateQuote:u.canCreateQuote||false, canColor:u.canColor||false, canComplaints:u.canComplaints||false, canEditCompleted:u.canEditCompleted||false, canEditDaily:u.canEditDaily||false, canEditReceipt:u.canEditReceipt||false }); setShowForm(true) } }} style={s.tBtn}>Edit</button>
                 <button onClick={() => { if (u.isMaster) { openMasterOtp('pass', u) } else { setResetPassword(u) } }} style={{...s.tBtn,background:'#f39c12'}}>Pass</button>
                 {u.id!==user.id && <button onClick={async()=>{if(window.confirm('Delete?')){await axios.delete(`/api/users/${u.id}`);fetchUsers()}}} style={{...s.tBtn,background:'#e74c3c'}}>Del</button>}
                 {u.id!==user.id && <button onClick={async()=>{if(window.confirm(`Force logout ${u.fullName||u.username}?`)){await axios.put(`/api/users/${u.id}/force-logout`);alert('User will be logged out on next action')}}} style={{...s.tBtn,background:'#8e44ad'}}>Logout</button>}
@@ -446,54 +438,34 @@ function UserManagement() {
 
       {/* Master OTP Modal */}
       {masterOtpModal && (
-        <div style={s.overlay}><div style={{ ...s.modal, maxWidth: '400px' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px' }}>
-            <h3 style={{ margin:0, fontSize:'15px' }}>🔐 Master User — OTP Verification</h3>
-            <button onClick={() => setMasterOtpModal(null)} style={{ background:'none', border:'none', fontSize:'20px', cursor:'pointer', fontWeight:'700' }}>×</button>
+        <div style={s.overlay}><div style={{...s.modal, maxWidth:'400px'}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px'}}>
+            <h3 style={{margin:0, fontSize:'15px'}}>Master User — OTP Verification</h3>
+            <button onClick={()=>setMasterOtpModal(null)} style={{background:'none',border:'none',fontSize:'20px',cursor:'pointer',fontWeight:'700'}}>X</button>
           </div>
-          <div style={{ background:'#fff3cd', border:'1px solid #f39c12', borderRadius:'6px', padding:'10px 12px', marginBottom:'14px', fontSize:'12px', color:'#856404' }}>
-            ⚠️ Master user ki details edit karne ke liye OTP verification required hai.
-            OTP admin email par bheja jaayega.
+          <div style={{background:'#fff3cd',border:'1px solid #f39c12',borderRadius:'6px',padding:'10px 12px',marginBottom:'14px',fontSize:'12px',color:'#856404'}}>
+            Master user ki details edit karne ke liye OTP verification required hai. OTP admin email par bheja jaayega.
           </div>
-          {masterOtpStep === 'request' && (
-            <>
-              <p style={{ fontSize:'13px', color:'#555', margin:'0 0 14px' }}>
-                Action: <strong>{masterOtpModal.action === 'edit' ? 'Edit Master User' : 'Change Master Password'}</strong>
-              </p>
-              {masterOtpError && <p style={{ color:'#e74c3c', fontSize:'12px', margin:'0 0 10px' }}>{masterOtpError}</p>}
-              <div style={{ display:'flex', gap:'10px', justifyContent:'flex-end' }}>
-                <button onClick={() => setMasterOtpModal(null)} style={s.cBtn}>Cancel</button>
-                <button onClick={handleMasterOtpRequest} disabled={masterOtpLoading} style={s.sBtn}>
-                  {masterOtpLoading ? 'Sending...' : '📧 Send OTP to Email'}
-                </button>
+          {masterOtpStep === 'request' && (<>
+            <p style={{fontSize:'13px',color:'#555',margin:'0 0 14px'}}>Action: <strong>{masterOtpModal.action === 'edit' ? 'Edit Master User' : 'Change Master Password'}</strong></p>
+            {masterOtpError && <p style={{color:'#e74c3c',fontSize:'12px',margin:'0 0 10px'}}>{masterOtpError}</p>}
+            <div style={{display:'flex',gap:'10px',justifyContent:'flex-end'}}>
+              <button onClick={()=>setMasterOtpModal(null)} style={s.cBtn}>Cancel</button>
+              <button onClick={handleMasterOtpRequest} disabled={masterOtpLoading} style={s.sBtn}>{masterOtpLoading ? 'Sending...' : 'Send OTP to Email'}</button>
+            </div>
+          </>)}
+          {masterOtpStep === 'verify' && (<>
+            <p style={{fontSize:'13px',color:'#27ae60',fontWeight:'600',margin:'0 0 10px'}}>OTP sent to admin email. Enter it below:</p>
+            <input value={masterOtpInput} onChange={e=>{setMasterOtpInput(e.target.value);setMasterOtpError('')}} placeholder="Enter 6-digit OTP" maxLength={6} autoFocus style={{...s.i, fontSize:'22px', fontWeight:'700', letterSpacing:'8px', textAlign:'center', marginBottom:'10px'}}/>
+            {masterOtpError && <p style={{color:'#e74c3c',fontSize:'12px',margin:'0 0 10px'}}>{masterOtpError}</p>}
+            <div style={{display:'flex',gap:'10px',justifyContent:'space-between',alignItems:'center'}}>
+              <button onClick={()=>{setMasterOtpStep('request');setMasterOtpInput('');setMasterOtpError('')}} style={{background:'none',border:'none',color:'#2980b9',fontSize:'11px',cursor:'pointer',textDecoration:'underline'}}>Resend OTP</button>
+              <div style={{display:'flex',gap:'10px'}}>
+                <button onClick={()=>setMasterOtpModal(null)} style={s.cBtn}>Cancel</button>
+                <button onClick={handleMasterOtpVerify} disabled={masterOtpLoading} style={s.sBtn}>{masterOtpLoading ? 'Verifying...' : 'Verify & Continue'}</button>
               </div>
-            </>
-          )}
-          {masterOtpStep === 'verify' && (
-            <>
-              <p style={{ fontSize:'13px', color:'#27ae60', fontWeight:'600', margin:'0 0 10px' }}>✅ OTP sent to admin email. Enter it below:</p>
-              <input
-                value={masterOtpInput}
-                onChange={e => { setMasterOtpInput(e.target.value); setMasterOtpError('') }}
-                placeholder="Enter 6-digit OTP"
-                maxLength={6}
-                autoFocus
-                style={{ ...s.i, fontSize:'22px', fontWeight:'700', letterSpacing:'8px', textAlign:'center', marginBottom:'10px' }}
-              />
-              {masterOtpError && <p style={{ color:'#e74c3c', fontSize:'12px', margin:'0 0 10px' }}>{masterOtpError}</p>}
-              <div style={{ display:'flex', gap:'10px', justifyContent:'space-between', alignItems:'center' }}>
-                <button onClick={() => { setMasterOtpStep('request'); setMasterOtpInput(''); setMasterOtpError('') }} style={{ background:'none', border:'none', color:'#2980b9', fontSize:'11px', cursor:'pointer', textDecoration:'underline' }}>
-                  Resend OTP
-                </button>
-                <div style={{ display:'flex', gap:'10px' }}>
-                  <button onClick={() => setMasterOtpModal(null)} style={s.cBtn}>Cancel</button>
-                  <button onClick={handleMasterOtpVerify} disabled={masterOtpLoading} style={s.sBtn}>
-                    {masterOtpLoading ? 'Verifying...' : 'Verify & Continue'}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+            </div>
+          </>)}
         </div></div>
       )}
 
@@ -508,7 +480,7 @@ function UserManagement() {
           <input type="text" value={newPassword} onChange={e=>setNewPassword(e.target.value)} style={{...s.i,marginTop:'10px'}} placeholder="Enter new password"/>
           <div style={{ display:'flex', gap:'10px', justifyContent:'flex-end', marginTop:'12px' }}>
             <button onClick={()=>{setResetPassword(null);setNewPassword('')}} style={s.cBtn}>Cancel</button>
-            <button onClick={async()=>{if(!newPassword||newPassword.length<3){alert('Min 3 chars');return};try{await axios.put('/api/users/'+resetPassword.id+'/password',{newPassword, master_otp_token: resetPassword._masterOtpToken || undefined});alert('Password reset done!');setResetPassword(null);setNewPassword('');fetchUsers()}catch(err){alert('Error: '+(err.response?.data?.error||err.message))}}} style={s.sBtn}>Reset</button>
+            <button onClick={async()=>{if(!newPassword||newPassword.length<3){alert('Min 3 chars');return};try{await axios.put('/api/users/'+resetPassword.id+'/password',{newPassword, master_otp_token: resetPassword._masterOtpToken||undefined});alert('Password reset done!');setResetPassword(null);setNewPassword('');fetchUsers()}catch(err){alert('Error: '+(err.response?.data?.error||err.message))}}} style={s.sBtn}>Reset</button>
           </div>
         </div></div>
       )}
