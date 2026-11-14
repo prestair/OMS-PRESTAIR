@@ -301,64 +301,75 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Invalid credentials' })
     const valid = bcrypt.compareSync(password.toLowerCase(), user.password)
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' })
-    // IP whitelist check — fail-open when table is empty
-    const clientIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
-    // Check if this IP+username is currently locked out
-    // Skip lockout check entirely if IP is already in the authorised list
-    let ipIsAuthorised = false
-    try {
-      const allowedIps = await cachedRead('authorised_ips_guard', TTL_AUTHORISED_IPS, async () => {
-        const { data } = await supabase.from('authorised_ips').select('ip_address')
-        return data || []
-      })
-      const normalised = clientIp.toLowerCase().trim()
-      ipIsAuthorised = allowedIps.length === 0 || allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === normalised)
-    } catch {}
 
-    if (!ipIsAuthorised) {
-    // Only check lockout for IPs that are NOT authorised
-    try {
-      const { data: activeLocks } = await supabase.from('ip_lockouts')
-        .select('id, unlock_code').eq('username', user.username).eq('is_unlocked', false)
-        .order('created_at', { ascending: false }).limit(1)
-      const lock = activeLocks?.[0]
-      if (lock) {
-        const providedCode = (req.body.unlock_code || '').toString().trim()
-        if (providedCode && providedCode === lock.unlock_code) {
-          // Code matches — mark unlocked and add IP to authorised list
-          await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('id', lock.id)
-          // Auto-add current IP to authorised list so future logins work
-          try {
-            const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', clientIp).limit(1)
-            if (!existingIp || existingIp.length === 0) {
-              await supabase.from('authorised_ips').insert({ ip_address: clientIp, label: 'Auto-added via unlock code', created_by: user.username })
-            }
-            cacheDel('authorised_ips_guard')
-          } catch (e) { console.error('auto-add IP failed:', e.message) }
-          // Skip IP whitelist check — unlock code is sufficient proof, login directly
-          req._skipIpCheck = true
-        } else {
-          // Existing lock found but no valid code — send BOTH alert + unlock code on every attempt
-          sendUnauthorisedLoginAlert(clientIp, user.username).catch(() => {})
-          sendLockoutUnlockCode(clientIp, user.username, lock.unlock_code).catch(() => {})
-          return res.status(403).json({ error: 'LOGIN DISABLED ENTER CODE TO ENABLE', locked: true })
+    const clientIp = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
+
+    // master user is always allowed from any IP — skip all IP/lock checks
+    if (user.username.toLowerCase() !== 'master') {
+
+      // -----------------------------------------------------------------------
+      // STEP 1: Check if user has an active manual/IP lock in ip_lockouts
+      // This runs BEFORE the IP whitelist check so manual locks always work
+      // even when the authorised_ips table is empty.
+      // -----------------------------------------------------------------------
+      try {
+        const { data: activeLocks } = await supabase.from('ip_lockouts')
+          .select('id, unlock_code').eq('username', user.username).eq('is_unlocked', false)
+          .order('created_at', { ascending: false }).limit(1)
+        const lock = activeLocks?.[0]
+        if (lock) {
+          const providedCode = (req.body.unlock_code || '').toString().trim()
+          if (providedCode && providedCode === lock.unlock_code) {
+            // Correct code — unlock and add IP to authorised list
+            await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('id', lock.id)
+            try {
+              const { data: existingIp } = await supabase.from('authorised_ips').select('id').eq('ip_address', clientIp).limit(1)
+              if (!existingIp || existingIp.length === 0) {
+                await supabase.from('authorised_ips').insert({ ip_address: clientIp, label: 'Auto-added via unlock code', created_by: user.username })
+              }
+              cacheDel('authorised_ips_guard')
+            } catch (e) { console.error('auto-add IP failed:', e.message) }
+            // Fall through to login — lock is cleared
+          } else {
+            // Wrong/no code — send BOTH mails and block login
+            // Use Promise.allSettled so both emails are awaited before responding
+            // (avoids Vercel serverless killing the process before emails send)
+            await Promise.allSettled([
+              sendUnauthorisedLoginAlert(clientIp, user.username),
+              sendLockoutUnlockCode(clientIp, user.username, lock.unlock_code)
+            ])
+            return res.status(403).json({ error: 'LOGIN DISABLED ENTER CODE TO ENABLE', locked: true })
+          }
         }
-      }
-    } catch (lockCheckErr) { console.error('lockout check failed:', lockCheckErr.message) }
-    } // end of !ipIsAuthorised block
-    // IP whitelist check — reuse ipIsAuthorised computed above
-    if (!ipIsAuthorised && !req._skipIpCheck) {
-      if (user.username.toLowerCase() !== 'master') {
-        // No active lock exists yet — generate new code, insert lock, send both mails
+      } catch (lockCheckErr) { console.error('lockout check failed:', lockCheckErr.message) }
+
+      // -----------------------------------------------------------------------
+      // STEP 2: IP whitelist check — only if no active lock was found above
+      // -----------------------------------------------------------------------
+      let ipIsAuthorised = false
+      try {
+        const allowedIps = await cachedRead('authorised_ips_guard', TTL_AUTHORISED_IPS, async () => {
+          const { data } = await supabase.from('authorised_ips').select('ip_address')
+          return data || []
+        })
+        // fail-open ONLY when table is completely empty (no IPs configured yet)
+        // Once even one IP is added, every other IP must be explicitly authorised
+        ipIsAuthorised = allowedIps.length === 0 || allowedIps.some(r => (r.ip_address || '').toLowerCase().trim() === clientIp.toLowerCase().trim())
+      } catch {}
+
+      if (!ipIsAuthorised) {
+        // New unauthorised IP — generate lock + send both mails, await so Vercel doesn't kill early
         const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
         try {
           await supabase.from('ip_lockouts').insert({ ip_address: clientIp, username: user.username, unlock_code: unlockCode })
         } catch (lockErr) { console.error('ip_lockouts insert failed:', lockErr.message) }
-        sendUnauthorisedLoginAlert(clientIp, user.username).catch(() => {})
-        sendLockoutUnlockCode(clientIp, user.username, unlockCode).catch(() => {})
+        await Promise.allSettled([
+          sendUnauthorisedLoginAlert(clientIp, user.username),
+          sendLockoutUnlockCode(clientIp, user.username, unlockCode)
+        ])
         return res.status(403).json({ error: 'Login not allowed from this IP address.', locked: true })
       }
-    }
+    } // end of non-master block
     const token = generateToken({ id: user.id, username: user.username, role: user.role })
     // Log this login (fire-and-forget, never block the response)
     const ip = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim()
