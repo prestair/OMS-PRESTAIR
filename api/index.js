@@ -854,4 +854,40 @@ app.delete('/api/authorised-ips/:id', authenticate, adminOnly, async (req, res) 
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// ---------------------------------------------------------------------------
+// Locked Users — admin can view all active locks and unlock directly
+// ---------------------------------------------------------------------------
+app.get('/api/locked-users', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('ip_lockouts')
+      .select('id, username, ip_address, unlock_code, created_at')
+      .eq('is_unlocked', false)
+      .order('created_at', { ascending: false })
+    if (error) return res.status(400).json({ error: error.message })
+    res.json(data || [])
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/api/locked-users/:id/unlock', authenticate, adminOnly, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    // Get the lock record first
+    const { data: lockRows } = await supabase.from('ip_lockouts').select('username, ip_address').eq('id', id).limit(1)
+    const lock = lockRows?.[0]
+    if (!lock) return res.status(404).json({ error: 'Lock not found' })
+    // Mark ALL active locks for this username as unlocked
+    await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('username', lock.username).eq('is_unlocked', false)
+    // Auto-add IP to authorised list
+    try {
+      const { data: existing } = await supabase.from('authorised_ips').select('id').eq('ip_address', lock.ip_address).limit(1)
+      if (!existing || existing.length === 0) {
+        await supabase.from('authorised_ips').insert({ ip_address: lock.ip_address, label: `Auto-unlocked by admin for ${lock.username}`, created_by: req.user.username })
+      }
+      cacheDel('authorised_ips_guard', 'authorised_ips_admin')
+    } catch {}
+    res.json({ success: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 module.exports = app

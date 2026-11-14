@@ -47,6 +47,11 @@ function UserManagement() {
   const [authorisedIPMap, setAuthorisedIPMap] = useState({}) // { [ip_address]: label }
   const [expandedGroups, setExpandedGroups] = useState(new Set())
   const [expandTick, setExpandTick] = useState(0) // dummy counter to force re-render on Set mutation
+  // Locked Users
+  const [showLockedUsers, setShowLockedUsers] = useState(false)
+  const [lockedUsers, setLockedUsers] = useState([])
+  const [lockedLoading, setLockedLoading] = useState(false)
+  const [unlockingId, setUnlockingId] = useState(null)
 
   useEffect(() => { fetchUsers(); fetchGroups(); fetchSalesReps(); fetchFollowUpAgents() }, [])
   const fetchUsers = async () => { try { setUsers((await axios.get('/api/users')).data) } catch {} }
@@ -63,6 +68,27 @@ function UserManagement() {
       setLoginLogs(res.data)
     } catch {}
     setLogsLoading(false)
+  }
+
+  const fetchLockedUsers = async () => {
+    setLockedLoading(true)
+    try {
+      const res = await axios.get('/api/locked-users')
+      setLockedUsers(res.data || [])
+    } catch {}
+    setLockedLoading(false)
+  }
+
+  const handleUnlockUser = async (lock) => {
+    if (!window.confirm(`Unlock ${lock.username} and add IP ${lock.ip_address} to Authorised IPs?`)) return
+    setUnlockingId(lock.id)
+    try {
+      await axios.post(`/api/locked-users/${lock.id}/unlock`)
+      await fetchLockedUsers()
+    } catch (err) {
+      alert(err.response?.data?.error || 'Unlock failed')
+    }
+    setUnlockingId(null)
   }
 
   const addSalesRep = async () => {
@@ -237,6 +263,7 @@ function UserManagement() {
           <button onClick={() => { setNewRepName(''); setRepError(''); setShowRepForm(true) }} style={{ ...s.addBtn, background:'#16a085' }}>Manage Sales Reps</button>
           <button onClick={() => { setNewFuName(''); setFuError(''); setShowFollowUpForm(true) }} style={{...s.addBtn, background:'#8e44ad'}}>Manage Follow Up</button>
           <button onClick={() => { setLogUserFilter(''); setShowLoginActivity(true); fetchLoginLogs(''); axios.get('/api/authorised-ips').then(r => { const map = {}; (r.data || []).forEach(entry => { if (entry.label) map[entry.ip_address] = entry.label }); setAuthorisedIPMap(map) }).catch(() => {}) }} style={{ ...s.addBtn, background:'#c0392b' }}>Login Activity</button>
+          <button onClick={() => { setShowLockedUsers(true); fetchLockedUsers() }} style={{ ...s.addBtn, background:'#e67e22' }}>🔒 Locked Users</button>
           <input value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search by Full Name..." style={{padding:'7px 12px',border:'1px solid #ddd',borderRadius:'5px',fontSize:'12px',flex:'1',maxWidth:'250px'}}/>
         </div>
 
@@ -505,6 +532,81 @@ function UserManagement() {
             ))}
           </div>
         </div></div>
+      )}
+
+      {/* Locked Users Modal */}
+      {showLockedUsers && (
+        <div style={s.overlay}>
+          <div style={{ ...s.modal, maxWidth: '600px', width: '95vw' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div>
+                <span style={{ fontSize: '16px', fontWeight: '700' }}>🔒 Locked Users</span>
+                <span style={{ marginLeft: '10px', fontSize: '11px', color: '#888' }}>Users locked due to unauthorised IP</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button onClick={fetchLockedUsers} style={{ padding: '5px 12px', background: '#2980b9', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>↻ Refresh</button>
+                <button onClick={() => setShowLockedUsers(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', fontWeight: '700', lineHeight: 1 }}>×</button>
+              </div>
+            </div>
+
+            {lockedLoading ? (
+              <p style={{ textAlign: 'center', color: '#888', padding: '30px' }}>Loading...</p>
+            ) : lockedUsers.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: '#27ae60' }}>
+                <div style={{ fontSize: '36px', marginBottom: '8px' }}>✅</div>
+                <p style={{ margin: 0, fontWeight: '600', fontSize: '14px' }}>No locked users</p>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>All users can log in normally</p>
+              </div>
+            ) : (
+              <div style={{ border: '1px solid #e0e0e0', borderRadius: '6px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ background: '#1a1a2e', color: '#fff' }}>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '600' }}>#</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '600' }}>Username</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '600' }}>IP Address</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '600' }}>Unlock Code</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: '600' }}>Locked At</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'center', fontWeight: '600' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lockedUsers.map((lock, i) => {
+                      const dt = lock.created_at ? new Date(lock.created_at) : null
+                      const timeStr = dt ? dt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : '-'
+                      return (
+                        <tr key={lock.id} style={{ background: i % 2 ? '#f8f9fa' : '#fff', borderTop: '1px solid #e0e0e0' }}>
+                          <td style={{ padding: '8px 12px', color: '#888' }}>{i + 1}</td>
+                          <td style={{ padding: '8px 12px', fontWeight: '700', color: '#c0392b' }}>{lock.username}</td>
+                          <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: '11px' }}>{lock.ip_address}</td>
+                          <td style={{ padding: '8px 12px' }}>
+                            <span style={{ background: '#fff3cd', border: '1px solid #f39c12', borderRadius: '4px', padding: '2px 8px', fontWeight: '800', fontSize: '14px', letterSpacing: '3px', color: '#1a1a2e' }}>
+                              {lock.unlock_code}
+                            </span>
+                          </td>
+                          <td style={{ padding: '8px 12px', fontSize: '11px', color: '#666' }}>{timeStr}</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                            <button
+                              onClick={() => handleUnlockUser(lock)}
+                              disabled={unlockingId === lock.id}
+                              style={{ padding: '5px 14px', background: unlockingId === lock.id ? '#95a5a6' : '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '700', cursor: unlockingId === lock.id ? 'not-allowed' : 'pointer' }}
+                            >
+                              {unlockingId === lock.id ? '...' : '🔓 Unlock'}
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <p style={{ margin: '12px 0 0', fontSize: '11px', color: '#888' }}>
+              ℹ️ Unlock karne par user ka IP automatically Authorised IPs list mein add ho jaayega.
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Login Activity */}
