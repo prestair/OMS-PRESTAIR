@@ -338,7 +338,8 @@ app.post('/api/auth/login', async (req, res) => {
           // Skip IP whitelist check — unlock code is sufficient proof, login directly
           req._skipIpCheck = true
         } else {
-          // Existing lock found but no valid code — resend the existing unlock code as a reminder
+          // Existing lock found but no valid code — send BOTH alert + unlock code on every attempt
+          sendUnauthorisedLoginAlert(clientIp, user.username).catch(() => {})
           sendLockoutUnlockCode(clientIp, user.username, lock.unlock_code).catch(() => {})
           return res.status(403).json({ error: 'LOGIN DISABLED ENTER CODE TO ENABLE', locked: true })
         }
@@ -348,23 +349,13 @@ app.post('/api/auth/login', async (req, res) => {
     // IP whitelist check — reuse ipIsAuthorised computed above
     if (!ipIsAuthorised && !req._skipIpCheck) {
       if (user.username.toLowerCase() !== 'master') {
-        // Check if there's already an active lock for this user — if yes, don't generate a new code
-        let existingActiveLock = null
+        // No active lock exists yet — generate new code, insert lock, send both mails
+        const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
         try {
-          const { data: existingLocks } = await supabase.from('ip_lockouts')
-            .select('id').eq('username', user.username).eq('is_unlocked', false)
-            .order('created_at', { ascending: false }).limit(1)
-          existingActiveLock = existingLocks?.[0] || null
-        } catch {}
-        if (!existingActiveLock) {
-          const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
-          try {
-            await supabase.from('ip_lockouts').insert({ ip_address: clientIp, username: user.username, unlock_code: unlockCode })
-          } catch (lockErr) { console.error('ip_lockouts insert failed:', lockErr.message) }
-          // Send both alert + unlock code emails (fire-and-forget, never block response)
-          sendUnauthorisedLoginAlert(clientIp, user.username).catch(() => {})
-          sendLockoutUnlockCode(clientIp, user.username, unlockCode).catch(() => {})
-        }
+          await supabase.from('ip_lockouts').insert({ ip_address: clientIp, username: user.username, unlock_code: unlockCode })
+        } catch (lockErr) { console.error('ip_lockouts insert failed:', lockErr.message) }
+        sendUnauthorisedLoginAlert(clientIp, user.username).catch(() => {})
+        sendLockoutUnlockCode(clientIp, user.username, unlockCode).catch(() => {})
         return res.status(403).json({ error: 'Login not allowed from this IP address.', locked: true })
       }
     }
