@@ -890,4 +890,50 @@ app.post('/api/locked-users/:id/unlock', authenticate, adminOnly, async (req, re
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// Unlock a user by username directly (admin action from User Management)
+app.post('/api/users/:id/unlock', authenticate, adminOnly, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id)
+    const { data: userRows } = await supabase.from('users').select('username').eq('id', userId).limit(1)
+    const targetUser = userRows?.[0]
+    if (!targetUser) return res.status(404).json({ error: 'User not found' })
+    await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('username', targetUser.username).eq('is_unlocked', false)
+    res.json({ success: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// Manually lock a user by username (admin action from User Management)
+// Inserts a synthetic lockout row with no specific IP — user will see LOCKED screen on next login
+app.post('/api/users/:id/lock', authenticate, adminOnly, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id)
+    const { data: userRows } = await supabase.from('users').select('username').eq('id', userId).limit(1)
+    const targetUser = userRows?.[0]
+    if (!targetUser) return res.status(404).json({ error: 'User not found' })
+    // Clear any existing active locks first to avoid duplicates
+    await supabase.from('ip_lockouts').update({ is_unlocked: true }).eq('username', targetUser.username).eq('is_unlocked', false)
+    // Insert new lock with generated unlock code
+    const unlockCode = String(Math.floor(100000 + Math.random() * 900000))
+    await supabase.from('ip_lockouts').insert({
+      ip_address: 'manual-lock',
+      username: targetUser.username,
+      unlock_code: unlockCode
+    })
+    res.json({ success: true, unlock_code: unlockCode })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// Get locked status for all users (returns set of locked usernames)
+app.get('/api/users/locked-status', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('ip_lockouts')
+      .select('username')
+      .eq('is_unlocked', false)
+    if (error) return res.status(400).json({ error: error.message })
+    const lockedUsernames = [...new Set((data || []).map(r => r.username))]
+    res.json(lockedUsernames)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 module.exports = app

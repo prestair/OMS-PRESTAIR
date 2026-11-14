@@ -52,12 +52,16 @@ function UserManagement() {
   const [lockedUsers, setLockedUsers] = useState([])
   const [lockedLoading, setLockedLoading] = useState(false)
   const [unlockingId, setUnlockingId] = useState(null)
+  // Per-user lock status in the users table (Set of locked usernames)
+  const [lockedUsernames, setLockedUsernames] = useState(new Set())
+  const [lockActionUser, setLockActionUser] = useState(null) // userId being locked/unlocked
 
-  useEffect(() => { fetchUsers(); fetchGroups(); fetchSalesReps(); fetchFollowUpAgents() }, [])
+  useEffect(() => { fetchUsers(); fetchGroups(); fetchSalesReps(); fetchFollowUpAgents(); fetchLockedStatus() }, [])
   const fetchUsers = async () => { try { setUsers((await axios.get('/api/users')).data) } catch {} }
   const fetchGroups = async () => { try { setGroups((await axios.get('/api/users/groups')).data) } catch {} }
   const fetchSalesReps = async () => { try { setSalesReps((await axios.get('/api/sales-reps?all=1')).data) } catch {} }
   const fetchFollowUpAgents = async () => { try { setFollowUpAgents((await axios.get('/api/follow-up-agents?all=1')).data) } catch {} }
+  const fetchLockedStatus = async () => { try { const res = await axios.get('/api/users/locked-status'); setLockedUsernames(new Set(res.data || [])) } catch {} }
 
   const fetchLoginLogs = async (username) => {
     setLogsLoading(true)
@@ -85,10 +89,34 @@ function UserManagement() {
     try {
       await axios.post(`/api/locked-users/${lock.id}/unlock`)
       await fetchLockedUsers()
+      await fetchLockedStatus()
     } catch (err) {
       alert(err.response?.data?.error || 'Unlock failed')
     }
     setUnlockingId(null)
+  }
+
+  const handleToggleLock = async (u) => {
+    const isLocked = lockedUsernames.has(u.username)
+    if (isLocked) {
+      if (!window.confirm(`Unlock ${u.fullName || u.username}? They will be able to login normally.`)) return
+      setLockActionUser(u.id)
+      try {
+        await axios.post(`/api/users/${u.id}/unlock`)
+        await fetchLockedStatus()
+        await fetchLockedUsers()
+      } catch (err) { alert(err.response?.data?.error || 'Unlock failed') }
+    } else {
+      if (!window.confirm(`Lock ${u.fullName || u.username}? They will not be able to login until unlocked.`)) return
+      setLockActionUser(u.id)
+      try {
+        const res = await axios.post(`/api/users/${u.id}/lock`)
+        await fetchLockedStatus()
+        await fetchLockedUsers()
+        alert(`${u.fullName || u.username} locked.\nUnlock Code: ${res.data.unlock_code}`)
+      } catch (err) { alert(err.response?.data?.error || 'Lock failed') }
+    }
+    setLockActionUser(null)
   }
 
   const addSalesRep = async () => {
@@ -280,6 +308,21 @@ function UserManagement() {
                 <button onClick={() => setResetPassword(u)} style={{...s.tBtn,background:'#f39c12'}}>Pass</button>
                 {u.id!==user.id && <button onClick={async()=>{if(window.confirm('Delete?')){await axios.delete(`/api/users/${u.id}`);fetchUsers()}}} style={{...s.tBtn,background:'#e74c3c'}}>Del</button>}
                 {u.id!==user.id && <button onClick={async()=>{if(window.confirm(`Force logout ${u.fullName||u.username}?`)){await axios.put(`/api/users/${u.id}/force-logout`);alert('User will be logged out on next action')}}} style={{...s.tBtn,background:'#8e44ad'}}>Logout</button>}
+                {u.id!==user.id && (
+                  (() => {
+                    const isLocked = lockedUsernames.has(u.username)
+                    return (
+                      <button
+                        onClick={() => handleToggleLock(u)}
+                        disabled={lockActionUser === u.id}
+                        title={isLocked ? 'User is locked — click to unlock' : 'Click to lock this user'}
+                        style={{...s.tBtn, background: isLocked ? '#27ae60' : '#e67e22', minWidth:'52px'}}
+                      >
+                        {lockActionUser === u.id ? '...' : isLocked ? '🔓 Unlock' : '🔒 Lock'}
+                      </button>
+                    )
+                  })()
+                )}
               </td>
             </tr>
           ))}
