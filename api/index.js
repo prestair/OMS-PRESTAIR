@@ -604,10 +604,10 @@ app.delete('/api/follow-up-agents/:id', authenticate, adminOnly, async (req, res
 // USERS
 app.get('/api/users/list', authenticate, async (req, res) => { try { const cached=cacheGet('users_list'); if(cached) return res.json(cached); const { data } = await supabase.from('users').select('id, username, full_name, role'); const result=(data||[]).map(u=>({id:u.id,username:u.username,fullName:u.full_name,full_name:u.full_name,role:u.role})); cacheSet('users_list',result,TTL_USERS_LIST); res.json(result) } catch (e) { res.status(500).json({ error: e.message }) } })
 app.get('/api/users/groups', authenticate, async (req, res) => { try { const { data } = await supabase.from('groups').select('*'); res.json(data || []) } catch (e) { res.status(500).json({ error: e.message }) } })
-app.get('/api/users', authenticate, adminOnly, async (req, res) => { try { const { data } = await supabase.from('users').select('id,username,full_name,role,user_group,column_permissions,can_edit,can_receipt,can_assign_reminder,can_delete,can_create_quote,can_color,can_complaints,can_edit_completed,can_edit_daily,can_edit_receipt,can_bulk_action,plain_password'); res.json((data||[]).map(u=>({...u,fullName:u.full_name,group:u.user_group,columnPermissions:u.column_permissions,canEdit:u.can_edit,canReceipt:u.can_receipt,canAssignReminder:u.can_assign_reminder,canDelete:u.can_delete,canCreateQuote:u.can_create_quote,canColor:u.can_color,canComplaints:u.can_complaints,canEditCompleted:u.can_edit_completed,canEditDaily:u.can_edit_daily,canEditReceipt:u.can_edit_receipt,canBulkAction:u.can_bulk_action,plainPassword:u.plain_password}))) } catch(e){res.status(500).json({error:e.message})} })
+app.get('/api/users', authenticate, adminOnly, async (req, res) => { try { const { data } = await supabase.from('users').select('id,username,full_name,role,user_group,column_permissions,can_edit,can_receipt,can_assign_reminder,can_delete,can_create_quote,can_color,can_complaints,can_edit_completed,can_edit_daily,can_edit_receipt,can_bulk_action,plain_password'); res.json((data||[]).map(u=>{const isMaster=u.username?.toLowerCase()==='master'; return {...u,fullName:u.full_name,group:u.user_group,columnPermissions:u.column_permissions,canEdit:u.can_edit,canReceipt:u.can_receipt,canAssignReminder:u.can_assign_reminder,canDelete:u.can_delete,canCreateQuote:u.can_create_quote,canColor:u.can_color,canComplaints:u.can_complaints,canEditCompleted:u.can_edit_completed,canEditDaily:u.can_edit_daily,canEditReceipt:u.can_edit_receipt,canBulkAction:u.can_bulk_action, // master user: mask sensitive fields plainPassword:isMaster?'••••••':u.plain_password, username:isMaster?'master':u.username, full_name:isMaster?'Master User':u.full_name, fullName:isMaster?'Master User':u.full_name, isMaster}})) } catch(e){res.status(500).json({error:e.message})} })
 app.post('/api/users', authenticate, adminOnly, async (req, res) => { try { const {username,password,fullName,role,group,columnPermissions,canEdit,canReceipt,canAssignReminder,canDelete,canCreateQuote}=req.body; const{data,error}=await supabase.from('users').insert({username,password:bcrypt.hashSync(password.toLowerCase(),10),plain_password:password.toLowerCase(),full_name:fullName,role:role||'user',user_group:group||'',column_permissions:columnPermissions||{},can_edit:canEdit||false,can_receipt:canReceipt||false,can_assign_reminder:canAssignReminder||false,can_delete:canDelete||false,can_create_quote:canCreateQuote||false,can_color:req.body.canColor||false,can_complaints:req.body.canComplaints||false,can_edit_completed:req.body.canEditCompleted||false,can_edit_daily:req.body.canEditDaily||false,can_edit_receipt:req.body.canEditReceipt||false,can_bulk_action:req.body.canBulkAction||false}).select(); if(error)return res.status(400).json({error:error.message}); cacheDel('users_list'); res.json(data[0]) } catch(e){res.status(500).json({error:e.message})} })
-app.put('/api/users/:id', authenticate, adminOnly, async (req, res) => { try { const{fullName,role,group,columnPermissions,canEdit,canReceipt,canAssignReminder,canDelete,canCreateQuote}=req.body; await supabase.from('users').update({full_name:fullName,role,user_group:group||'',column_permissions:columnPermissions||{},can_edit:canEdit||false,can_receipt:canReceipt||false,can_assign_reminder:canAssignReminder||false,can_delete:canDelete||false,can_create_quote:canCreateQuote||false,can_color:req.body.canColor||false,can_complaints:req.body.canComplaints||false,can_edit_completed:req.body.canEditCompleted||false,can_edit_daily:req.body.canEditDaily||false,can_edit_receipt:req.body.canEditReceipt||false,can_bulk_action:req.body.canBulkAction||false}).eq('id',parseInt(req.params.id)); cacheDel('users_list'); res.json({message:'Updated'}) } catch(e){res.status(500).json({error:e.message})} })
-app.put('/api/users/:id/password', authenticate, adminOnly, async (req, res) => { try { const{newPassword}=req.body; await supabase.from('users').update({password:bcrypt.hashSync(newPassword.toLowerCase(),10),plain_password:newPassword.toLowerCase()}).eq('id',parseInt(req.params.id)); res.json({message:'Password reset'}) } catch(e){res.status(500).json({error:e.message})} })
+app.put('/api/users/:id', authenticate, adminOnly, async (req, res) => { try { const{fullName,role,group,columnPermissions,canEdit,canReceipt,canAssignReminder,canDelete,canCreateQuote,master_otp_token}=req.body; // Protect master user — require verified OTP token const{data:targetRows}=await supabase.from('users').select('username').eq('id',parseInt(req.params.id)).limit(1); const targetUser=targetRows?.[0]; if(targetUser?.username?.toLowerCase()==='master'){if(!master_otp_token)return res.status(403).json({error:'OTP verification required to edit master user',requiresOtp:true});try{const dec=require('jsonwebtoken').verify(master_otp_token,process.env.JWT_SECRET);if(dec.type!=='master_otp_verified')return res.status(403).json({error:'Invalid OTP token'});}catch(e){return res.status(403).json({error:'OTP token expired or invalid'});}} await supabase.from('users').update({full_name:fullName,role,user_group:group||'',column_permissions:columnPermissions||{},can_edit:canEdit||false,can_receipt:canReceipt||false,can_assign_reminder:canAssignReminder||false,can_delete:canDelete||false,can_create_quote:canCreateQuote||false,can_color:req.body.canColor||false,can_complaints:req.body.canComplaints||false,can_edit_completed:req.body.canEditCompleted||false,can_edit_daily:req.body.canEditDaily||false,can_edit_receipt:req.body.canEditReceipt||false,can_bulk_action:req.body.canBulkAction||false}).eq('id',parseInt(req.params.id)); cacheDel('users_list'); res.json({message:'Updated'}) } catch(e){res.status(500).json({error:e.message})} })
+app.put('/api/users/:id/password', authenticate, adminOnly, async (req, res) => { try { const{newPassword,master_otp_token}=req.body; // Protect master user — require verified OTP token const{data:targetRows}=await supabase.from('users').select('username').eq('id',parseInt(req.params.id)).limit(1); const targetUser=targetRows?.[0]; if(targetUser?.username?.toLowerCase()==='master'){if(!master_otp_token)return res.status(403).json({error:'OTP verification required to change master password',requiresOtp:true});try{const dec=require('jsonwebtoken').verify(master_otp_token,process.env.JWT_SECRET);if(dec.type!=='master_otp_verified')return res.status(403).json({error:'Invalid OTP token'});}catch(e){return res.status(403).json({error:'OTP token expired or invalid'});}} await supabase.from('users').update({password:bcrypt.hashSync(newPassword.toLowerCase(),10),plain_password:newPassword.toLowerCase()}).eq('id',parseInt(req.params.id)); res.json({message:'Password reset'}) } catch(e){res.status(500).json({error:e.message})} })
 app.delete('/api/users/:id', authenticate, adminOnly, async (req, res) => { try { if(parseInt(req.params.id)===req.user.id)return res.status(400).json({error:'Cannot delete yourself'}); await supabase.from('users').delete().eq('id',parseInt(req.params.id)); cacheDel('users_list'); res.json({message:'User deleted'}) } catch(e){res.status(500).json({error:e.message})} })
 app.put('/api/users/:id/force-logout', authenticate, adminOnly, async (req, res) => { try { await supabase.from('users').update({force_logout_at:new Date().toISOString()}).eq('id',parseInt(req.params.id)); delete forceLogoutCache[parseInt(req.params.id)]; res.json({message:'User forced to logout'}) } catch(e){res.status(500).json({error:e.message})} })
 app.get('/api/users/login-logs', authenticate, adminOnly, async (req, res) => { try { const limit = parseInt(req.query.limit) || 500; const username = req.query.username || null; let q = supabase.from('login_logs').select('*').order('logged_in_at', { ascending: false }).limit(limit); if (username) q = q.eq('username', username); const { data, error } = await q; if (error) return res.status(400).json({ error: error.message }); res.json(data || []) } catch(e){res.status(500).json({error:e.message})} })
@@ -935,6 +935,65 @@ app.get('/api/users/locked-status', authenticate, adminOnly, async (req, res) =>
     if (error) return res.status(400).json({ error: error.message })
     const lockedUsernames = [...new Set((data || []).map(r => r.username))]
     res.json(lockedUsernames)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// ---------------------------------------------------------------------------
+// Master user OTP — required before editing/changing password of master user
+// OTP is sent to REPORT_RECEIVER (admin email) and valid for 10 minutes.
+// ---------------------------------------------------------------------------
+app.post('/api/master-otp/request', authenticate, adminOnly, async (req, res) => {
+  try {
+    const GMAIL_USER = process.env.GMAIL_USER
+    const RECEIVER = process.env.REPORT_RECEIVER || 'agm.prestairsystem@gmail.com'
+    if (!GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return res.status(500).json({ error: 'Email not configured' })
+    const otp = String(Math.floor(100000 + Math.random() * 900000))
+    // Sign OTP in a JWT valid 10 min — no DB needed
+    const otpToken = require('jsonwebtoken').sign(
+      { type: 'master_otp_pending', otp, requestedBy: req.user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '10m' }
+    )
+    const timeIST = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+    const transporter = require('nodemailer').createTransport({ service: 'gmail', auth: { user: GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD }, connectionTimeout: 5000, greetingTimeout: 5000, socketTimeout: 10000 })
+    await transporter.sendMail({
+      from: `"Prestair Security" <${GMAIL_USER}>`,
+      to: RECEIVER,
+      subject: `🔐 Master User Edit OTP — OMS Dashboard`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+  <h2 style="color:#1a1a2e;margin-top:0">🔐 Master User Edit OTP</h2>
+  <p style="color:#555;font-size:13px">An attempt to edit the <strong>master user</strong> was made by <strong>${req.user.username}</strong>. Use the OTP below to authorize this action.</p>
+  <table style="width:100%;border-collapse:collapse;margin-top:8px">
+    <tr style="background:#f8f8f8"><td style="padding:8px 12px;font-weight:600;width:140px">Requested By</td><td style="padding:8px 12px">${req.user.username}</td></tr>
+    <tr><td style="padding:8px 12px;font-weight:600">Time (IST)</td><td style="padding:8px 12px">${timeIST}</td></tr>
+  </table>
+  <div style="margin-top:20px;padding:16px 20px;background:#e8f0fe;border:2px solid #1a73e8;border-radius:8px;text-align:center">
+    <p style="margin:0 0 8px;font-size:13px;color:#1a1a2e;font-weight:600">ONE-TIME PASSWORD</p>
+    <p style="margin:0;font-size:40px;font-weight:900;letter-spacing:10px;color:#1a73e8">${otp}</p>
+  </div>
+  <p style="margin-top:16px;color:#e74c3c;font-size:12px;font-weight:600">⚠️ Valid for 10 minutes only. If you did not request this, ignore it.</p>
+</div>`
+    })
+    res.json({ success: true, otp_token: otpToken })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/api/master-otp/verify', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { otp, otp_token } = req.body
+    if (!otp || !otp_token) return res.status(400).json({ error: 'otp and otp_token required' })
+    let decoded
+    try { decoded = require('jsonwebtoken').verify(otp_token, process.env.JWT_SECRET) }
+    catch (e) { return res.status(401).json({ error: 'OTP expired. Please request a new one.' }) }
+    if (decoded.type !== 'master_otp_pending') return res.status(401).json({ error: 'Invalid OTP token' })
+    if (String(otp).trim() !== String(decoded.otp)) return res.status(401).json({ error: 'Invalid OTP. Please try again.' })
+    // Issue a verified token valid 15 min — frontend sends this with the actual edit request
+    const verifiedToken = require('jsonwebtoken').sign(
+      { type: 'master_otp_verified', verifiedBy: req.user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    )
+    res.json({ success: true, master_otp_token: verifiedToken })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
