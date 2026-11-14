@@ -444,7 +444,7 @@ function UserManagement() {
             <button onClick={()=>setMasterOtpModal(null)} style={{background:'none',border:'none',fontSize:'20px',cursor:'pointer',fontWeight:'700'}}>X</button>
           </div>
           <div style={{background:'#fff3cd',border:'1px solid #f39c12',borderRadius:'6px',padding:'10px 12px',marginBottom:'14px',fontSize:'12px',color:'#856404'}}>
-            Master user ki details edit karne ke liye OTP verification required hai. OTP admin email par bheja jaayega.
+            OTP verification is required to edit the Master User. A one-time password will be sent to the administrator email.
           </div>
           {masterOtpStep === 'request' && (<>
             <p style={{fontSize:'13px',color:'#555',margin:'0 0 14px'}}>Action: <strong>{masterOtpModal.action === 'edit' ? 'Edit Master User' : 'Change Master Password'}</strong></p>
