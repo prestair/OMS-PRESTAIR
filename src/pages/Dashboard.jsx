@@ -2345,7 +2345,10 @@ function Dashboard() {
         try { await axios.put(`/api/orders/${order.id}`, { salesPerson: newVal }); fetchOrders() }
         catch { alert('Failed to save Sales Person') }
       }
-      return <select value={val || ''} onClick={e => e.stopPropagation()} onChange={save}
+      // Normalise stored value to match option casing (YES→Yes, NO→No, N/A→N/A)
+      const spNormMap = { 'yes': 'Yes', 'no': 'No', 'n/a': 'N/A' }
+      const spNormVal = spNormMap[(val || '').toLowerCase()] || val || ''
+      return <select value={spNormVal} onClick={e => e.stopPropagation()} onChange={save}
         style={{ width: '100%', border: '1px solid #ddd', borderRadius: '3px', padding: '3px 5px', fontSize: '11px', boxSizing: 'border-box', textAlign: 'center' }}>
         <option value=""></option>
         <option value="Yes">Yes</option>
