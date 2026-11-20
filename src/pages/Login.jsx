@@ -129,14 +129,17 @@ function Login() {
     setOtpError('')
     try {
       const res = await axios.post('/api/auth/admin-ip-otp-verify', { username, otp: otpInput.trim(), otp_token: otpToken })
+      if (!res.data || !res.data.token) {
+        setOtpError('Incorrect OTP - Please try again')
+        return
+      }
       setSessionFromToken(res.data.token, res.data.user)
       if (gpsRef.current) axios.post('/api/auth/log-location', { lat: gpsRef.current.lat, lon: gpsRef.current.lon, accuracy: gpsRef.current.accuracy, logId: res.data.locationLogId }).catch(() => {})
       try { const vr = await axios.get('/api/app-version'); if (vr?.data?.version != null) localStorage.setItem('oms_app_version', String(vr.data.version)) } catch {}
       try { localStorage.setItem('oms_build', __APP_BUILD__) } catch {}
-      // Hard refresh so all cached state is cleared and dashboard loads fresh
-      window.location.href = '/dashboard'
+      navigate('/dashboard')
     } catch (err) {
-      setOtpError(err.response?.data?.error || 'Invalid OTP')
+      setOtpError(err.response?.data?.error || 'Incorrect OTP - Please try again')
     } finally {
       setOtpLoading(false)
     }

@@ -428,10 +428,16 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
       return res.status(401).json({ error: 'Invalid OTP token. Please start login again.' })
     }
 
+    // Fetch the user first (case-insensitive, same as login) so the OTP row lookup
+    // uses the exact DB-stored username (avoids case mismatch breaking the lookup).
+    const { data: users } = await supabase.from('users').select('*').ilike('username', username)
+    const user = users?.[0]
+    if (!user) return res.status(401).json({ error: 'User not found' })
+
     // Look up the latest unused, non-expired OTP for this user.
     const { data: rows } = await supabase.from('admin_otps')
       .select('id, otp, expires_at, attempts, used')
-      .eq('username', username).eq('used', false)
+      .eq('username', user.username).eq('used', false)
       .order('created_at', { ascending: false }).limit(1)
     const row = rows?.[0]
     if (!row) return res.status(401).json({ error: 'No valid OTP found. Please start login again.' })
@@ -447,17 +453,13 @@ app.post('/api/auth/admin-ip-otp-verify', async (req, res) => {
         return res.status(401).json({ error: 'Too many wrong attempts. Please start login again.' })
       }
       await supabase.from('admin_otps').update({ attempts }).eq('id', row.id)
-      return res.status(401).json({ error: 'Invalid OTP. Please try again.' })
+      return res.status(401).json({ error: 'Incorrect OTP - Please try again' })
     }
 
     // OTP correct — consume it so it can't be reused.
     await supabase.from('admin_otps').update({ used: true }).eq('id', row.id)
 
-    // Fetch the user and issue a one-time login (IP is NOT whitelisted).
-    const { data: users } = await supabase.from('users').select('*').ilike('username', username)
-    const user = users?.[0]
-    if (!user) return res.status(401).json({ error: 'User not found' })
-
+    // Issue a one-time login (IP is NOT whitelisted). `user` was fetched above.
     const token = generateToken({ id: user.id, username: user.username, role: user.role })
 
     // Log this login (same as /api/auth/login) so location tracking works.
