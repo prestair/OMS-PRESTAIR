@@ -90,7 +90,7 @@ function Login() {
   }
 
   const handleUnlockSubmit = async (e) => {
-    e.preventDefault()
+    if (e && e.preventDefault) e.preventDefault()
     if (!unlockCode.trim()) { setUnlockError('Enter the unlock code'); return }
     setUnlockLoading(true)
     setUnlockError('')
@@ -123,7 +123,7 @@ function Login() {
 
   // Verify the one-time login OTP sent for an unauthorised-IP login attempt.
   const handleOtpSubmit = async (e) => {
-    e.preventDefault()
+    if (e && e.preventDefault) e.preventDefault()
     if (!otpInput.trim()) { setOtpError('Enter the OTP'); return }
     setOtpLoading(true)
     setOtpError('')
@@ -247,11 +247,11 @@ function Login() {
             </button>
 
             {locked && (
-              <form onSubmit={handleUnlockSubmit} style={{ marginTop: '12px', padding: '12px', background: '#fff3cd', border: '2px solid #f39c12', borderRadius: '8px' }}>
+              <div style={{ marginTop: '12px', padding: '12px', background: '#fff3cd', border: '2px solid #f39c12', borderRadius: '8px' }}>
                 <p style={{ margin: '0 0 8px', fontSize: '11px', fontWeight: '700', color: '#c0392b', textAlign: 'center', letterSpacing: '0.5px' }}>LOGIN DISABLED ENTER CODE TO ENABLE</p>
                 <div style={{ display: 'flex', gap: '6px' }}>
-                  <input value={unlockCode} onChange={e => { setUnlockCode(e.target.value); setUnlockError('') }} placeholder="" maxLength={6} style={{ flex: 1, padding: '8px 10px', border: '1px solid #f39c12', borderRadius: '5px', fontSize: '14px', fontWeight: '700', letterSpacing: '4px', textAlign: 'center', outline: 'none' }} autoFocus />
-                  <button type="submit" disabled={unlockLoading} style={{ padding: '8px 14px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  <input value={unlockCode} onChange={e => { setUnlockCode(e.target.value); setUnlockError('') }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleUnlockSubmit(e) } }} placeholder="" maxLength={6} style={{ flex: 1, padding: '8px 10px', border: '1px solid #f39c12', borderRadius: '5px', fontSize: '14px', fontWeight: '700', letterSpacing: '4px', textAlign: 'center', outline: 'none' }} autoFocus />
+                  <button type="button" onClick={handleUnlockSubmit} disabled={unlockLoading} style={{ padding: '8px 14px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     {unlockLoading ? '...' : 'Unlock'}
                   </button>
                 </div>
@@ -261,16 +261,16 @@ function Login() {
                     {unlockLoading ? 'Sending...' : 'Resend Code'}
                   </button>
                 </div>
-              </form>
+              </div>
             )}
 
             {otpMode && (
-              <form onSubmit={handleOtpSubmit} style={{ marginTop: '12px', padding: '12px', background: '#e8f0fe', border: '2px solid #1a73e8', borderRadius: '8px' }}>
+              <div style={{ marginTop: '12px', padding: '12px', background: '#e8f0fe', border: '2px solid #1a73e8', borderRadius: '8px' }}>
                 <p style={{ margin: '0 0 4px', fontSize: '11px', fontWeight: '700', color: '#1a1a2e', textAlign: 'center', letterSpacing: '0.5px' }}>🔐 ENTER LOGIN OTP</p>
                 <p style={{ margin: '0 0 8px', fontSize: '11px', color: '#555', textAlign: 'center' }}>An OTP was sent to {maskedEmail || 'your email'}</p>
                 <div style={{ display: 'flex', gap: '6px' }}>
-                  <input value={otpInput} onChange={e => { setOtpInput(e.target.value); setOtpError('') }} placeholder="6-digit OTP" maxLength={6} style={{ flex: 1, padding: '8px 10px', border: '1px solid #1a73e8', borderRadius: '5px', fontSize: '14px', fontWeight: '700', letterSpacing: '4px', textAlign: 'center', outline: 'none' }} autoFocus />
-                  <button type="submit" disabled={otpLoading} style={{ padding: '8px 14px', background: '#1a73e8', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  <input value={otpInput} onChange={e => { setOtpInput(e.target.value); setOtpError('') }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleOtpSubmit(e) } }} placeholder="6-digit OTP" maxLength={6} style={{ flex: 1, padding: '8px 10px', border: '1px solid #1a73e8', borderRadius: '5px', fontSize: '14px', fontWeight: '700', letterSpacing: '4px', textAlign: 'center', outline: 'none' }} autoFocus />
+                  <button type="button" onClick={handleOtpSubmit} disabled={otpLoading} style={{ padding: '8px 14px', background: '#1a73e8', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     {otpLoading ? '...' : 'Verify'}
                   </button>
                 </div>
@@ -280,7 +280,7 @@ function Login() {
                     {otpLoading ? 'Sending...' : 'Resend OTP'}
                   </button>
                 </div>
-              </form>
+              </div>
             )}
           </form>
           <p style={styles.footer}>www.prestairsystems.com</p>
