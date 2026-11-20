@@ -44,12 +44,19 @@ export function AuthProvider({ children }) {
       error => {
         if (error.response && error.response.status === 401) {
           const msg = error.response.data?.error || ''
-          sessionStorage.removeItem('oms_token')
-          sessionStorage.removeItem('oms_user')
-          delete axios.defaults.headers.common['Authorization']
-          setUser(null)
-          if (msg.includes('Session expired') || msg.includes('Invalid token')) {
-            alert('Session expired. Please login again.')
+          // Only clear the session if the user was actually authenticated (token exists
+          // in sessionStorage). This prevents a race where a background call on fresh
+          // page load returns 401 before the Authorization header is set, incorrectly
+          // wiping the session that setSessionFromToken just wrote.
+          const hasToken = !!sessionStorage.getItem('oms_token')
+          if (hasToken) {
+            sessionStorage.removeItem('oms_token')
+            sessionStorage.removeItem('oms_user')
+            delete axios.defaults.headers.common['Authorization']
+            setUser(null)
+            if (msg.includes('Session expired') || msg.includes('Invalid token')) {
+              alert('Session expired. Please login again.')
+            }
           }
         }
         return Promise.reject(error)
