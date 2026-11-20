@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import axios from 'axios'
@@ -14,7 +14,15 @@ function Login() {
   const [unlockCode, setUnlockCode] = useState('')
   const [unlockError, setUnlockError] = useState('')
   const [unlockLoading, setUnlockLoading] = useState(false)
-  const { login } = useAuth()
+  // Unauthorised-IP login OTP flow
+  const [otpMode, setOtpMode] = useState(false)
+  const [otpToken, setOtpToken] = useState(null)
+  const [maskedEmail, setMaskedEmail] = useState('')
+  const [otpInput, setOtpInput] = useState('')
+  const [otpError, setOtpError] = useState('')
+  const [otpLoading, setOtpLoading] = useState(false)
+  const gpsRef = useRef(null)
+  const { login, setSessionFromToken } = useAuth()
   const navigate = useNavigate()
 
   const getBrowser = () => {
@@ -39,6 +47,9 @@ function Login() {
     e.preventDefault()
     setError('')
     setLocationBlocked(false)
+    setLocked(false)
+    setOtpMode(false)
+    setOtpError('')
     setLoading(true)
     let gps = null
     try {
@@ -54,8 +65,16 @@ function Login() {
       }
       return
     }
+    gpsRef.current = gps
     try {
-      const loggedInUser = await login(username, password)
+      const result = await login(username, password)
+      if (result?.adminOtpRequired) {
+        setOtpToken(result.otpToken)
+        setMaskedEmail(result.maskedEmail || '')
+        setOtpMode(true)
+        return
+      }
+      const loggedInUser = result
       if (gps) axios.post('/api/auth/log-location', { lat: gps.lat, lon: gps.lon, accuracy: gps.accuracy, logId: loggedInUser?.locationLogId }).catch(() => {})
       navigate('/dashboard')
     } catch (err) {
@@ -63,9 +82,7 @@ function Login() {
         setLocked(true)
         setError('LOGIN DISABLED ENTER CODE TO ENABLE')
       } else {
-        setError(err.response?.data?.error === 'Login not allowed from this IP address.'
-          ? 'Unauthorised IP Address, please contact administrator to approve your IP.'
-          : err.response?.data?.error || 'Login failed. Please check your credentials.')
+        setError(err.response?.data?.error || 'Login failed. Please check your credentials.')
       }
     } finally {
       setLoading(false)
@@ -78,7 +95,7 @@ function Login() {
     setUnlockLoading(true)
     setUnlockError('')
     try {
-      await login(username, password, null, unlockCode.trim())
+      await login(username, password, unlockCode.trim())
       setLocked(false)
       // Hard refresh so all cached state is cleared and dashboard loads fresh
       window.location.href = '/dashboard'
@@ -101,6 +118,42 @@ function Login() {
       setUnlockError(err.response?.data?.error || 'Failed to resend')
     } finally {
       setUnlockLoading(false)
+    }
+  }
+
+  // Verify the one-time login OTP sent for an unauthorised-IP login attempt.
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault()
+    if (!otpInput.trim()) { setOtpError('Enter the OTP'); return }
+    setOtpLoading(true)
+    setOtpError('')
+    try {
+      const res = await axios.post('/api/auth/admin-ip-otp-verify', { username, otp: otpInput.trim(), otp_token: otpToken })
+      setSessionFromToken(res.data.token, res.data.user)
+      if (gpsRef.current) axios.post('/api/auth/log-location', { lat: gpsRef.current.lat, lon: gpsRef.current.lon, accuracy: gpsRef.current.accuracy, logId: res.data.locationLogId }).catch(() => {})
+      try { const vr = await axios.get('/api/app-version'); if (vr?.data?.version != null) localStorage.setItem('oms_app_version', String(vr.data.version)) } catch {}
+      try { localStorage.setItem('oms_build', __APP_BUILD__) } catch {}
+      // Hard refresh so all cached state is cleared and dashboard loads fresh
+      window.location.href = '/dashboard'
+    } catch (err) {
+      setOtpError(err.response?.data?.error || 'Invalid OTP')
+    } finally {
+      setOtpLoading(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    setOtpLoading(true)
+    setOtpError('')
+    try {
+      const res = await axios.post('/api/auth/resend-login-otp', { username, otp_token: otpToken })
+      if (res.data.maskedEmail) setMaskedEmail(res.data.maskedEmail)
+      setOtpError('✅ New OTP sent to ' + (res.data.maskedEmail || 'your email'))
+      setOtpInput('')
+    } catch (err) {
+      setOtpError(err.response?.data?.error || 'Failed to resend')
+    } finally {
+      setOtpLoading(false)
     }
   }
 
@@ -183,7 +236,7 @@ function Login() {
               )
             })()}
 
-            <button type="submit" style={{ ...styles.button, opacity: locked ? 0.4 : 1, background: locked ? '#c0392b' : '#1a1a2e' }} disabled={loading || locationBlocked || locked}>
+            <button type="submit" style={{ ...styles.button, opacity: (locked || otpMode) ? 0.4 : 1, background: locked ? '#c0392b' : (otpMode ? '#1a73e8' : '#1a1a2e') }} disabled={loading || locationBlocked || locked || otpMode}>
               {loading ? 'Logging in in few seconds ........ Please Wait .......' : locked ? '🔒 LOGIN DISABLED' : 'Sign In'}
             </button>
 
@@ -200,6 +253,25 @@ function Login() {
                 <div style={{ marginTop: '8px', textAlign: 'center' }}>
                   <button type="button" onClick={handleResendCode} disabled={unlockLoading} style={{ background: 'none', border: 'none', color: '#2980b9', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline' }}>
                     {unlockLoading ? 'Sending...' : 'Resend Code'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {otpMode && (
+              <form onSubmit={handleOtpSubmit} style={{ marginTop: '12px', padding: '12px', background: '#e8f0fe', border: '2px solid #1a73e8', borderRadius: '8px' }}>
+                <p style={{ margin: '0 0 4px', fontSize: '11px', fontWeight: '700', color: '#1a1a2e', textAlign: 'center', letterSpacing: '0.5px' }}>🔐 ENTER LOGIN OTP</p>
+                <p style={{ margin: '0 0 8px', fontSize: '11px', color: '#555', textAlign: 'center' }}>An OTP was sent to {maskedEmail || 'your email'}</p>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input value={otpInput} onChange={e => { setOtpInput(e.target.value); setOtpError('') }} placeholder="6-digit OTP" maxLength={6} style={{ flex: 1, padding: '8px 10px', border: '1px solid #1a73e8', borderRadius: '5px', fontSize: '14px', fontWeight: '700', letterSpacing: '4px', textAlign: 'center', outline: 'none' }} autoFocus />
+                  <button type="submit" disabled={otpLoading} style={{ padding: '8px 14px', background: '#1a73e8', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {otpLoading ? '...' : 'Verify'}
+                  </button>
+                </div>
+                {otpError && <p style={{ margin: '6px 0 0', fontSize: '11px', color: otpError.startsWith('✅') ? '#27ae60' : '#e74c3c', fontWeight: '600', textAlign: 'center' }}>{otpError}</p>}
+                <div style={{ marginTop: '8px', textAlign: 'center' }}>
+                  <button type="button" onClick={handleResendOtp} disabled={otpLoading} style={{ background: 'none', border: 'none', color: '#2980b9', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline' }}>
+                    {otpLoading ? 'Sending...' : 'Resend OTP'}
                   </button>
                 </div>
               </form>
