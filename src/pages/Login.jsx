@@ -137,7 +137,10 @@ function Login() {
       if (gpsRef.current) axios.post('/api/auth/log-location', { lat: gpsRef.current.lat, lon: gpsRef.current.lon, accuracy: gpsRef.current.accuracy, logId: res.data.locationLogId }).catch(() => {})
       try { const vr = await axios.get('/api/app-version'); if (vr?.data?.version != null) localStorage.setItem('oms_app_version', String(vr.data.version)) } catch {}
       try { localStorage.setItem('oms_build', __APP_BUILD__) } catch {}
-      navigate('/dashboard')
+      // Use window.location.replace so the browser does a full navigation to /dashboard.
+      // sessionStorage is already written by setSessionFromToken so AuthContext will
+      // rehydrate the session before ProtectedRoute checks it.
+      window.location.replace('/dashboard')
     } catch (err) {
       setOtpError(err.response?.data?.error || 'Incorrect OTP - Please try again')
     } finally {
