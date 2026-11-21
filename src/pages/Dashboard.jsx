@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+﻿import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import * as XLSX from 'xlsx-js-style'
@@ -55,343 +55,11 @@ const ALL_COLUMNS = [
   { key: 'remarks', label: 'Audit Remarks' },
   { key: 'advanceBill', label: 'Advance Bill' },
   { key: 'advanceBillRemarks', label: 'Advance Bill Remarks' },
-  { key: 'orRecvd', label: 'OR Recvd' }
 ]
 
 const DEFAULT_VISIBLE = ['date', 'client', 'orderNo', 'poNo', 'status', 'customerName', 'salesRep', 'totalAmount', 'receivedAmount', 'balance', 'followUpType', 'percentReceived']
 
-// OR Issue Report — fully self-contained component with multi-view navigation.
-// All filter/search/selection state lives here; Dashboard state is never read or written.
-function OrReportNew({ orders, deletedOrders, paperRequests, returnRequests, allUsers,
-    getOrRequestStatus, getFullName, requesterLabel, formatDate, setOrHistoryPopup, styles }) {
 
-  const [activeView, setActiveView]         = React.useState('status')   // 'status' | 'user' | 'history'
-  const [search, setSearch]                 = React.useState('')
-  const [statusFilter, setStatusFilter]     = React.useState([])
-  const [selectedUser, setSelectedUser]     = React.useState('')
-  const [userHistoryUser, setUserHistoryUser] = React.useState('')
-
-  // Local status function using fresh props — avoids stale closure from Dashboard
-  const getStatus = React.useCallback((orderNo) => {
-    const prs = (paperRequests || []).filter(r => r.orderNo === orderNo)
-    const rt = (returnRequests || []).find(r => r.orderNo === orderNo)
-    const latest = prs.length > 0 ? prs[0] : null
-    if (rt && rt.status === 'ACCEPTED') return 'RECEIVED'
-    if (rt && rt.status === 'PENDING') return 'RETURN PENDING'
-    if (latest) {
-      if (latest.status === 'ACCEPTED') return `ISSUED TO ${getFullName(latest.requestedBy || latest.requested_by)}`
-      if (latest.status === 'PENDING') return 'PENDING'
-      if (latest.status === 'REJECTED') return 'REJECTED'
-      if (latest.status === 'ISSUE') return 'ISSUE'
-      if ((latest.status || '').startsWith('REROUTED')) return `REROUTED TO ${getFullName((latest.status || '').replace('REROUTED TO ', '').trim())}`
-      return latest.status || '-'
-    }
-    return '-'
-  }, [paperRequests, returnRequests, getFullName])
-
-  // Deduplicated merged order list (active first, then deleted/completed)
-  const allOrders = React.useMemo(() => {
-    const seen = new Set()
-    const combined = []
-    ;(orders || []).forEach(o => {
-      if (o && o.orderNo && !seen.has(o.orderNo)) { seen.add(o.orderNo); combined.push({ ...o, _isCompleted: false }) }
-    })
-    ;(deletedOrders || []).forEach(o => {
-      if (o && o.orderNo && !seen.has(o.orderNo)) { seen.add(o.orderNo); combined.push({ ...o, _isCompleted: true }) }
-    })
-    return combined
-  }, [orders, deletedOrders])
-
-  // View 1 — By Status: filtered & sorted order list
-  const filteredByStatus = React.useMemo(() => {
-    const s = search.trim().toLowerCase()
-    let result = allOrders
-    if (s) result = result.filter(o =>
-      (o.orderNo || '').toLowerCase().includes(s) ||
-      (o.client || '').toLowerCase().includes(s)
-    )
-    if (statusFilter.length > 0) {
-      result = result.filter(o => {
-        const st = getStatus(o.orderNo).toUpperCase()
-        return statusFilter.some(f =>
-          f === 'ISSUED'     ? st.startsWith('ISSUED TO') :
-          f === 'NO REQUEST' ? st === '-' :
-          st === f
-        )
-      })
-    }
-    if (!s) {
-      result = [...result].sort((a, b) => {
-        const rank = v =>
-          v === 'ISSUE'                                       ? 0 :
-          (v === 'PENDING' || v === 'RETURN PENDING' || v.startsWith('REROUTED')) ? 1 :
-          v.startsWith('ISSUED TO')                          ? 2 :
-          v === 'RECEIVED'                                    ? 3 :
-          v.includes('REJECTED')                             ? 4 : 5
-        return rank(getStatus(a.orderNo).toUpperCase()) -
-               rank(getStatus(b.orderNo).toUpperCase())
-      })
-    }
-    return result
-  }, [allOrders, search, statusFilter, paperRequests, returnRequests])
-
-  // View 2 — By User: orders that involve the selected user
-  const userOrders = React.useMemo(() => {
-    if (!selectedUser) return []
-    return allOrders.filter(o =>
-      (paperRequests || []).some(r =>
-        r.orderNo === o.orderNo &&
-        (r.requestedBy === selectedUser || r.requested_by === selectedUser ||
-         r.issueTo === selectedUser || r.issue_to === selectedUser)
-      )
-    )
-  }, [allOrders, selectedUser, paperRequests])
-
-  // View 3 — User History: chronological issue+return events for selected user
-  const userHistory = React.useMemo(() => {
-    if (!userHistoryUser) return []
-    const events = []
-    ;(paperRequests || []).forEach(r => {
-      const rqBy = r.requestedBy || r.requested_by
-      const isTo = r.issueTo || r.issue_to
-      if (rqBy === userHistoryUser || isTo === userHistoryUser) {
-        events.push({
-          type: 'ISSUE',
-          orderNo: r.orderNo,
-          client: r.client || '',
-          status: r.status,
-          requestedBy: rqBy,
-          issueTo: isTo,
-          createdAt: r.createdAt || r.created_at,
-          acceptedAt: r.acceptedAt || r.accepted_at,
-          rejectRemarks: r.rejectRemarks || r.reject_remarks,
-        })
-      }
-    })
-    ;(returnRequests || []).forEach(r => {
-      const rqBy = r.requestedBy || r.requested_by
-      const retTo = r.returnTo || r.return_to
-      if (rqBy === userHistoryUser || retTo === userHistoryUser) {
-        events.push({
-          type: 'RETURN',
-          orderNo: r.orderNo,
-          client: r.client || '',
-          status: r.status,
-          requestedBy: rqBy,
-          returnTo: retTo,
-          createdAt: r.createdAt || r.created_at,
-          acceptedAt: r.acceptedAt || r.accepted_at,
-          rejectRemarks: r.rejectRemarks || r.reject_remarks,
-        })
-      }
-    })
-    return events.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-  }, [userHistoryUser, paperRequests, returnRequests])
-
-  const fmtDateTime = (dt) => {
-    if (!dt) return '-'
-    try {
-      return new Date(dt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-    } catch { return dt }
-  }
-
-  const statusColor = (status) =>
-    status === 'RECEIVED'          ? '#27ae60' :
-    status.startsWith('ISSUED TO') ? '#8e44ad' :
-    (status === 'PENDING' || status === 'RETURN PENDING') ? '#f39c12' :
-    '#e74c3c'
-
-  const viewTabs = [
-    { key: 'status',  label: '📋 By Status' },
-    { key: 'user',    label: '👤 By User' },
-    { key: 'history', label: '🕐 User History' },
-  ]
-
-  const sortedUsers = React.useMemo(() =>
-    [...(allUsers || [])].sort((a, b) =>
-      (a.full_name || a.fullName || a.username || '').localeCompare(b.full_name || b.fullName || b.username || '')
-    ),
-  [allUsers])
-
-  return (
-    <div style={styles.tableWrap}>
-      {/* View tab navigation */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '8px', flexWrap: 'wrap' }}>
-        {viewTabs.map(v => (
-          <button key={v.key} onClick={() => setActiveView(v.key)}
-            style={activeView === v.key ? styles.dailyBtnActive : styles.dailyBtn}>
-            {v.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── VIEW 1: By Status ── */}
-      {activeView === 'status' && (
-        <>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '6px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600' }}>Status:</span>
-            <button onClick={() => setStatusFilter([])} style={statusFilter.length === 0 ? styles.dailyValActive : styles.dailyVal}>All</button>
-            {['ISSUED', 'RECEIVED', 'NO REQUEST'].map(s => (
-              <button key={s}
-                onClick={() => statusFilter.includes(s) ? setStatusFilter(statusFilter.filter(x => x !== s)) : setStatusFilter([...statusFilter, s])}
-                style={statusFilter.includes(s) ? styles.dailyValActive : styles.dailyVal}>{s}</button>
-            ))}
-            <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 4px' }}></span>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search order no / client name..."
-              style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', width: '210px' }} />
-            {search && <button onClick={() => setSearch('')} style={{ fontSize: '10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>Clear</button>}
-          </div>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>S.No</th><th style={styles.th}>Date</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th>
-                <th style={styles.th}>Issue Date</th><th style={styles.th}>Issued By</th><th style={styles.th}>Issue To</th>
-                <th style={styles.th}>Status</th><th style={styles.th}>Collected By</th><th style={styles.th}>Return Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredByStatus.map((o, idx) => {
-                const st = getStatus(o.orderNo)
-                const isRejected = st.toUpperCase().includes('REJECTED')
-                const cellStyle = isRejected ? { ...styles.td, color: '#e74c3c', fontWeight: '500' } : styles.td
-                const rowBg = isRejected ? { backgroundColor: '#ffe6e6' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd)
-                const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
-                const rt = st.toUpperCase() === 'RECEIVED' ? (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED') : null
-                return (
-                  <tr key={o.id || o.orderNo} style={rowBg}>
-                    <td style={cellStyle}>{idx + 1}</td>
-                    <td style={cellStyle}>{formatDate(o.date)}</td>
-                    <td style={cellStyle}><span onClick={() => setOrHistoryPopup(o)} style={{ cursor: 'pointer', color: isRejected ? '#e74c3c' : '#2980b9', fontWeight: '600', textDecoration: 'underline' }}>{o.orderNo}{o._isCompleted ? ' (COMPLETED)' : ''}</span></td>
-                    <td style={{ ...cellStyle, textAlign: 'left' }}>{o.client}</td>
-                    <td style={cellStyle}>{pr?.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr?.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-'}</td>
-                    <td style={cellStyle}>{pr ? getFullName(pr.issueTo || pr.issue_to) : '-'}</td>
-                    <td style={cellStyle}>{pr ? requesterLabel(pr) : '-'}</td>
-                    <td style={{ ...cellStyle, fontWeight: '600', color: statusColor(st) }}>{st}</td>
-                    <td style={cellStyle}>{rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-'}</td>
-                    <td style={cellStyle}>{rt?.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-'}</td>
-                  </tr>
-                )
-              })}
-              {filteredByStatus.length === 0 && <tr><td colSpan={10} style={{ ...styles.td, textAlign: 'center', color: '#888', padding: '20px' }}>No records found</td></tr>}
-            </tbody>
-          </table>
-        </>
-      )}
-
-      {/* ── VIEW 2: By User ── */}
-      {activeView === 'user' && (
-        <>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '6px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600' }}>User:</span>
-            <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)}
-              style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', minWidth: '180px' }}>
-              <option value="">-- Select User --</option>
-              {sortedUsers.map(u => (
-                <option key={u.username} value={u.username}>{u.full_name || u.fullName || u.username}</option>
-              ))}
-            </select>
-          </div>
-          {selectedUser ? (
-            <>
-              <p style={{ fontSize: '11px', fontWeight: '600', margin: '8px 0 4px', color: '#555' }}>Orders involving: {getFullName(selectedUser)}</p>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>S.No</th><th style={styles.th}>Date</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th>
-                    <th style={styles.th}>Issue Date</th><th style={styles.th}>Issued By</th><th style={styles.th}>Issue To</th>
-                    <th style={styles.th}>Status</th><th style={styles.th}>Collected By</th><th style={styles.th}>Return Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {userOrders.map((o, idx) => {
-                    const st = getStatus(o.orderNo)
-                    const isRejected = st.toUpperCase().includes('REJECTED')
-                    const cellStyle = isRejected ? { ...styles.td, color: '#e74c3c', fontWeight: '500' } : styles.td
-                    const rowBg = isRejected ? { backgroundColor: '#ffe6e6' } : (idx % 2 === 0 ? styles.trEven : styles.trOdd)
-                    const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
-                    const rt = st.toUpperCase() === 'RECEIVED' ? (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED') : null
-                    return (
-                      <tr key={o.id || o.orderNo} style={rowBg}>
-                        <td style={cellStyle}>{idx + 1}</td>
-                        <td style={cellStyle}>{formatDate(o.date)}</td>
-                        <td style={cellStyle}><span onClick={() => setOrHistoryPopup(o)} style={{ cursor: 'pointer', color: isRejected ? '#e74c3c' : '#2980b9', fontWeight: '600', textDecoration: 'underline' }}>{o.orderNo}{o._isCompleted ? ' (COMPLETED)' : ''}</span></td>
-                        <td style={{ ...cellStyle, textAlign: 'left' }}>{o.client}</td>
-                        <td style={cellStyle}>{pr?.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr?.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-'}</td>
-                        <td style={cellStyle}>{pr ? getFullName(pr.issueTo || pr.issue_to) : '-'}</td>
-                        <td style={cellStyle}>{pr ? requesterLabel(pr) : '-'}</td>
-                        <td style={{ ...cellStyle, fontWeight: '600', color: statusColor(st) }}>{st}</td>
-                        <td style={cellStyle}>{rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-'}</td>
-                        <td style={cellStyle}>{rt?.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-'}</td>
-                      </tr>
-                    )
-                  })}
-                  {userOrders.length === 0 && <tr><td colSpan={10} style={{ ...styles.td, textAlign: 'center', color: '#888', padding: '20px' }}>No orders found for this user</td></tr>}
-                </tbody>
-              </table>
-            </>
-          ) : (
-            <p style={{ textAlign: 'center', color: '#888', padding: '20px', fontSize: '12px' }}>Select a user to see their orders</p>
-          )}
-        </>
-      )}
-
-      {/* ── VIEW 3: User History ── */}
-      {activeView === 'history' && (
-        <>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px', padding: '8px 12px', background: '#f8f9fa', borderRadius: '6px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600' }}>User:</span>
-            <select value={userHistoryUser} onChange={e => setUserHistoryUser(e.target.value)}
-              style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: '5px', fontSize: '11px', minWidth: '180px' }}>
-              <option value="">-- Select User --</option>
-              {sortedUsers.map(u => (
-                <option key={u.username} value={u.username}>{u.full_name || u.fullName || u.username}</option>
-              ))}
-            </select>
-          </div>
-          {userHistoryUser ? (
-            <>
-              <p style={{ fontSize: '11px', fontWeight: '600', margin: '8px 0 4px', color: '#555' }}>Activity history for: {getFullName(userHistoryUser)} — newest first</p>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>S.No</th><th style={styles.th}>Date &amp; Time</th><th style={styles.th}>Order No</th><th style={styles.th}>Client</th>
-                    <th style={styles.th}>Activity</th><th style={styles.th}>Requested By</th><th style={styles.th}>Issue / Return To</th>
-                    <th style={styles.th}>Status</th><th style={styles.th}>Accepted At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {userHistory.map((ev, idx) => {
-                    const isReturn = ev.type === 'RETURN'
-                    const isRejected = (ev.status || '').toUpperCase().includes('REJECTED')
-                    const rowBg = isRejected ? { backgroundColor: '#ffe6e6' } : isReturn ? { backgroundColor: '#eafaf1' } : { backgroundColor: '#f0f8ff' }
-                    const cellStyle = isRejected ? { ...styles.td, color: '#e74c3c', fontWeight: '500' } : styles.td
-                    const toField = isReturn ? ev.returnTo : ev.issueTo
-                    return (
-                      <tr key={idx} style={rowBg}>
-                        <td style={cellStyle}>{idx + 1}</td>
-                        <td style={cellStyle}>{fmtDateTime(ev.createdAt)}</td>
-                        <td style={cellStyle}><span style={{ cursor: 'pointer', color: isRejected ? '#e74c3c' : '#2980b9', fontWeight: '600', textDecoration: 'underline' }}>{ev.orderNo}</span></td>
-                        <td style={{ ...cellStyle, textAlign: 'left' }}>{ev.client}</td>
-                        <td style={{ ...cellStyle, fontWeight: '600', color: isReturn ? '#27ae60' : '#8e44ad' }}>{isReturn ? '📥 RETURN' : '📤 ISSUE'}</td>
-                        <td style={cellStyle}>{getFullName(ev.requestedBy)}</td>
-                        <td style={cellStyle}>{getFullName(toField)}</td>
-                        <td style={{ ...cellStyle, fontWeight: '600', color: statusColor(ev.status || '-') }}>{ev.status || '-'}</td>
-                        <td style={cellStyle}>{fmtDateTime(ev.acceptedAt)}</td>
-                      </tr>
-                    )
-                  })}
-                  {userHistory.length === 0 && <tr><td colSpan={9} style={{ ...styles.td, textAlign: 'center', color: '#888', padding: '20px' }}>No activity found for this user</td></tr>}
-                </tbody>
-              </table>
-            </>
-          ) : (
-            <p style={{ textAlign: 'center', color: '#888', padding: '20px', fontSize: '12px' }}>Select a user to see their full history</p>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
 
 function SpWiseTable({ spOrders, totalAmt, styles, formatDate, deletedIds = new Set() }) {
   const [filters, setFilters] = React.useState({})
@@ -615,7 +283,6 @@ function Dashboard() {
   const [paymentDateTo, setPaymentDateTo] = useState('')
   const [receiptDrillDown, setReceiptDrillDown] = useState(null)
   const [editHistoryPopup, setEditHistoryPopup] = useState(null)
-  const [orHistoryPopup, setOrHistoryPopup] = useState(null)
   const [akhilPointsEdit, setAkhilPointsEdit] = useState({})
   const [showPrintDialog, setShowPrintDialog] = useState(false)
   const [allReminders, setAllReminders] = useState([])
@@ -624,11 +291,6 @@ function Dashboard() {
   const [reminderNotification, setReminderNotification] = useState(null)
   const [rejectModal, setRejectModal] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
-  const [orTabSearch, setOrTabSearch] = useState('')
-  const [orTabStatusFilter, setOrTabStatusFilter] = useState([])
-  const [orTabUserSearch, setOrTabUserSearch] = useState('')
-  const orTabSearchRef = React.useRef('')
-  const orTabUserSearchRef = React.useRef('')
   const [paperRequestSearch, setPaperRequestSearch] = useState('')
   const [paperTableUserSearch, setPaperTableUserSearch] = useState('')
   const [paperOrderDropOpen, setPaperOrderDropOpen] = useState(false)
@@ -752,62 +414,6 @@ function Dashboard() {
     }
     return '-'
   }
-
-  const getOrFilteredSortedOrders = (searchOverride) => {
-    let filtered = getIssueReturnOrders()
-    // Apply search filter - use parameter if provided, otherwise skip (handled by caller)
-    const searchTerm = searchOverride !== undefined ? searchOverride : ''
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(o => (o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term))
-    }
-    // Apply user search filter
-    if (orTabUserSearch.trim()) {
-      const uTerm = orTabUserSearch.toLowerCase()
-      filtered = filtered.filter(o => {
-        const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && (r.status === 'ACCEPTED' || r.status === 'PENDING'))
-        if (!pr) return false
-        const issuedToName = getFullName(pr.requestedBy || pr.requested_by).toLowerCase()
-        const issueToName = getFullName(pr.issueTo || pr.issue_to).toLowerCase()
-        return issuedToName.includes(uTerm) || issueToName.includes(uTerm)
-      })
-    }
-    // Apply status filter
-    if (orTabStatusFilter.length > 0) {
-      filtered = filtered.filter(o => {
-        const status = getOrRequestStatus(o.orderNo).toUpperCase()
-        return orTabStatusFilter.some(f => {
-          if (f === 'ISSUED') return status.startsWith('ISSUED TO')
-          if (f === 'NO REQUEST') return status === '-'
-          return status === f
-        })
-      })
-    }
-    // Sort: ISSUE first, then PENDING, then ISSUED TO (alphabetically), then RECEIVED
-    // But if search term is active, don't re-sort - show search results as-is
-    if (!orTabSearch.trim()) {
-    filtered = filtered.sort((a, b) => {
-      const getOrder = (orderNo) => {
-        const v = getOrRequestStatus(orderNo).toUpperCase()
-        if (v === '-' || v === '') return 5
-        if (v === 'ISSUE') return 0
-        if (v === 'PENDING' || v === 'RETURN PENDING') return 1
-        if (v.startsWith('ISSUED TO')) return 2
-        if (v.startsWith('REROUTED')) return 1
-        if (v === 'RECEIVED') return 3
-        if (v === 'REJECTED') return 4
-        return 2
-      }
-      const aOrder = getOrder(a.orderNo)
-      const bOrder = getOrder(b.orderNo)
-      if (aOrder !== bOrder) return aOrder - bOrder
-      if (aOrder === 2) return getOrRequestStatus(a.orderNo).localeCompare(getOrRequestStatus(b.orderNo))
-      return 0
-    })
-    }
-    return filtered
-  }
-
   // Change-detection refs for the egress-saving signal polls
   const lastOrdersSignal = useRef(null)       // `${count}_${maxId}_${sumId}` from /api/orders/signal (sumId makes it delete-aware)
   const lastOrdersFullRefresh = useRef(Date.now()) // wall-clock safety net, including time spent hidden
@@ -1180,7 +786,7 @@ function Dashboard() {
         return { wch: Math.min(Math.max(maxLen + 2, 10), 40) }
       })
       const range = XLSX.utils.decode_range(ws['!ref'])
-      const centerKeys = ['date','orderNo','photography','siteVideo','review','status','deliveryDate','customerName','gst','followUp','salesRep','deliveryAddress','phoneNo','siteVerification','installationStatus','installationRemarks','lop','sectionDrawing','inProduction','installation','totalAmount','receivedAmount','balance','percentReceived','daysToOrder','akhilSirAudit','advanceBill','orRecvd']
+      const centerKeys = ['date','orderNo','photography','siteVideo','review','status','deliveryDate','customerName','gst','followUp','salesRep','deliveryAddress','phoneNo','siteVerification','installationStatus','installationRemarks','lop','sectionDrawing','inProduction','installation','totalAmount','receivedAmount','balance','percentReceived','daysToOrder','akhilSirAudit','advanceBill']
       const clientColIdx = cols.map((col, idx) => col.key === 'client' ? idx : -1).filter(i => i >= 0)
       for (let r = range.s.r; r <= range.e.r; r++) {
         for (let c = range.s.c; c <= range.e.c; c++) {
@@ -1372,7 +978,6 @@ function Dashboard() {
       { key: 'remarks', label: 'Audit Remarks' },
       { key: 'advanceBill', label: 'Advance Bill' },
       { key: 'advanceBillRemarks', label: 'Advance Bill Remarks' },
-      { key: 'orRecvd', label: 'OR Recvd' },
       { key: 'deletedBy', label: 'Deleted By' },
       { key: 'deletedOn', label: 'Deleted On' },
     ]
@@ -1521,7 +1126,6 @@ function Dashboard() {
         remarks: row['Audit Remarks'] || row['Remarks'] || '',
         advanceBill: row['Advance Bill'] || '',
         advanceBillRemarks: row['Advance Bill Remarks'] || '',
-        orRecvd: row['OR Recvd'] || '',
         deletedBy: row['Deleted By'] || '',
         deletedOn: convertDate(row['Deleted On'] || row['DELETED ON'] || ''),
       }))
@@ -1605,7 +1209,6 @@ function Dashboard() {
         akhilSirAudit: row['Akhil Sir Audit'] || row['AKHIL SIR\nAUDIT'] || row['AKHIL SIR AUDIT'] || '',
         advanceBill: row['Advance Bill'] || row['ADVANCE BILL'] || '',
         advanceBillRemarks: row['Advance Bill Remarks'] || '',
-        orRecvd: row['OR Recvd'] || row['OR RECVD /NOT RECVD'] || ''
       }})
       // Auto-assign sequential order numbers based on current FY (ignore Excel's order no)
       const now = new Date()
@@ -1926,41 +1529,6 @@ function Dashboard() {
       }
       return
     }
-
-    // Handle OR tab export separately
-    if (dailyFilter === 'orRecvd') {
-      const orFiltered = getOrFilteredSortedOrders(orTabSearch)
-      const completedFlags = []
-      const exportData = orFiltered.map((o, idx) => {
-        const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
-        const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
-        const stat = getOrRequestStatus(o.orderNo)
-        const isRecv = stat.toUpperCase() === 'RECEIVED'
-        completedFlags.push(!!o._isCompleted)
-        return { '#': idx + 1, 'Date': formatDate(o.date), 'Order No': (o.orderNo || '') + (o._isCompleted ? ' (COMPLETED)' : ''), 'Client': o.client || '', 'Issue Date': pr && pr.acceptedAt ? formatDate(pr.acceptedAt.split('T')[0]) : pr && pr.createdAt ? formatDate(pr.createdAt.split('T')[0]) : '-', 'Requested By': pr ? requesterLabel(pr) : '-', 'Issued By': pr ? getFullName(pr.issueTo || pr.issue_to) : '-', 'Status': stat, 'Collected By': isRecv && rt ? getFullName(rt.acceptedBy || rt.accepted_by) : '-', 'Return Date': isRecv && rt && rt.acceptedAt ? formatDate(rt.acceptedAt.split('T')[0]) : '-' }
-      })
-      const headers = Object.keys(exportData[0] || {})
-      let html = `<html><head><title>Excel Preview - OR Report</title><style>body{font-family:Arial,sans-serif;margin:10px;font-size:9px}h2{text-align:center;font-size:14px;margin-bottom:4px}.subtitle{text-align:center;font-size:11px;color:#555;margin-bottom:10px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:3px 5px;text-align:center;font-size:8px;word-wrap:break-word}th{background:#FFD700;font-weight:bold;font-size:9px}tr:nth-child(even){background:#f9f9f9}.completed-row td{color:#e74c3c !important}.no-print{text-align:center;margin:12px 0}.no-print button{padding:10px 24px;font-size:14px;font-weight:700;border:none;border-radius:6px;cursor:pointer;margin:0 8px}.dl-btn{background:#27ae60;color:#fff}.cancel-btn{background:#eee;color:#333}</style></head><body>`
-      html += `<div class="no-print"><button class="dl-btn" id="dlBtn">Download Excel</button><button class="cancel-btn" onclick="window.close()">Cancel</button><span style="margin-left:16px;font-size:13px;font-weight:600;color:#555">Total Rows: ${exportData.length}</span></div>`
-      html += `<h2>OMS - Prestair Systems LLP</h2>`
-      html += `<p class="subtitle">OR Report | ${exportData.length} records | ${new Date().toLocaleDateString('en-IN')}</p>`
-      html += `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
-      exportData.forEach((row, ri) => { html += `<tr class="${completedFlags[ri] ? 'completed-row' : ''}">${headers.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>` })
-      html += `</tbody></table></body></html>`
-      const previewWin = window.open('', '_blank')
-      previewWin.document.write(html)
-      previewWin.document.close()
-      previewWin.document.getElementById('dlBtn').onclick = () => {
-        const ws = XLSX.utils.json_to_sheet(exportData)
-        ws['!cols'] = headers.map(key => { let maxLen = key.length; exportData.forEach(row => { const val = String(row[key] || ''); if (val.length > maxLen) maxLen = val.length }); return { wch: Math.min(Math.max(maxLen + 2, 10), 35) } })
-        const range = XLSX.utils.decode_range(ws['!ref'])
-        for (let r = range.s.r; r <= range.e.r; r++) { const isCompletedRow = r > 0 && completedFlags[r - 1]; for (let c = range.s.c; c <= range.e.c; c++) { const addr = XLSX.utils.encode_cell({ r, c }); if (!ws[addr]) ws[addr] = { v: '', t: 's' }; if (!ws[addr].s) ws[addr].s = {}; ws[addr].s.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }; ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true }; if (r === 0) { ws[addr].s.font = { bold: true, sz: 11 }; ws[addr].s.fill = { fgColor: { rgb: 'FFD700' } } } else { ws[addr].s.font = { sz: 10, color: isCompletedRow ? { rgb: 'E74C3C' } : undefined } } } }
-        const wb = XLSX.utils.book_new()
-        XLSX.utils.book_append_sheet(wb, ws, 'OR Report')
-        XLSX.writeFile(wb, `OR_Report_${new Date().toISOString().split('T')[0]}.xlsx`)
-        previewWin.close()
-      }
-      return
     }
 
     const filtered = getDailyFilteredData()
@@ -2120,43 +1688,6 @@ function Dashboard() {
       setShowPrintPreview(false)
       return
     }
-
-    // Handle OR tab print separately
-    if (dailyFilter === 'orRecvd') {
-      const orFiltered = getOrFilteredSortedOrders(orTabSearch)
-      let html = `<html><head><title>OR Report - OMS Prestair</title><style>
-        @page { size: A4 ${orientation}; margin: 10mm; }
-        body { font-family: Arial, sans-serif; margin: 0; padding: 5px; }
-        h2 { color: #1a1a2e; margin: 0 0 4px; font-size: 14px; }
-        .subtitle { color: #555; font-size: 10px; margin: 2px 0 8px; }
-        table { width: 100%; border-collapse: collapse; font-size: ${orientation === 'portrait' ? '8px' : '9px'}; border: 1px solid #333; }
-        th { background: #FFD700; color: #000; padding: 4px 3px; text-align: center; font-weight: bold; border: 1px solid #333; }
-        td { padding: 3px 4px; border: 1px solid #999; text-align: center; }
-        tr:nth-child(even) { background: #f5f5f5; }
-        tr.completed-row td { color: #e74c3c; }
-        .no-print { margin: 10px 0; text-align: center; }
-        .no-print button { padding: 10px 24px; font-size: 14px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin: 0 8px; }
-        .print-btn { background: #1a1a2e; color: #fff; }
-        .cancel-btn { background: #eee; color: #333; }
-        @media print { .no-print { display: none !important; } }
-      </style></head><body>`
-      html += `<div class="no-print"><button class="print-btn" onclick="window.print()">Print</button><button class="cancel-btn" onclick="window.close()">Cancel</button></div>`
-      html += `<h2>OMS - Prestair Systems LLP</h2>`
-      html += `<p class="subtitle">OR Report | ${orFiltered.length} records | ${new Date().toLocaleDateString('en-IN')}</p>`
-      html += `<table><thead><tr><th>#</th><th>Date</th><th>Order No</th><th>Client</th><th>Issue Date</th><th>Issued By</th><th>Requested By</th><th>Status</th><th>Collected By</th><th>Return Date</th></tr></thead><tbody>`
-      orFiltered.forEach((o, idx) => {
-        const pr = (paperRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
-        const rt = (returnRequests || []).find(r => r.orderNo === o.orderNo && r.status === 'ACCEPTED')
-        const status = getOrRequestStatus(o.orderNo)
-        const isReceived = status.toUpperCase() === 'RECEIVED'
-        html += `<tr class="${o._isCompleted ? 'completed-row' : ''}"><td>${idx+1}</td><td>${formatDate(o.date)}</td><td>${(o.orderNo||'')}${o._isCompleted?' (COMPLETED)':''}</td><td>${o.client||''}</td><td>${pr&&pr.acceptedAt?formatDate(pr.acceptedAt.split('T')[0]):pr&&pr.createdAt?formatDate(pr.createdAt.split('T')[0]):'-'}</td><td>${pr?getFullName(pr.issueTo||pr.issue_to):'-'}</td><td>${pr?requesterLabel(pr):'-'}</td><td>${status}</td><td>${isReceived&&rt?getFullName(rt.acceptedBy||rt.accepted_by):'-'}</td><td>${isReceived&&rt&&rt.acceptedAt?formatDate(rt.acceptedAt.split('T')[0]):'-'}</td></tr>`
-      })
-      html += `</tbody></table></body></html>`
-      const printWindow = window.open('', '_blank')
-      printWindow.document.write(html)
-      printWindow.document.close()
-      setShowPrintPreview(false)
-      return
     }
 
     const filtered = getDailyFilteredData()
@@ -2761,7 +2292,7 @@ function Dashboard() {
             <tr>
               <th style={{...styles.th, position:'sticky', top:0, left:0, zIndex:25, width:'35px', minWidth:'35px', background:'#1a1a2e'}}>#</th>
               {displayedColumns.map((col, colIdx) => {
-                const centerCols = ['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','orRecvd','photography','siteVideo','review','status']
+                const centerCols = ['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','photography','siteVideo','review','status']
                 const isCenter = centerCols.includes(col.key)
                 const userW = colWidthOverrides[col.key]
                 const sticky = stickyMap[col.key]
@@ -2819,7 +2350,7 @@ function Dashboard() {
               <tr key={order.id} style={{ ...styles.trEven, background: rowBg }}>
                 <td style={{...styles.td, position:'sticky', left:0, zIndex:5, background: rowBg, width:'35px', minWidth:'35px'}}>{idx + 1}</td>
                 {displayedColumns.map((col, colIdx) => {
-                  const centerCols = ['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','orRecvd','photography','siteVideo','review','status']
+                  const centerCols = ['totalAmount','receivedAmount','balance','percentReceived','daysToOrder','siteVerification','installationStatus','inProduction','billing','installation','lop','sectionDrawing','akhilSirAudit','advanceBill','photography','siteVideo','review','status']
                   const isCenter = centerCols.includes(col.key)
                   const userW = colWidthOverrides[col.key]
                   const sticky = stickyMap[col.key]
@@ -3386,7 +2917,6 @@ function Dashboard() {
             <button onClick={() => { setDailyFilter('photography'); setDailyFilterValue([]) }} style={dailyFilter === 'photography' ? styles.dailyBtnActive : styles.dailyBtn}>Photography</button>
             <button onClick={() => { setDailyFilter('siteVideo'); setDailyFilterValue([]) }} style={dailyFilter === 'siteVideo' ? styles.dailyBtnActive : styles.dailyBtn}>Site Video</button>
             <button onClick={() => { setDailyFilter('review'); setDailyFilterValue([]) }} style={dailyFilter === 'review' ? styles.dailyBtnActive : styles.dailyBtn}>Review</button>
-            <button onClick={() => { setDailyFilter('orRecvd'); setDailyFilterValue([]); setOrTabSearch(''); setOrTabStatusFilter([]); setOrTabUserSearch('') }} style={dailyFilter === 'orRecvd' ? styles.dailyBtnActive : styles.dailyBtn}>OR Issue Report</button>
             <button onClick={() => { setDailyFilter('paymentUpdate'); setDailyFilterValue([]); fetchAllPayments() }} style={dailyFilter === 'paymentUpdate' ? styles.dailyBtnActive : styles.dailyBtn}>Payment Update</button>
             <button onClick={() => { setDailyFilter('salesPersonWise'); setDailyFilterValue([]) }} style={dailyFilter === 'salesPersonWise' ? styles.dailyBtnActive : styles.dailyBtn}>Sales Person Wise</button>
             <span style={{ borderLeft: '2px solid #ddd', height: '22px', margin: '0 2px' }}></span>
@@ -3395,7 +2925,7 @@ function Dashboard() {
           </div>
 
           {/* Filter Value Selection */}
-          {dailyFilter && dailyFilter !== 'percentReceived' && dailyFilter !== 'paymentUpdate' && dailyFilter !== 'orRecvd' && dailyFilter !== 'salesPersonWise' && (
+          {dailyFilter && dailyFilter !== 'percentReceived' && dailyFilter !== 'paymentUpdate' && dailyFilter !== 'salesPersonWise' && (
             <div style={styles.dailyFilterBar}>
               <span style={{ fontSize: '12px', fontWeight: '600' }}>Filter by: {ALL_COLUMNS.find(c => c.key === dailyFilter)?.label}</span>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -3528,20 +3058,6 @@ function Dashboard() {
             </table>
             {allPayments.length === 0 && <p style={{textAlign:'center',padding:'20px',color:'#888'}}>No payment data</p>}
           </div>
-          ) : dailyFilter === 'orRecvd' ? (
-            <OrReportNew
-              orders={orders}
-              deletedOrders={deletedOrders}
-              paperRequests={paperRequests}
-              returnRequests={returnRequests}
-              allUsers={allUsers}
-              getOrRequestStatus={getOrRequestStatus}
-              getFullName={getFullName}
-              requesterLabel={requesterLabel}
-              formatDate={formatDate}
-              setOrHistoryPopup={setOrHistoryPopup}
-              styles={styles}
-            />
           ) : (
           <div style={styles.tableWrap}>
             {(() => { const DAILY_EDITABLE = ['photography','siteVideo','review','siteVerification','installationStatus','sectionDrawing','inProduction','akhilSirAudit','advanceBill']; return (
@@ -3931,65 +3447,6 @@ function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* OR Issue/Return History Popup */}
-      {orHistoryPopup && (() => {
-        const on = orHistoryPopup.orderNo
-        const prs = (paperRequests || []).filter(r => r.orderNo === on)
-        const rrs = (returnRequests || []).filter(r => r.orderNo === on)
-        // Build combined timeline
-        const events = []
-        prs.forEach(r => {
-          events.push({ type: 'ISSUE', status: r.status, by: r.requestedBy || r.requested_by, placedByAdmin: r.placedByAdmin || r.placed_by_admin, to: r.issueTo || r.issue_to, acceptedBy: r.acceptedBy || r.accepted_by, createdAt: r.createdAt || r.created_at, acceptedAt: r.acceptedAt || r.accepted_at, rejectRemarks: r.rejectRemarks || r.reject_remarks })
-        })
-        rrs.forEach(r => {
-          events.push({ type: 'RETURN', status: r.status, by: r.requestedBy || r.requested_by, placedByAdmin: r.placedByAdmin || r.placed_by_admin, to: r.returnTo || r.return_to, acceptedBy: r.acceptedBy || r.accepted_by, createdAt: r.createdAt || r.created_at, acceptedAt: r.acceptedAt || r.accepted_at, rejectRemarks: r.rejectRemarks || r.reject_remarks })
-        })
-        events.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-        const trimmedEvents = events.slice(0, 12)
-        const fmt = (d) => d ? new Date(d).toLocaleString('en-IN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '-'
-        return (
-        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',justifyContent:'center',alignItems:'center',zIndex:1000}} onClick={()=>setOrHistoryPopup(null)}>
-          <div style={{background:'#fff',borderRadius:'10px',padding:'20px',maxWidth:'700px',width:'92%',maxHeight:'80vh',overflow:'auto'}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
-              <h3 style={{margin:0,fontSize:'14px'}}>OR History: {on}{orHistoryPopup._isCompleted ? ' (COMPLETED)' : ''}</h3>
-              <button onClick={()=>setOrHistoryPopup(null)} style={{background:'none',border:'none',fontSize:'18px',cursor:'pointer',fontWeight:'700'}}>X</button>
-            </div>
-            <p style={{fontSize:'11px',color:'#555',margin:'0 0 12px'}}>{orHistoryPopup.client}</p>
-            {trimmedEvents.length > 0 ? (
-              <div style={{fontSize:'11px'}}>
-                {trimmedEvents.map((ev, idx) => (
-                  <div key={idx} style={{padding:'8px 10px',marginBottom:'6px',background:ev.type==='RETURN'?'#eafaf1':'#f0f8ff',borderRadius:'6px',border:'1px solid #eee',borderLeft:`4px solid ${ev.type==='RETURN'?'#27ae60':'#2980b9'}`}}>
-                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
-                      <span style={{fontWeight:'700',color:ev.type==='RETURN'?'#27ae60':'#2980b9'}}>{ev.type==='ISSUE'?'📤 ISSUED':'📥 RETURN'}</span>
-                      <span style={{padding:'1px 8px',borderRadius:'10px',fontSize:'9px',fontWeight:'600',background:ev.status==='ACCEPTED'?'#d4efdf':ev.status==='PENDING'?'#fcf3cf':'#fadbd8',color:ev.status==='ACCEPTED'?'#27ae60':ev.status==='PENDING'?'#f39c12':'#e74c3c'}}>{ev.status}</span>
-                    </div>
-                    {ev.type==='ISSUE' ? (
-                      <div style={{fontSize:'10px',color:'#333',lineHeight:'1.6'}}>
-                        <div>Issued by: <strong>{getFullName(ev.to)}</strong> → Requested by: <strong>{getFullName(ev.by)}{ev.placedByAdmin ? ` (${getFullName(ev.placedByAdmin)})` : ''}</strong></div>
-                        <div>Requested on: {fmt(ev.createdAt)}</div>
-                        {ev.acceptedAt && <div>Issued/Accepted on: <strong>{fmt(ev.acceptedAt)}</strong> {ev.acceptedBy?`by ${getFullName(ev.acceptedBy)}`:''}</div>}
-                        {ev.rejectRemarks && ev.rejectRemarks !== 'REISSUE' && <div style={{color:'#e74c3c'}}>Remark: {ev.rejectRemarks}</div>}
-                      </div>
-                    ) : (
-                      <div style={{fontSize:'10px',color:'#333',lineHeight:'1.6'}}>
-                        <div>Returned by: <strong>{getFullName(ev.to)}{ev.placedByAdmin ? ` (${getFullName(ev.placedByAdmin)})` : ''}</strong> → Return to: <strong>{getFullName(ev.by)}</strong></div>
-                        <div>Requested on: {fmt(ev.createdAt)}</div>
-                        {ev.acceptedAt && <div>Received on: <strong>{fmt(ev.acceptedAt)}</strong> {ev.acceptedBy?`by ${getFullName(ev.acceptedBy)}`:''}</div>}
-                        {ev.rejectRemarks && <div style={{color:'#e74c3c'}}>Remark: {ev.rejectRemarks}</div>}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p style={{textAlign:'center',color:'#888',padding:'20px',fontSize:'12px'}}>No issue/return history for this order</p>
-            )}
-          </div>
-        </div>
-        )
-      })()}
-
 
             {/* Paper Issue Pending Popup */}
       {paperIssuePopup.length > 0 && (
