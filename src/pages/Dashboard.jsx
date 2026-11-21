@@ -915,7 +915,7 @@ function Dashboard() {
         lastFullRefresh = Date.now()
       } catch {}
     }
-    return startPolling(checkNewResponses, { intervalMs: 30000 })
+    return startPolling(checkNewResponses, { intervalMs: 120000 })
   }, [user.username])
   // Persist active tab and daily filter to survive auto-refresh
   useEffect(() => { sessionStorage.setItem('oms_activeTab', activeTab) }, [activeTab])
@@ -970,7 +970,7 @@ function Dashboard() {
         prevCount = totalCount
       } catch {}
     }
-    return startPolling(checkPaperRequests, { intervalMs: 60000 })
+    return startPolling(checkPaperRequests, { intervalMs: 180000 })
   }, [])
 
   useEffect(() => {
