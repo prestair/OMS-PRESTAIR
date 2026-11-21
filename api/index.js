@@ -244,7 +244,7 @@ async function buildUserObject(user, locationLogId) {
 // Cache for force_logout_at: { [userId]: { value: <iso|null>, fetchedAt: <ms> } }
 // TTL = 30s — avoids a Supabase query on every single authenticated request
 const forceLogoutCache = {}
-const FORCE_LOGOUT_TTL = 30 * 1000 // 30 seconds
+const FORCE_LOGOUT_TTL = 5 * 60 * 1000 // 5 minutes — reduces /users DB hits from every 30s to every 5min per user
 
 async function authenticate(req, res, next) {
   if (!JWT_SECRET) return res.status(503).json({ error: 'Server authentication is not configured' })
