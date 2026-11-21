@@ -870,7 +870,7 @@ function Dashboard() {
         const refreshed = await Promise.all([fetchOrders(signal), fetchDeletedOrders(signal), fetchPaperRequests(signal)])
         if (refreshed.every(Boolean)) lastOrdersFullRefresh.current = Date.now()
       }
-    }, { intervalMs: 120000, hiddenIntervalMs: null, immediate: false })
+    }, { intervalMs: 60000, hiddenIntervalMs: null, immediate: false })
   }, [])
 
   // Load on entry. The response notifier below also updates this table, avoiding
@@ -915,7 +915,7 @@ function Dashboard() {
         lastFullRefresh = Date.now()
       } catch {}
     }
-    return startPolling(checkNewResponses, { intervalMs: 120000 })
+    return startPolling(checkNewResponses, { intervalMs: 60000 })
   }, [user.username])
   // Persist active tab and daily filter to survive auto-refresh
   useEffect(() => { sessionStorage.setItem('oms_activeTab', activeTab) }, [activeTab])

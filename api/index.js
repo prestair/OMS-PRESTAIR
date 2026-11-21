@@ -14,7 +14,14 @@ app.use(express.json({ limit: '50mb' }))
 
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_KEY || ''
+  process.env.SUPABASE_KEY || '',
+  {
+    auth: {
+      autoRefreshToken: false,   // server-side: no browser session, no token refresh noise
+      persistSession: false,     // no session storage — reduces Auth log entries
+      detectSessionInUrl: false  // not a browser client, skip URL parsing
+    }
+  }
 )
 const JWT_SECRET = process.env.JWT_SECRET
 
