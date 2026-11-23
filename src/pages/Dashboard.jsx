@@ -211,7 +211,8 @@ function Dashboard() {
   const [columnFilters, setColumnFilters] = useState({})
   const [openFilter, setOpenFilter] = useState(null)
   const openFilterRef = React.useRef(null)
-  const setOpenFilterWithRef = (val) => { openFilterRef.current = val; setOpenFilter(val) }
+  const setOpenFilterWithRef = (val) => { openFilterRef.current = val; setOpenFilter(val); if (!val) setFilterSearch({}) }
+  const [filterSearch, setFilterSearch] = useState({})
   const [showReminderForm, setShowReminderForm] = useState(null)
   const [showReminderPopup, setShowReminderPopup] = useState(true)
   const [paperIssuePopup, setPaperIssuePopup] = useState([])
@@ -1969,6 +1970,7 @@ function Dashboard() {
       const { [colKey]: _, ...rest } = prev
       return rest
     })
+    setFilterSearch(prev => { const { [colKey]: _, ...rest } = prev; return rest })
     setOpenFilterWithRef(null)
   }
 
@@ -2306,6 +2308,20 @@ function Dashboard() {
                         <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: {col.label}</span>
                         <button onClick={() => clearFilter(col.key)} style={{ fontSize: '10px', background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>Clear</button>
                       </div>
+                      {col.key === 'client' && (
+                        <div style={{ padding: '4px 6px 2px' }}>
+                          <input
+                            type="text"
+                            placeholder="Search Client..."
+                            value={filterSearch['client'] || ''}
+                            onChange={e => setFilterSearch(prev => ({ ...prev, client: e.target.value }))}
+                            onClick={e => e.stopPropagation()}
+                            onMouseDown={e => e.stopPropagation()}
+                            autoFocus
+                            style={{ width: '100%', padding: '5px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', boxSizing: 'border-box', outline: 'none' }}
+                          />
+                        </div>
+                      )}
                       <div style={styles.filterOptions}>
                         {(col.key === 'paymentRemarks' || col.key === 'remarks') && (
                           <label key="(With Image)" style={{ ...styles.filterOption, fontWeight: 600 }} onMouseDown={e => e.preventDefault()}>
@@ -2313,20 +2329,27 @@ function Dashboard() {
                             <span style={{ fontSize: '11px' }}>(With Image)</span>
                           </label>
                         )}
-                        <label key="(Non Blank)" style={{ ...styles.filterOption, fontWeight: 600 }} onMouseDown={e => e.preventDefault()}>
-                          <input type="checkbox" checked={(columnFilters[col.key] || []).includes('(Non Blank)')} onChange={() => toggleFilterValue(col.key, '(Non Blank)')} />
-                          <span style={{ fontSize: '11px' }}>(Non Blank)</span>
-                        </label>
-                        <label key="(Blank)" style={{ ...styles.filterOption, fontWeight: 600, borderBottom: '1px solid #eee' }} onMouseDown={e => e.preventDefault()}>
-                          <input type="checkbox" checked={(columnFilters[col.key] || []).includes('(Blank)')} onChange={() => toggleFilterValue(col.key, '(Blank)')} />
-                          <span style={{ fontSize: '11px' }}>(Blank)</span>
-                        </label>
-                        {getUniqueValues(col.key).map(val => (
+                        {!(col.key === 'client' && (filterSearch['client'] || '').trim()) && (
+                          <label key="(Non Blank)" style={{ ...styles.filterOption, fontWeight: 600 }} onMouseDown={e => e.preventDefault()}>
+                            <input type="checkbox" checked={(columnFilters[col.key] || []).includes('(Non Blank)')} onChange={() => toggleFilterValue(col.key, '(Non Blank)')} />
+                            <span style={{ fontSize: '11px' }}>(Non Blank)</span>
+                          </label>
+                        )}
+                        {!(col.key === 'client' && (filterSearch['client'] || '').trim()) && (
+                          <label key="(Blank)" style={{ ...styles.filterOption, fontWeight: 600, borderBottom: '1px solid #eee' }} onMouseDown={e => e.preventDefault()}>
+                            <input type="checkbox" checked={(columnFilters[col.key] || []).includes('(Blank)')} onChange={() => toggleFilterValue(col.key, '(Blank)')} />
+                            <span style={{ fontSize: '11px' }}>(Blank)</span>
+                          </label>
+                        )}
+                        {getUniqueValues(col.key).filter(val => col.key !== 'client' || !(filterSearch['client'] || '').trim() || val.toLowerCase().includes((filterSearch['client'] || '').toLowerCase())).map(val => (
                           <label key={val} style={styles.filterOption} onMouseDown={e => e.preventDefault()}>
                             <input type="checkbox" checked={(columnFilters[col.key] || []).includes(val)} onChange={() => toggleFilterValue(col.key, val)} />
                             <span style={{ fontSize: '11px' }}>{val.length > 30 ? val.substring(0, 30) + '...' : val}</span>
                           </label>
                         ))}
+                        {col.key === 'client' && (filterSearch['client'] || '').trim() && getUniqueValues('client').filter(val => val.toLowerCase().includes((filterSearch['client'] || '').toLowerCase())).length === 0 && (
+                          <div style={{ fontSize: '11px', color: '#888', padding: '6px 4px' }}>No matches found</div>
+                        )}
                       </div>
                       <button onClick={() => setOpenFilterWithRef(null)} style={styles.filterDoneBtn}>Done</button>
                     </div>
