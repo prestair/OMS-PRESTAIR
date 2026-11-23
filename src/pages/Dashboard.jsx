@@ -662,7 +662,7 @@ function Dashboard() {
       return true
     } catch (err) {
       if (!axios.isCancel(err)) console.error('Failed to fetch orders', err)
-      return false
+    }
   }
 
   const fetchDeletedOrders = async (signal) => {
