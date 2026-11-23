@@ -2161,17 +2161,14 @@ function Dashboard() {
                   const term = searchTerm.toLowerCase()
                   return !selectedOrders.includes(o.orderNo) && (
                     (o.orderNo || '').toLowerCase().includes(term) ||
-                    (o.client || '').toLowerCase().includes(term) ||
-                    (o.gst || '').toLowerCase().includes(term) ||
-                    (o.poNo || '').toLowerCase().includes(term) ||
-                    (o.customerName || '').toLowerCase().includes(term)
+                    (o.client || '').toLowerCase().includes(term)
                   )
                 }).slice(0, 10).map(o => (
                   <div key={o.id} onClick={() => { setSelectedOrders([...selectedOrders, o.orderNo]); setSearchTerm(''); setShowSearchDrop(false) }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '11px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.target.style.background = '#f0f8ff'} onMouseLeave={e => e.target.style.background = '#fff'}>
                     <strong>{o.orderNo}</strong> — {o.client} {o.customerName ? `(${o.customerName})` : ''}
                   </div>
                 ))}
-                {orders.filter(o => { const term = searchTerm.toLowerCase(); return !selectedOrders.includes(o.orderNo) && ((o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term) || (o.gst || '').toLowerCase().includes(term) || (o.poNo || '').toLowerCase().includes(term) || (o.customerName || '').toLowerCase().includes(term)) }).length === 0 && (
+                {orders.filter(o => { const term = searchTerm.toLowerCase(); return !selectedOrders.includes(o.orderNo) && ((o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) }).length === 0 && (
                   <div style={{ padding: '10px', textAlign: 'center', color: '#888', fontSize: '11px' }}>No results</div>
                 )}
               </div>
@@ -2474,8 +2471,7 @@ function Dashboard() {
                   const term = deletedSearchTerm.toLowerCase()
                   return !selectedDeletedOrders.includes(o.orderNo) && (
                     (o.orderNo || '').toLowerCase().includes(term) ||
-                    (o.client || '').toLowerCase().includes(term) ||
-                    (o.customerName || '').toLowerCase().includes(term)
+                    (o.client || '').toLowerCase().includes(term)
                   )
                 }).slice(0, 10).map(o => (
                   <div key={o.id} onClick={() => { setSelectedDeletedOrders([...selectedDeletedOrders, o.orderNo]); setDeletedSearchTerm(''); setShowDeletedSearchDrop(false); setDeletedPage(1) }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '11px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.target.style.background = '#f0f8ff'} onMouseLeave={e => e.target.style.background = '#fff'}>
