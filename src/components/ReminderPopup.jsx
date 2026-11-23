@@ -11,6 +11,9 @@ function ReminderPopup({ onClose }) {
   const [loading, setLoading] = useState(true)
   const [responses, setResponses] = useState({})
   const [submitting, setSubmitting] = useState({})
+  // Track IDs that the user has already responded to in this session
+  // so polling never re-shows them even if the server is slow to update
+  const [respondedIds] = useState(() => new Set())
 
   useEffect(() => {
     // Admins never see this popup, so they do not need a due-reminders poll.
@@ -22,7 +25,13 @@ function ReminderPopup({ onClose }) {
     try {
       const res = await axios.get('/api/orders/reminders/due', { signal, timeout: 15000 })
       // Only show reminders where: responded_by is null (pending), user is receiver, not creator, not admin
-      const pending = res.data.filter(r => !(r.respondedBy || r.responded_by) && (r.createdBy || r.created_by) !== currentUsername && !isAdmin)
+      // Also exclude any IDs already responded to in this session
+      const pending = res.data.filter(r =>
+        !(r.respondedBy || r.responded_by) &&
+        (r.createdBy || r.created_by) !== currentUsername &&
+        !isAdmin &&
+        !respondedIds.has(r.id)
+      )
       setReminders(pending)
     } catch (err) {
       if (!axios.isCancel(err)) console.error(err)
@@ -49,6 +58,8 @@ function ReminderPopup({ onClose }) {
     setError('')
     try {
       await axios.put(`/api/orders/reminders/${id}/respond`, { responseText: text })
+      // Mark as responded so polling never re-shows this reminder in this session
+      respondedIds.add(id)
       setReminders(prev => prev.filter(r => r.id !== id))
       setResponses(prev => { const n = { ...prev }; delete n[id]; return n })
     } catch (err) {
