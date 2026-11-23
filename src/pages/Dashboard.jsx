@@ -590,10 +590,7 @@ function Dashboard() {
       const term = searchTerm.toLowerCase()
       result = result.filter(o =>
         (o.orderNo || '').toLowerCase().includes(term) ||
-        (o.client || '').toLowerCase().includes(term) ||
-        (o.gst || '').toLowerCase().includes(term) ||
-        (o.poNo || '').toLowerCase().includes(term) ||
-        (o.customerName || '').toLowerCase().includes(term)
+        (o.client || '').toLowerCase().includes(term)
       )
     }
 
@@ -2150,7 +2147,7 @@ function Dashboard() {
             )}
             <input
               type="text"
-              placeholder={selectedOrders.length >= 5 ? 'Max 5 selected' : 'Search by Order No, Client, GST, PO No...'}
+              placeholder={selectedOrders.length >= 5 ? 'Max 5 selected' : 'Search by Order No, Client...'}
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setShowSearchDrop(true) }}
               onFocus={() => { if (searchTerm.trim()) setShowSearchDrop(true) }}
@@ -2166,8 +2163,8 @@ function Dashboard() {
                     (o.client || '').toLowerCase().includes(term)
                   )
                 }).slice(0, 10).map(o => (
-                  <div key={o.id} onClick={() => { setSelectedOrders([...selectedOrders, o.orderNo]); setSearchTerm(''); setShowSearchDrop(false) }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '11px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.target.style.background = '#f0f8ff'} onMouseLeave={e => e.target.style.background = '#fff'}>
-                    <strong>{o.orderNo}</strong> — {o.client} {o.customerName ? `(${o.customerName})` : ''}
+                  <div key={o.id} onClick={() => { setSelectedOrders([...selectedOrders, o.orderNo]); setSearchTerm(''); setShowSearchDrop(false) }} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '11px', borderBottom: '1px solid #f0f0f0' }} onMouseEnter={e => e.currentTarget.style.background = '#f0f8ff'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                    <strong>{o.orderNo}</strong> — {o.client}
                   </div>
                 ))}
                 {orders.filter(o => { const term = searchTerm.toLowerCase(); return !selectedOrders.includes(o.orderNo) && ((o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) }).length === 0 && (
