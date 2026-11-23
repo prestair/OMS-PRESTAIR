@@ -663,7 +663,6 @@ function Dashboard() {
     } catch (err) {
       if (!axios.isCancel(err)) console.error('Failed to fetch orders', err)
       return false
-    }
   }
 
   const fetchDeletedOrders = async (signal) => {
@@ -1529,7 +1528,6 @@ function Dashboard() {
       }
       return
     }
-    }
 
     const filtered = getDailyFilteredData()
     const filterLabel = dailyFilter ? ALL_COLUMNS.find(c => c.key === dailyFilter)?.label : ''
@@ -1687,7 +1685,6 @@ function Dashboard() {
       printWindow.document.close()
       setShowPrintPreview(false)
       return
-    }
     }
 
     const filtered = getDailyFilteredData()
