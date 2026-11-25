@@ -238,6 +238,24 @@ function Dashboard() {
   const openFilterRef = React.useRef(null)
   const [filterDropdownPos, setFilterDropdownPos] = useState({ top: 0, left: 0 })
   const [deletedFilterDropdownPos, setDeletedFilterDropdownPos] = useState({ top: 0, left: 0 })
+  const searchWrapRef = useRef(null)
+  const deletedSearchWrapRef = useRef(null)
+
+  // Close Active search dropdown on outside click
+  useEffect(() => {
+    if (!showSearchDrop) return
+    const handler = (e) => { if (searchWrapRef.current && !searchWrapRef.current.contains(e.target)) setShowSearchDrop(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showSearchDrop])
+
+  // Close Completed search dropdown on outside click
+  useEffect(() => {
+    if (!showDeletedSearchDrop) return
+    const handler = (e) => { if (deletedSearchWrapRef.current && !deletedSearchWrapRef.current.contains(e.target)) setShowDeletedSearchDrop(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showDeletedSearchDrop])
   const setOpenFilterWithRef = (val) => { openFilterRef.current = val; setOpenFilter(val); if (!val) setFilterSearch({}) }
   const [filterSearch, setFilterSearch] = useState({})
   const [showReminderForm, setShowReminderForm] = useState(null)
@@ -2189,7 +2207,7 @@ function Dashboard() {
       {/* Toolbar */}
       <div style={styles.toolbar}>
         <div style={styles.searchWrap}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+          <div ref={searchWrapRef} style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
             {selectedOrders.length > 0 && (
               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
                 {selectedOrders.map(oNo => (
@@ -2355,7 +2373,7 @@ function Dashboard() {
                   </div>
                   <div onMouseDown={(e) => handleColResize(e, col.key)} style={{ position:'absolute', right:0, top:0, bottom:0, width:'4px', cursor:'col-resize', background:'transparent' }} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.5)'} onMouseLeave={e=>e.target.style.background='transparent'} />
                   {openFilter === col.key && createPortal(
-                    <div data-filter-portal="active" style={{ position: 'fixed', top: filterDropdownPos.top, left: filterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
+                    <div style={{ position: 'fixed', top: filterDropdownPos.top, left: filterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
                       onMouseDown={e => e.stopPropagation()}>
                       <div style={styles.filterDropdownHeader}>
                         <button onClick={() => setOpenFilterWithRef(null)} style={styles.filterDoneTopBtn}>Done</button>
@@ -2520,7 +2538,7 @@ function Dashboard() {
               <button onClick={() => { setDeletedColumnFilters({}); setDeletedDateFrom(''); setDeletedDateTo('') }} style={styles.clearAllBtn}>Clear All</button>
             </div>
           )}
-          <div style={{ marginBottom: '12px', position: 'relative', maxWidth: '400px' }}>
+          <div ref={deletedSearchWrapRef} style={{ marginBottom: '12px', position: 'relative', maxWidth: '400px' }}>
             {selectedDeletedOrders.length > 0 && (
               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
                 {selectedDeletedOrders.map(oNo => (
@@ -2583,7 +2601,7 @@ function Dashboard() {
                         </div>
                         <div onMouseDown={(e) => handleCompletedColResize(e, col.key)} style={{ position:'absolute', right:0, top:0, bottom:0, width:'4px', cursor:'col-resize', background:'transparent' }} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.5)'} onMouseLeave={e=>e.target.style.background='transparent'} />
                         {deletedOpenFilter === col.key && col.key !== 'deletedOn' && createPortal(
-                          <div data-filter-portal="deleted" style={{ position: 'fixed', top: deletedFilterDropdownPos.top, left: deletedFilterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
+                          <div style={{ position: 'fixed', top: deletedFilterDropdownPos.top, left: deletedFilterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
                             onMouseDown={e => e.stopPropagation()}>
                             <div style={styles.filterDropdownHeader}>
                               <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneTopBtn}>Done</button>
@@ -2643,7 +2661,7 @@ function Dashboard() {
                             <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneBtn}>Done</button>
                           </div>, document.body)}
                         {deletedOpenFilter === col.key && col.key === 'deletedOn' && createPortal(
-                          <div data-filter-portal="deleted" style={{ position: 'fixed', top: deletedFilterDropdownPos.top, left: deletedFilterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column' }}
+                          <div style={{ position: 'fixed', top: deletedFilterDropdownPos.top, left: deletedFilterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column' }}
                             onMouseDown={e => e.stopPropagation()}>
                             <div style={styles.filterDropdownHeader}>
                               <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneTopBtn}>Done</button>
