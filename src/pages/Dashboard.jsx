@@ -2052,7 +2052,10 @@ function Dashboard() {
   useEffect(() => {
     if (!openFilter) return
     const handler = (e) => {
-      if (!e.target.closest(`[data-col-filter="${openFilter}"]`)) {
+      // Close if click is outside both the th anchor AND the portal dropdown
+      const th = document.querySelector(`[data-col-filter="${openFilter}"]`)
+      const portal = document.querySelector('[data-filter-portal="active"]')
+      if ((!th || !th.contains(e.target)) && (!portal || !portal.contains(e.target))) {
         setOpenFilterWithRef(null)
       }
     }
@@ -2064,7 +2067,9 @@ function Dashboard() {
   useEffect(() => {
     if (!deletedOpenFilter) return
     const handler = (e) => {
-      if (!e.target.closest(`[data-deleted-col-filter="${deletedOpenFilter}"]`)) {
+      const th = document.querySelector(`[data-deleted-col-filter="${deletedOpenFilter}"]`)
+      const portal = document.querySelector('[data-filter-portal="deleted"]')
+      if ((!th || !th.contains(e.target)) && (!portal || !portal.contains(e.target))) {
         setDeletedOpenFilter(null)
       }
     }
@@ -2350,7 +2355,7 @@ function Dashboard() {
                   </div>
                   <div onMouseDown={(e) => handleColResize(e, col.key)} style={{ position:'absolute', right:0, top:0, bottom:0, width:'4px', cursor:'col-resize', background:'transparent' }} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.5)'} onMouseLeave={e=>e.target.style.background='transparent'} />
                   {openFilter === col.key && createPortal(
-                    <div style={{ position: 'fixed', top: filterDropdownPos.top, left: filterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
+                    <div data-filter-portal="active" style={{ position: 'fixed', top: filterDropdownPos.top, left: filterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
                       onMouseDown={e => e.stopPropagation()}>
                       <div style={styles.filterDropdownHeader}>
                         <button onClick={() => setOpenFilterWithRef(null)} style={styles.filterDoneTopBtn}>Done</button>
@@ -2578,7 +2583,7 @@ function Dashboard() {
                         </div>
                         <div onMouseDown={(e) => handleCompletedColResize(e, col.key)} style={{ position:'absolute', right:0, top:0, bottom:0, width:'4px', cursor:'col-resize', background:'transparent' }} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.5)'} onMouseLeave={e=>e.target.style.background='transparent'} />
                         {deletedOpenFilter === col.key && col.key !== 'deletedOn' && createPortal(
-                          <div style={{ position: 'fixed', top: deletedFilterDropdownPos.top, left: deletedFilterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
+                          <div data-filter-portal="deleted" style={{ position: 'fixed', top: deletedFilterDropdownPos.top, left: deletedFilterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
                             onMouseDown={e => e.stopPropagation()}>
                             <div style={styles.filterDropdownHeader}>
                               <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneTopBtn}>Done</button>
@@ -2638,7 +2643,7 @@ function Dashboard() {
                             <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneBtn}>Done</button>
                           </div>, document.body)}
                         {deletedOpenFilter === col.key && col.key === 'deletedOn' && createPortal(
-                          <div style={{ position: 'fixed', top: deletedFilterDropdownPos.top, left: deletedFilterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column' }}
+                          <div data-filter-portal="deleted" style={{ position: 'fixed', top: deletedFilterDropdownPos.top, left: deletedFilterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column' }}
                             onMouseDown={e => e.stopPropagation()}>
                             <div style={styles.filterDropdownHeader}>
                               <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneTopBtn}>Done</button>
