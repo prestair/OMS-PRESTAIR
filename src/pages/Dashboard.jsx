@@ -236,6 +236,8 @@ function Dashboard() {
   const [columnFilters, setColumnFilters] = useState({})
   const [openFilter, setOpenFilter] = useState(null)
   const openFilterRef = React.useRef(null)
+  const [filterDropdownPos, setFilterDropdownPos] = useState({ top: 0, left: 0 })
+  const [deletedFilterDropdownPos, setDeletedFilterDropdownPos] = useState({ top: 0, left: 0 })
   const setOpenFilterWithRef = (val) => { openFilterRef.current = val; setOpenFilter(val); if (!val) setFilterSearch({}) }
   const [filterSearch, setFilterSearch] = useState({})
   const [showReminderForm, setShowReminderForm] = useState(null)
@@ -2344,11 +2346,11 @@ function Dashboard() {
                 <th key={col.key} style={colStyle} data-col-filter={col.key}>
                   <div style={styles.thContent}>
                     <span>{col.label}</span>
-                    <button onClick={(e) => { e.stopPropagation(); setOpenFilterWithRef(openFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: columnFilters[col.key] ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
+                    <button onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setFilterDropdownPos({ top: r.bottom, left: Math.min(r.left, window.innerWidth - 265) }); setOpenFilterWithRef(openFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: columnFilters[col.key] ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
                   </div>
                   <div onMouseDown={(e) => handleColResize(e, col.key)} style={{ position:'absolute', right:0, top:0, bottom:0, width:'4px', cursor:'col-resize', background:'transparent' }} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.5)'} onMouseLeave={e=>e.target.style.background='transparent'} />
-                  {openFilter === col.key && (() => { const thEl = document.querySelector(`[data-col-filter="${col.key}"]`); const rect = thEl ? thEl.getBoundingClientRect() : null; return rect ? createPortal(
-                    <div style={{ position: 'fixed', top: rect.bottom, left: Math.min(rect.left, window.innerWidth - 265), zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
+                  {openFilter === col.key && createPortal(
+                    <div style={{ position: 'fixed', top: filterDropdownPos.top, left: filterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
                       onMouseDown={e => e.stopPropagation()}>
                       <div style={styles.filterDropdownHeader}>
                         <button onClick={() => setOpenFilterWithRef(null)} style={styles.filterDoneTopBtn}>Done</button>
@@ -2399,7 +2401,7 @@ function Dashboard() {
                         )}
                       </div>
                       <button onClick={() => setOpenFilterWithRef(null)} style={styles.filterDoneBtn}>Done</button>
-                    </div>, document.body) : null })()}
+                    </div>, document.body)}
                 </th>
                 )
               })}
@@ -2571,12 +2573,12 @@ function Dashboard() {
                         <div style={styles.thContent}>
                           <span>{col.label}</span>
                           {filterable && (
-                            <button onClick={(e) => { e.stopPropagation(); setDeletedOpenFilter(deletedOpenFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: isActive ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
+                            <button onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setDeletedFilterDropdownPos({ top: r.bottom, left: Math.min(r.left, window.innerWidth - 265) }); setDeletedOpenFilter(deletedOpenFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: isActive ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
                           )}
                         </div>
                         <div onMouseDown={(e) => handleCompletedColResize(e, col.key)} style={{ position:'absolute', right:0, top:0, bottom:0, width:'4px', cursor:'col-resize', background:'transparent' }} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.5)'} onMouseLeave={e=>e.target.style.background='transparent'} />
-                        {deletedOpenFilter === col.key && col.key !== 'deletedOn' && (() => { const thEl = document.querySelector(`[data-deleted-col-filter="${col.key}"]`); const rect = thEl ? thEl.getBoundingClientRect() : null; return rect ? createPortal(
-                          <div style={{ position: 'fixed', top: rect.bottom, left: Math.min(rect.left, window.innerWidth - 265), zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
+                        {deletedOpenFilter === col.key && col.key !== 'deletedOn' && createPortal(
+                          <div style={{ position: 'fixed', top: deletedFilterDropdownPos.top, left: deletedFilterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
                             onMouseDown={e => e.stopPropagation()}>
                             <div style={styles.filterDropdownHeader}>
                               <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneTopBtn}>Done</button>
@@ -2634,9 +2636,9 @@ function Dashboard() {
                               ))}
                             </div>
                             <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneBtn}>Done</button>
-                          </div>, document.body) : null })()}
-                        {deletedOpenFilter === col.key && col.key === 'deletedOn' && (() => { const thEl = document.querySelector(`[data-deleted-col-filter="${col.key}"]`); const rect = thEl ? thEl.getBoundingClientRect() : null; return rect ? createPortal(
-                          <div style={{ position: 'fixed', top: rect.bottom, left: Math.min(rect.left, window.innerWidth - 265), zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column' }}
+                          </div>, document.body)}
+                        {deletedOpenFilter === col.key && col.key === 'deletedOn' && createPortal(
+                          <div style={{ position: 'fixed', top: deletedFilterDropdownPos.top, left: deletedFilterDropdownPos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column' }}
                             onMouseDown={e => e.stopPropagation()}>
                             <div style={styles.filterDropdownHeader}>
                               <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneTopBtn}>Done</button>
@@ -2654,7 +2656,7 @@ function Dashboard() {
                               </div>
                             </div>
                             <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneBtn}>Apply</button>
-                          </div>, document.body) : null })()}
+                          </div>, document.body)}
                       </th>
                     )
                   })}
