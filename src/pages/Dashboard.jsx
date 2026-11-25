@@ -2021,9 +2021,33 @@ function Dashboard() {
     return () => document.removeEventListener('mousedown', handler)
   }, [openDailyColFilter])
 
+  // Click-outside handler for Active table column filter dropdowns
+  useEffect(() => {
+    if (!openFilter) return
+    const handler = (e) => {
+      if (!e.target.closest('[data-col-filter]')) {
+        setOpenFilterWithRef(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [openFilter])
+
+  // Click-outside handler for Completed/Deleted table column filter dropdowns
+  useEffect(() => {
+    if (!deletedOpenFilter) return
+    const handler = (e) => {
+      if (!e.target.closest('[data-deleted-col-filter]')) {
+        setDeletedOpenFilter(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [deletedOpenFilter])
+
   // Escape key handler for daily column filter dropdowns
   useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') setOpenDailyColFilter(null) }
+    const handler = (e) => { if (e.key === 'Escape') { setOpenDailyColFilter(null); setOpenFilterWithRef(null); setDeletedOpenFilter(null) } }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [])
@@ -2292,7 +2316,7 @@ function Dashboard() {
                 const thStickyStyle = sticky ? { left: sticky.left + 'px', minWidth: sticky.width + 'px', zIndex: 25, background: '#1a1a2e' } : {}
                 const colStyle = {...styles.th, whiteSpace:'normal', ...(isCenter?{textAlign:'center'}:{}), ...(col.key === 'client' && !userW ? {minWidth:'180px'} : {}), ...(col.key === 'poNo' && !userW ? {width:'70px', maxWidth:'70px'} : {}), ...thStickyStyle, ...(userW ? {width: userW+'px', minWidth: userW+'px'} : {})}
                 return (
-                <th key={col.key} style={colStyle}>
+                <th key={col.key} style={colStyle} data-col-filter>
                   <div style={styles.thContent}>
                     <span>{col.label}</span>
                     <button onClick={(e) => { e.stopPropagation(); setOpenFilterWithRef(openFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: columnFilters[col.key] ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
@@ -2518,7 +2542,7 @@ function Dashboard() {
                     const thStickyStyle = sticky ? { left: sticky.left + 'px', minWidth: sticky.width + 'px', zIndex: 25, background: '#1a1a2e' } : {}
                     const completedUserW = completedColWidthOverrides[col.key]
                     return (
-                      <th key={col.key} style={{ ...styles.th, position: 'sticky', top: 0, zIndex: 10, ...thStickyStyle, ...(completedUserW ? {width: completedUserW+'px', minWidth: completedUserW+'px'} : {}) }} onClick={e => e.stopPropagation()}>
+                      <th key={col.key} style={{ ...styles.th, position: 'sticky', top: 0, zIndex: 10, ...thStickyStyle, ...(completedUserW ? {width: completedUserW+'px', minWidth: completedUserW+'px'} : {}) }} onClick={e => e.stopPropagation()} data-deleted-col-filter>
                         <div style={styles.thContent}>
                           <span>{col.label}</span>
                           {filterable && (
