@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import * as XLSX from 'xlsx-js-style'
@@ -59,6 +60,30 @@ const ALL_COLUMNS = [
 
 const DEFAULT_VISIBLE = ['date', 'client', 'orderNo', 'poNo', 'status', 'customerName', 'salesRep', 'totalAmount', 'receivedAmount', 'balance', 'followUpType', 'percentReceived']
 
+// Portal-based filter dropdown — renders at body level so table overflow never clips it
+function FilterDropdownPortal({ anchorRef, children, onClose }) {
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  useEffect(() => {
+    if (anchorRef?.current) {
+      const rect = anchorRef.current.getBoundingClientRect()
+      setPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX })
+    }
+  }, [anchorRef])
+  useEffect(() => {
+    const handler = (e) => {
+      if (anchorRef?.current && !anchorRef.current.contains(e.target)) onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose])
+  return createPortal(
+    <div style={{ position: 'absolute', top: pos.top, left: pos.left, zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
+      onMouseDown={e => e.stopPropagation()}>
+      {children}
+    </div>,
+    document.body
+  )
+}
 
 
 function SpWiseTable({ spOrders, totalAmt, styles, formatDate, deletedIds = new Set() }) {
@@ -2025,7 +2050,7 @@ function Dashboard() {
   useEffect(() => {
     if (!openFilter) return
     const handler = (e) => {
-      if (!e.target.closest('[data-col-filter]')) {
+      if (!e.target.closest(`[data-col-filter="${openFilter}"]`)) {
         setOpenFilterWithRef(null)
       }
     }
@@ -2037,7 +2062,7 @@ function Dashboard() {
   useEffect(() => {
     if (!deletedOpenFilter) return
     const handler = (e) => {
-      if (!e.target.closest('[data-deleted-col-filter]')) {
+      if (!e.target.closest(`[data-deleted-col-filter="${deletedOpenFilter}"]`)) {
         setDeletedOpenFilter(null)
       }
     }
@@ -2316,14 +2341,15 @@ function Dashboard() {
                 const thStickyStyle = sticky ? { left: sticky.left + 'px', minWidth: sticky.width + 'px', zIndex: 25, background: '#1a1a2e' } : {}
                 const colStyle = {...styles.th, whiteSpace:'normal', ...(isCenter?{textAlign:'center'}:{}), ...(col.key === 'client' && !userW ? {minWidth:'180px'} : {}), ...(col.key === 'poNo' && !userW ? {width:'70px', maxWidth:'70px'} : {}), ...thStickyStyle, ...(userW ? {width: userW+'px', minWidth: userW+'px'} : {})}
                 return (
-                <th key={col.key} style={colStyle} data-col-filter>
+                <th key={col.key} style={colStyle} data-col-filter={col.key}>
                   <div style={styles.thContent}>
                     <span>{col.label}</span>
                     <button onClick={(e) => { e.stopPropagation(); setOpenFilterWithRef(openFilter === col.key ? null : col.key) }} style={{ ...styles.filterBtn, background: columnFilters[col.key] ? '#f39c12' : 'rgba(255,255,255,0.2)' }} title="Filter">▼</button>
                   </div>
                   <div onMouseDown={(e) => handleColResize(e, col.key)} style={{ position:'absolute', right:0, top:0, bottom:0, width:'4px', cursor:'col-resize', background:'transparent' }} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.5)'} onMouseLeave={e=>e.target.style.background='transparent'} />
-                  {openFilter === col.key && (
-                    <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
+                  {openFilter === col.key && (() => { const thEl = document.querySelector(`[data-col-filter="${col.key}"]`); const rect = thEl ? thEl.getBoundingClientRect() : null; return rect ? createPortal(
+                    <div style={{ position: 'fixed', top: rect.bottom, left: Math.min(rect.left, window.innerWidth - 265), zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
+                      onMouseDown={e => e.stopPropagation()}>
                       <div style={styles.filterDropdownHeader}>
                         <button onClick={() => setOpenFilterWithRef(null)} style={styles.filterDoneTopBtn}>Done</button>
                         <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: {col.label}</span>
@@ -2373,8 +2399,7 @@ function Dashboard() {
                         )}
                       </div>
                       <button onClick={() => setOpenFilterWithRef(null)} style={styles.filterDoneBtn}>Done</button>
-                    </div>
-                  )}
+                    </div>, document.body) : null })()}
                 </th>
                 )
               })}
@@ -2542,7 +2567,7 @@ function Dashboard() {
                     const thStickyStyle = sticky ? { left: sticky.left + 'px', minWidth: sticky.width + 'px', zIndex: 25, background: '#1a1a2e' } : {}
                     const completedUserW = completedColWidthOverrides[col.key]
                     return (
-                      <th key={col.key} style={{ ...styles.th, position: 'sticky', top: 0, zIndex: 10, ...thStickyStyle, ...(completedUserW ? {width: completedUserW+'px', minWidth: completedUserW+'px'} : {}) }} onClick={e => e.stopPropagation()} data-deleted-col-filter>
+                      <th key={col.key} style={{ ...styles.th, position: 'sticky', top: 0, zIndex: 10, ...thStickyStyle, ...(completedUserW ? {width: completedUserW+'px', minWidth: completedUserW+'px'} : {}) }} onClick={e => e.stopPropagation()} data-deleted-col-filter={col.key}>
                         <div style={styles.thContent}>
                           <span>{col.label}</span>
                           {filterable && (
@@ -2550,8 +2575,9 @@ function Dashboard() {
                           )}
                         </div>
                         <div onMouseDown={(e) => handleCompletedColResize(e, col.key)} style={{ position:'absolute', right:0, top:0, bottom:0, width:'4px', cursor:'col-resize', background:'transparent' }} onMouseEnter={e=>e.target.style.background='rgba(255,255,255,0.5)'} onMouseLeave={e=>e.target.style.background='transparent'} />
-                        {deletedOpenFilter === col.key && col.key !== 'deletedOn' && (
-                          <div style={styles.filterDropdown} onClick={e => e.stopPropagation()}>
+                        {deletedOpenFilter === col.key && col.key !== 'deletedOn' && (() => { const thEl = document.querySelector(`[data-deleted-col-filter="${col.key}"]`); const rect = thEl ? thEl.getBoundingClientRect() : null; return rect ? createPortal(
+                          <div style={{ position: 'fixed', top: rect.bottom, left: Math.min(rect.left, window.innerWidth - 265), zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column', maxHeight: '300px' }}
+                            onMouseDown={e => e.stopPropagation()}>
                             <div style={styles.filterDropdownHeader}>
                               <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneTopBtn}>Done</button>
                               <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: {col.label}</span>
@@ -2608,10 +2634,10 @@ function Dashboard() {
                               ))}
                             </div>
                             <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneBtn}>Done</button>
-                          </div>
-                        )}
-                        {deletedOpenFilter === col.key && col.key === 'deletedOn' && (
-                          <div style={{ ...styles.filterDropdown, minWidth: '220px' }} onClick={e => e.stopPropagation()}>
+                          </div>, document.body) : null })()}
+                        {deletedOpenFilter === col.key && col.key === 'deletedOn' && (() => { const thEl = document.querySelector(`[data-deleted-col-filter="${col.key}"]`); const rect = thEl ? thEl.getBoundingClientRect() : null; return rect ? createPortal(
+                          <div style={{ position: 'fixed', top: rect.bottom, left: Math.min(rect.left, window.innerWidth - 265), zIndex: 9999, background: '#fff', border: '1px solid #ddd', borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', padding: '8px', minWidth: '220px', maxWidth: '260px', display: 'flex', flexDirection: 'column' }}
+                            onMouseDown={e => e.stopPropagation()}>
                             <div style={styles.filterDropdownHeader}>
                               <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneTopBtn}>Done</button>
                               <span style={{ fontSize: '11px', fontWeight: '600' }}>Filter: Deleted On</span>
@@ -2628,8 +2654,7 @@ function Dashboard() {
                               </div>
                             </div>
                             <button onClick={() => setDeletedOpenFilter(null)} style={styles.filterDoneBtn}>Apply</button>
-                          </div>
-                        )}
+                          </div>, document.body) : null })()}
                       </th>
                     )
                   })}
