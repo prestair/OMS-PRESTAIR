@@ -2430,6 +2430,7 @@ function Dashboard() {
           </thead>
           <tbody>
             {filteredOrders.map((order, idx) => {
+              const _knownColor = order.rowColor === 'red' || order.rowColor === 'orange' || order.rowColor === 'yellow'
               const rowBg = order.rowColor === 'red' ? '#ffcccc' : order.rowColor === 'orange' ? '#ffe0b2' : order.rowColor === 'yellow' ? '#fff9c4' : (idx % 2 === 0 ? '#f8f9fa' : '#fff')
               return (
               <tr key={order.id} style={{ ...styles.trEven, background: rowBg }}>
