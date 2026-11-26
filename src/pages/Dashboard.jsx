@@ -2290,12 +2290,9 @@ function Dashboard() {
               const results = []
               orders.forEach(o => { if ((o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) results.push({ ...o, status_type: 'ACTIVE' }) })
               deletedOrders.forEach(o => { if ((o.orderNo || '').toLowerCase().includes(term) || (o.client || '').toLowerCase().includes(term)) results.push({ ...o, status_type: 'COMPLETED' }) })
-              // Dedup by orderNo keeping COMPLETED over ACTIVE (completed is the final state)
-              const seen = new Map()
-              results.forEach(r => {
-                if (!seen.has(r.orderNo) || r.status_type === 'COMPLETED') seen.set(r.orderNo, r)
-              })
-              setStatusCheckResults([...seen.values()].slice(0, 10))
+              // No dedup — if same orderNo exists in both tables, show both badges (ACTIVE + COMPLETED)
+              // so the user knows there is a duplicate entry and can investigate.
+              setStatusCheckResults(results.slice(0, 20))
             } else {
               setStatusCheckResults([])
             }
